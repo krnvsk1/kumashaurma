@@ -1,13 +1,22 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
+import * as React from 'react';
+import { createRoot } from 'react-dom/client';
 import App from './App.tsx';
 import './index.css';
 
-const rootElement = document.getElementById('root');
-if (!rootElement) throw new Error('Failed to find the root element');
+console.log('Starting Kumashaurma application...');
 
-ReactDOM.createRoot(rootElement).render(
+const container = document.getElementById('root');
+if (!container) {
+  console.error('Root element not found!');
+  throw new Error('Root element not found');
+}
+
+const root = createRoot(container);
+
+root.render(
   <React.StrictMode>
     <App />
   </React.StrictMode>
 );
+
+console.log('Application rendered successfully');

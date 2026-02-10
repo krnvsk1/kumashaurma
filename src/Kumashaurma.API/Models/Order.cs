@@ -14,15 +14,15 @@ namespace Kumashaurma.API.Models
         [Required]
         [MaxLength(100)]
         [Column("customer_name")]
-        public string CustomerName { get; set; }
+        public string CustomerName { get; set; } = string.Empty;
         
         [MaxLength(20)]
         [Column("phone")]
-        public string Phone { get; set; }
+        public string Phone { get; set; } = string.Empty;
         
         [MaxLength(500)]
         [Column("address")]
-        public string Address { get; set; }
+        public string Address { get; set; } = string.Empty;
         
         [Required]
         [Column("total", TypeName = "decimal(10,2)")]
@@ -33,7 +33,7 @@ namespace Kumashaurma.API.Models
         public string Status { get; set; } = "Новый";
         
         [Column("notes")]
-        public string Notes { get; set; }
+        public string? Notes { get; set; }  // Изменено на nullable
         
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("created_at")]
@@ -57,14 +57,14 @@ namespace Kumashaurma.API.Models
         public int OrderId { get; set; }
         
         [ForeignKey("OrderId")]
-        public Order Order { get; set; }
+        public Order? Order { get; set; }
         
         [Column("shawarma_id")]
         public int ShawarmaId { get; set; }
         
         [MaxLength(100)]
         [Column("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         
         [Column("quantity")]
         public int Quantity { get; set; } = 1;

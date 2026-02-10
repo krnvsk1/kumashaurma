@@ -1,3 +1,4 @@
+using System;
 using Microsoft.EntityFrameworkCore;
 using Kumashaurma.API.Data;
 
@@ -39,5 +40,24 @@ app.UseHttpsRedirection();
 app.UseCors("AllowAll");
 app.UseAuthorization();
 app.MapControllers();
+
+// Seed database - ВАЖНО: должно быть здесь
+try
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+        Console.WriteLine("🚀 Запуск инициализации базы данных...");
+        DbInitializer.Initialize(dbContext);
+    }
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"❌ Ошибка при инициализации базы данных: {ex.Message}");
+    if (ex.InnerException != null)
+    {
+        Console.WriteLine($"❌ Внутренняя ошибка: {ex.InnerException.Message}");
+    }
+}
 
 app.Run();

@@ -6,16 +6,7 @@ export const useShawarmas = () => {
   return useQuery({
     queryKey: ['shawarmas'],
     queryFn: () => apiClient.get('/shawarma').then(res => res.data),
-  });
-};
-
-export const useCreateShawarma = () => {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: (data: any) => apiClient.post('/shawarma', data),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
-    },
+    staleTime: 5 * 60 * 1000, // 5 минут
   });
 };
 
@@ -24,6 +15,7 @@ export const useOrders = () => {
   return useQuery({
     queryKey: ['orders'],
     queryFn: () => apiClient.get('/orders').then(res => res.data),
+    staleTime: 2 * 60 * 1000, // 2 минуты
   });
 };
 
@@ -42,6 +34,6 @@ export const useHealth = () => {
   return useQuery({
     queryKey: ['health'],
     queryFn: () => apiClient.get('/health').then(res => res.data),
-    refetchInterval: 30000, // проверка каждые 30 секунд
+    refetchInterval: 30 * 1000, // проверка каждые 30 секунд
   });
 };
