@@ -9,8 +9,11 @@ import {
   Tabs,
   Tab,
   TextField,
-  InputAdornment
+  InputAdornment,
+  Button
 } from '@mui/material';
+import { Search as SearchIcona, Add as AddIcon } from '@mui/icons-material';
+import { Link } from 'react-router-dom'; 
 import { Search as SearchIcon } from '@mui/icons-material';
 import MenuItemCard from '../components/MenuItemCard';
 
@@ -202,7 +205,7 @@ const MenuPage: React.FC = () => {
           component="h1"
           sx={{
             fontWeight: 700,
-            color: '#dc2626',
+            color: '#06f',
             textAlign: 'center',
             mb: 3,
           }}
@@ -210,22 +213,37 @@ const MenuPage: React.FC = () => {
           Наше Меню
         </Typography>
 
-        {/* Поиск */}
-        <TextField
-          fullWidth
-          placeholder="Поиск блюд..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          sx={{ mb: 3 }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
-          }}
-        />
-
+        {/* Поиск и кнопка добавления в одной строке */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
+          <TextField
+            fullWidth
+            placeholder="Поиск блюд..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <SearchIcon />
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <Button
+            component={Link}
+            to="/menu/new"
+            variant="contained"
+            startIcon={<AddIcon />}
+            sx={{
+              bgcolor: '#dc2626',
+              '&:hover': { bgcolor: '#b91c1c' },
+              minWidth: '160px',
+              height: '56px',
+            }}
+          >
+            Добавить товар
+          </Button>
+        </Box>
         {/* Категории */}
         <Tabs
           value={activeTab}

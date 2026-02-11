@@ -80,7 +80,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
             position: 'absolute',
             top: 12,
             right: 12,
-            bgcolor: '#dc2626', // Красный цвет
+            bgcolor: '#06f', // Красный цвет
             color: 'white',
             fontWeight: 'bold',
             fontSize: '0.7rem',
@@ -164,7 +164,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
           <Typography
             variant="h6"
             sx={{
-              color: '#dc2626', // Красный цвет как на сайте
+              color: '#06f', // Красный цвет как на сайте
               fontWeight: 700,
               fontSize: '1.25rem',
             }}
@@ -181,7 +181,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
           variant="contained"
           onClick={handleAddToCart}
           sx={{
-            bgcolor: '#dc2626', // Красный цвет
+            bgcolor: '#06f', // Красный цвет
             '&:hover': {
               bgcolor: '#b91c1c', // Темнее при наведении
             },

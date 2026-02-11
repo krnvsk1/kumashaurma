@@ -1,4 +1,3 @@
-import * as React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { 
   AppBar, Toolbar, Typography, Button, Box, Container, 
@@ -8,19 +7,20 @@ import { LocalDining as RestaurantIcon, ShoppingCart, Schedule } from '@mui/icon
 import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import CreateOrderPage from './pages/CreateOrderPage';
-import MenuPage from './pages/MenuPage'; // Исправил импорт - это страница, а не компонент
+import MenuPage from './pages/MenuPage';
+import CreateShawarmaPage from './pages/CreateMenuItemPage';
 
 // Создаем тему в стиле kumashaurma.ru
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#dc2626', // Красный как на сайте
+      main: '#06f', // Красный как на сайте
     },
     secondary: {
       main: '#fbbf24', // Желтый для акцентов
     },
     background: {
-      default: '#fefce8', // Светло-желтый фон
+      default: '#FFFFFF', // Светло-желтый фонт
     },
     text: {
       primary: '#1f2937', // Темно-серый текст
@@ -50,7 +50,7 @@ function App() {
           <AppBar 
             position="static" 
             sx={{ 
-              bgcolor: 'white', 
+              bgcolor: '#0E1C28', 
               color: 'text.primary',
               boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
             }}
@@ -63,7 +63,7 @@ function App() {
                 to="/"
                 sx={{ 
                   fontWeight: 700, 
-                  color: '#dc2626',
+                  color: '#FFFFFF',
                   flexGrow: 1,
                   textDecoration: 'none',
                   display: 'flex',
@@ -71,7 +71,7 @@ function App() {
                   gap: 1,
                 }}
               >
-                <RestaurantIcon sx={{ color: '#dc2626' }} />
+                <RestaurantIcon sx={{ color: '#FFFFFF' }} />
                 КУМА ШАУРМА
               </Typography>
               
@@ -97,9 +97,9 @@ function App() {
                   component={Link} 
                   to="/" 
                   sx={{ 
-                    color: '#1f2937',
+                    color: '#FFFFFF',
                     fontWeight: 500,
-                    '&:hover': { color: '#dc2626' }
+                    '&:hover': { color: '#FFFFFF' }
                   }}
                 >
                   Меню
@@ -108,9 +108,9 @@ function App() {
                   component={Link} 
                   to="/orders"
                   sx={{ 
-                    color: '#1f2937',
+                    color: '#FFFFFF',
                     fontWeight: 500,
-                    '&:hover': { color: '#dc2626' }
+                    '&:hover': { color: '#FFFFFF' }
                   }}
                 >
                   Заказы
@@ -118,12 +118,12 @@ function App() {
                 <Button 
                   component={Link} 
                   to="/create"
-                  variant="contained"
+                  //variant="contained"
                   sx={{ 
-                    bgcolor: '#dc2626',
-                    '&:hover': { bgcolor: '#b91c1c' },
+                    bgcolor: '#FFFFFF',
+                    '&:hover': { bgcolor: '#FFFFFF' },
                     fontWeight: 600,
-                    ml: 1,
+                    //ml: 1,
                   }}
                 >
                   Новый заказ
@@ -138,6 +138,8 @@ function App() {
               <Route path="/" element={<MenuPage />} /> {/* Главная - меню */}
               <Route path="/orders" element={<OrdersPage />} />
               <Route path="/create" element={<CreateOrderPage />} />
+              <Route path="/menu/new" element={<CreateShawarmaPage />} />
+              <Route path="/menu/edit/:id" element={<CreateShawarmaPage />} />
             </Routes>
           </Container>
           
@@ -154,7 +156,7 @@ function App() {
           >
             <Container maxWidth="lg">
               <Typography variant="body2" color="text.secondary" align="center">
-                © {new Date().getFullYear()} Kumashaurma. Все права защищены.
+                © {new Date().getFullYear()} Кума Шаурма. Все права защищены.
               </Typography>
             </Container>
           </Box>

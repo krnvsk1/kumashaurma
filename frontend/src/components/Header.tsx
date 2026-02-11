@@ -12,7 +12,7 @@ const Header = () => {
       <Toolbar>
         <Typography variant="h5" sx={{ 
           fontWeight: 700, 
-          color: '#dc2626',
+          color: '#06f',
           flexGrow: 1,
         }}>
           КУМА ШАУРМА

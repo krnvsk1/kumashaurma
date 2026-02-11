@@ -3,7 +3,7 @@ import { createTheme } from '@mui/material/styles';
 const theme = createTheme({
   palette: {
     primary: {
-      main: '#dc2626', // Ярко-красный
+      main: '#06f', // Ярко-красный
     },
     secondary: {
       main: '#fbbf24', // Желтый
@@ -30,7 +30,7 @@ const theme = createTheme({
     h4: {
       fontWeight: 600,
       fontSize: '1.5rem',
-      color: '#dc2626',
+      color: '#06f',
     },
   },
 });
