@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization; 
 
 namespace Kumashaurma.API.Models
 {
@@ -42,7 +43,7 @@ namespace Kumashaurma.API.Models
         [Column("completed_at")]
         public DateTime? CompletedAt { get; set; }
         
-        public List<OrderItem> Items { get; set; } = new List<OrderItem>();
+        public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 
     [Table("order_items")]
@@ -54,6 +55,7 @@ namespace Kumashaurma.API.Models
         public int Id { get; set; }
         
         [Column("order_id")]
+        [JsonIgnore]
         public int OrderId { get; set; }
         
         [ForeignKey("OrderId")]

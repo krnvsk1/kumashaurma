@@ -37,7 +37,7 @@ namespace Kumashaurma.API.Data
             modelBuilder.Entity<OrderItem>(entity =>
             {
                 entity.HasOne(e => e.Order)
-                    .WithMany(o => o.Items)
+                    .WithMany(o => o.OrderItems)
                     .HasForeignKey(e => e.OrderId)
                     .OnDelete(DeleteBehavior.Cascade);
             });

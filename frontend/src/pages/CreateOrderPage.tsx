@@ -1,13 +1,27 @@
 import * as React from 'react';
 import {
-  Typography, Box, Button, Card, CardContent, Grid,
-  TextField, Select, MenuItem, FormControl, InputLabel,
-  List, ListItem, ListItemText, IconButton, Divider,
-  Alert, CircularProgress, Snackbar
+  Typography,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  TextField,
+  Select,
+  FormControl,
+  InputLabel,
+  List,
+  ListItem,
+  ListItemText,
+  IconButton,
+  Divider,
+  Alert,
+  CircularProgress,
+  Snackbar
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 
-interface Shawarma {
+// Интерфейсы для типов
+interface ShawarmaItem {
   id: number;
   name: string;
   price: number;
@@ -21,7 +35,7 @@ interface OrderItem {
 }
 
 const CreateOrderPage: React.FC = () => {
-  const [shawarmas, setShawarmas] = React.useState<Shawarma[]>([]);
+  const [shawarmas, setShawarmas] = React.useState<ShawarmaItem[]>([]);
   const [selectedShawarma, setSelectedShawarma] = React.useState('');
   const [quantity, setQuantity] = React.useState(1);
   const [orderItems, setOrderItems] = React.useState<OrderItem[]>([]);
@@ -31,7 +45,11 @@ const CreateOrderPage: React.FC = () => {
   const [notes, setNotes] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
-  const [snackbar, setSnackbar] = React.useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
+  const [snackbar, setSnackbar] = React.useState({ 
+    open: false, 
+    message: '', 
+    severity: 'success' as 'success' | 'error' 
+  });
 
   React.useEffect(() => {
     fetch('http://localhost:5199/api/shawarma')
@@ -127,15 +145,23 @@ const CreateOrderPage: React.FC = () => {
 
       if (!response.ok) {
         let errorMessage = `Ошибка ${response.status}: ${response.statusText}`;
+        
         try {
-          const errorData = await response.json();
+          const responseClone = response.clone();
+          const errorData = await responseClone.json();
           errorMessage = errorData.message || errorMessage;
           console.error('❌ Данные ошибки:', errorData);
         } catch {
-          const errorText = await response.text();
-          console.error('❌ Текст ошибки:', errorText);
-          errorMessage = errorText || errorMessage;
+          try {
+            const responseClone = response.clone();
+            const errorText = await responseClone.text();
+            console.error('❌ Текст ошибки:', errorText);
+            errorMessage = errorText || errorMessage;
+          } catch {
+            // Оставляем стандартное сообщение
+          }
         }
+        
         throw new Error(errorMessage);
       }
 
@@ -169,15 +195,21 @@ const CreateOrderPage: React.FC = () => {
   const handleCloseSnackbar = () => {
     setSnackbar({ ...snackbar, open: false });
   };
-
+  
   return (
-    <Box>
+    <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
         Создание нового заказа
       </Typography>
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
+      {/* Упрощенная версия без Grid - используем CSS Grid напрямую */}
+      <Box sx={{ 
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' },
+        gap: 3
+      }}>
+        {/* Левая колонка */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
@@ -230,7 +262,7 @@ const CreateOrderPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          <Card sx={{ mt: 3 }}>
+          <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Добавить блюдо
@@ -246,56 +278,52 @@ const CreateOrderPage: React.FC = () => {
                   Меню не загружено. Проверьте подключение к серверу.
                 </Alert>
               ) : (
-                <Grid container spacing={2} alignItems="center">
-                  <Grid item xs={12} sm={6}>
-                    <FormControl fullWidth>
-                      <InputLabel>Блюдо</InputLabel>
-                      <Select
-                        value={selectedShawarma}
-                        label="Блюдо"
-                        onChange={(e) => setSelectedShawarma(e.target.value)}
-                        disabled={submitting}
-                      >
-                        {shawarmas.map(item => (
-                          <MenuItem key={item.id} value={item.id}>
-                            {item.name} - {item.price} ₽
-                          </MenuItem>
-                        ))}
-                      </Select>
-                    </FormControl>
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={3}>
-                    <TextField
-                      fullWidth
-                      label="Количество"
-                      type="number"
-                      value={quantity}
-                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                      inputProps={{ min: 1 }}
+                <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: 2, alignItems: { sm: 'center' } }}>
+                  <FormControl fullWidth>
+                    <InputLabel>Блюдо</InputLabel>
+                    <Select
+                      value={selectedShawarma}
+                      label="Блюдо"
+                      onChange={(e) => setSelectedShawarma(e.target.value)}
                       disabled={submitting}
-                    />
-                  </Grid>
-                  
-                  <Grid item xs={12} sm={3}>
-                    <Button
-                      fullWidth
-                      variant="contained"
-                      startIcon={<AddIcon />}
-                      onClick={handleAddItem}
-                      disabled={!selectedShawarma || submitting}
+                      native
                     >
-                      Добавить
-                    </Button>
-                  </Grid>
-                </Grid>
+                      {shawarmas.map(item => (
+                        <option key={item.id} value={item.id}>
+                          {item.name} - {item.price} ₽
+                        </option>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  
+                  <TextField
+                    label="Количество"
+                    type="number"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    inputProps={{ min: 1 }}
+                    disabled={submitting}
+                    sx={{ minWidth: 100 }}
+                  />
+                  
+                  <Button
+                    variant="contained"
+                    startIcon={<AddIcon />}
+                    onClick={handleAddItem}
+                    disabled={!selectedShawarma || submitting}
+                    sx={{ minWidth: 120 }}
+                  >
+                    Добавить
+                  </Button>
+                </Box>
               )}
             </CardContent>
           </Card>
-        </Grid>
+        </Box>
         
-        <Grid item xs={12} md={6}>
-          <Card>
+        {/* Правая колонка */}
+        <Box>
+          <Card sx={{ height: '100%' }}>
             <CardContent>
               <Typography variant="h6" gutterBottom>
                 Состав заказа {orderItems.length > 0 && `(${orderItems.length} позиций)`}
@@ -371,8 +399,8 @@ const CreateOrderPage: React.FC = () => {
               </Typography>
             </CardContent>
           </Card>
-        </Grid>
-      </Grid>
+        </Box>
+      </Box>
 
       <Snackbar
         open={snackbar.open}

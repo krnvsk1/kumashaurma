@@ -63,7 +63,7 @@ const OrdersPage: React.FC = () => {
       ) : orders.length > 0 ? (
         <Grid container spacing={2}>
           {orders.map((order) => (
-            <Grid item xs={12} key={order.id}>
+            <Grid size={{ xs: 12 }} key={order.id}>
               <Card>
                 <CardContent>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>

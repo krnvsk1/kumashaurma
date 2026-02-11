@@ -111,7 +111,7 @@ namespace Kumashaurma.API.Data
                             Status = "Выполнен",
                             Notes = "Без лука",
                             CreatedAt = DateTime.UtcNow.AddDays(-1),
-                            Items = new List<OrderItem>
+                            OrderItems = new List<OrderItem>
                             {
                                 new OrderItem 
                                 { 
@@ -131,7 +131,7 @@ namespace Kumashaurma.API.Data
                             Status = "В процессе",
                             Notes = "Позвонить за 10 минут",
                             CreatedAt = DateTime.UtcNow.AddHours(-3),
-                            Items = new List<OrderItem>
+                            OrderItems = new List<OrderItem>
                             {
                                 new OrderItem 
                                 { 

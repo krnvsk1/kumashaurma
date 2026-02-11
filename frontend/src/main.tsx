@@ -1,22 +1,20 @@
-import * as React from 'react';
-import { createRoot } from 'react-dom/client';
-import App from './App.tsx';
-import './index.css';
+// src/main.tsx
+import React from 'react';
+import ReactDOM from 'react-dom/client';
+import { ThemeProvider } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
+import App from './App';
+import theme from './theme/theme';
 
-console.log('Starting Kumashaurma application...');
-
-const container = document.getElementById('root');
-if (!container) {
-  console.error('Root element not found!');
-  throw new Error('Root element not found');
-}
-
-const root = createRoot(container);
+const root = ReactDOM.createRoot(
+  document.getElementById('root') as HTMLElement
+);
 
 root.render(
   <React.StrictMode>
-    <App />
+    <ThemeProvider theme={theme}>
+      <CssBaseline /> {/* Нормализует стили */}
+      <App />
+    </ThemeProvider>
   </React.StrictMode>
 );
-
-console.log('Application rendered successfully');
