@@ -35,12 +35,11 @@ const CATEGORIES = [
   'Фирменная'
 ];
 
-const CreateShawarmaPage: React.FC = () => {
+const CreateMenuItemPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  // Используем наши хуки!
   const { data: existingShawarma, isLoading: isLoadingShawarma } = useShawarma(
     isEditMode ? Number(id) : 0
   );
@@ -48,7 +47,6 @@ const CreateShawarmaPage: React.FC = () => {
   const updateShawarma = useUpdateShawarma();
   const deleteShawarma = useDeleteShawarma();
 
-  // Состояние формы
   const [formData, setFormData] = React.useState<CreateShawarmaDto>({
     name: '',
     price: 0,
@@ -65,7 +63,6 @@ const CreateShawarmaPage: React.FC = () => {
     severity: 'success' as 'success' | 'error'
   });
 
-  // Заполняем форму данными при редактировании
   React.useEffect(() => {
     if (existingShawarma) {
       setFormData({
@@ -80,7 +77,6 @@ const CreateShawarmaPage: React.FC = () => {
     }
   }, [existingShawarma]);
 
-  // Определяем, идет ли загрузка (для UI)
   const isPending = 
     createShawarma.isPending || 
     updateShawarma.isPending || 
@@ -122,19 +118,16 @@ const CreateShawarmaPage: React.FC = () => {
 
     try {
       if (isEditMode && id) {
-        // Обновление существующего товара
         await updateShawarma.mutateAsync({
           id: Number(id),
           ...formData
         });
         showSnackbar(`Товар "${formData.name}" обновлен!`, 'success');
       } else {
-        // Создание нового товара
         const result = await createShawarma.mutateAsync(formData);
         showSnackbar(`Товар "${result.name}" создан!`, 'success');
       }
 
-      // Возврат в меню через 1.5 секунды
       setTimeout(() => {
         navigate('/');
       }, 1500);
@@ -154,7 +147,7 @@ const CreateShawarmaPage: React.FC = () => {
       showSnackbar('Товар успешно удален', 'success');
       
       setTimeout(() => {
-        navigate('/menu');
+        navigate('/');
       }, 1500);
 
     } catch (error: any) {
@@ -166,7 +159,6 @@ const CreateShawarmaPage: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Показываем загрузку
   if (isLoadingShawarma) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
@@ -178,7 +170,6 @@ const CreateShawarmaPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      {/* Шапка с кнопкой назад */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
@@ -195,13 +186,11 @@ const CreateShawarmaPage: React.FC = () => {
 
       <Card>
         <CardContent>
-          {/* Основная информация */}
           <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
             Основная информация
           </Typography>
 
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {/* Название */}
             <TextField
               fullWidth
               label="Название товара *"
@@ -212,7 +201,6 @@ const CreateShawarmaPage: React.FC = () => {
               required
             />
 
-            {/* Цена и Категория в одной строке */}
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
               <TextField
                 fullWidth
@@ -243,7 +231,6 @@ const CreateShawarmaPage: React.FC = () => {
               </FormControl>
             </Box>
 
-            {/* Описание */}
             <TextField
               fullWidth
               label="Описание *"
@@ -258,7 +245,6 @@ const CreateShawarmaPage: React.FC = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Характеристики */}
             <Typography variant="h6" gutterBottom>
               Характеристики
             </Typography>
@@ -301,13 +287,11 @@ const CreateShawarmaPage: React.FC = () => {
               />
             </Box>
 
-            {/* Примечание: изображения пока нет в API */}
             <Alert severity="info" sx={{ mt: 2 }}>
               Функция загрузки изображений будет добавлена позже
             </Alert>
           </Box>
 
-          {/* Кнопки действий */}
           <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
             {isEditMode && (
               <Button
@@ -346,7 +330,6 @@ const CreateShawarmaPage: React.FC = () => {
         </CardContent>
       </Card>
 
-      {/* Уведомления */}
       <Snackbar
         open={snackbar.open}
         autoHideDuration={6000}
@@ -365,4 +348,4 @@ const CreateShawarmaPage: React.FC = () => {
   );
 };
 
-export default CreateShawarmaPage;
+export default CreateMenuItemPage;
