@@ -17,13 +17,18 @@ import {
   Divider,
   Menu,
   MenuItem,
-  Paper
+  Paper,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
   MoreVert as MoreVertIcon,
-  Refresh as RefreshIcon
+  Refresh as RefreshIcon,
+  Person as PersonIcon,
+  Phone as PhoneIcon,
+  Numbers as NumbersIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { useOrders, useUpdateOrderStatus } from '../api/hooks';
@@ -214,13 +219,38 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
 const OrdersPage: React.FC = () => {
   const { data: orders = [], isLoading, error, refetch } = useOrders();
 
-  // Фильтры (можно добавить позже)
+  // Состояния для фильтрации и поиска
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus | 'all'>('all');
+  const [searchId, setSearchId] = React.useState('');        // Поиск по номеру
+  const [searchName, setSearchName] = React.useState('');    // Поиск по имени
+  const [searchPhone, setSearchPhone] = React.useState('');  // Поиск по телефону
 
+  // Фильтрация заказов
   const filteredOrders = React.useMemo(() => {
-    if (statusFilter === 'all') return orders;
-    return orders.filter(order => order.status === statusFilter);
-  }, [orders, statusFilter]);
+    return orders.filter(order => {
+      // Фильтр по статусу
+      if (statusFilter !== 'all' && order.status !== statusFilter) {
+        return false;
+      }
+      
+      // Фильтр по номеру заказа
+      if (searchId && !order.id.toString().includes(searchId)) {
+        return false;
+      }
+      
+      // Фильтр по имени клиента
+      if (searchName && !order.customerName.toLowerCase().includes(searchName.toLowerCase())) {
+        return false;
+      }
+      
+      // Фильтр по телефону
+      if (searchPhone && !order.phone.includes(searchPhone)) {
+        return false;
+      }
+      
+      return true;
+    });
+  }, [orders, statusFilter, searchId, searchName, searchPhone]);
 
   // Статистика
   const stats = React.useMemo(() => {
@@ -231,6 +261,16 @@ const OrdersPage: React.FC = () => {
     
     return { total, newCount, preparingCount, readyCount };
   }, [orders]);
+
+  // Очистка всех полей поиска
+  const handleClearSearch = () => {
+    setSearchId('');
+    setSearchName('');
+    setSearchPhone('');
+  };
+
+  // Проверяем, активен ли поиск
+  const isSearchActive = searchId || searchName || searchPhone;
 
   if (error) {
     return (
@@ -278,6 +318,84 @@ const OrdersPage: React.FC = () => {
         </Box>
       </Box>
 
+      {/* Поля поиска */}
+      <Paper sx={{ p: 3, mb: 3 }}>
+        <Grid container spacing={2} alignItems="center">
+          {/* Поиск по номеру */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Поиск по номеру"
+              placeholder="Например: 123"
+              value={searchId}
+              onChange={(e) => setSearchId(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <NumbersIcon />
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+            />
+          </Grid>
+
+          {/* Поиск по имени */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Поиск по имени"
+              placeholder="Имя клиента"
+              value={searchName}
+              onChange={(e) => setSearchName(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PersonIcon />
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+            />
+          </Grid>
+
+          {/* Поиск по телефону */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <TextField
+              fullWidth
+              variant="outlined"
+              label="Поиск по телефону"
+              placeholder="+7..."
+              value={searchPhone}
+              onChange={(e) => setSearchPhone(e.target.value)}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <PhoneIcon />
+                  </InputAdornment>
+                ),
+              }}
+              size="small"
+            />
+          </Grid>
+
+          {/* Кнопка очистки */}
+          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+            <Button
+              fullWidth
+              variant="outlined"
+              onClick={handleClearSearch}
+              disabled={!isSearchActive}
+              sx={{ height: '40px' }}
+            >
+              Сбросить фильтры
+            </Button>
+          </Grid>
+        </Grid>
+      </Paper>
+
       {/* Статистика */}
       {!isLoading && orders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
@@ -304,7 +422,7 @@ const OrdersPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Фильтры (простые кнопки) */}
+      {/* Фильтры по статусу */}
       {!isLoading && orders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
@@ -324,6 +442,20 @@ const OrdersPage: React.FC = () => {
         </Box>
       )}
 
+      {/* Результаты поиска */}
+      {isSearchActive && (
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Найдено заказов: {filteredOrders.length}
+          </Typography>
+          {filteredOrders.length === 0 && (
+            <Button size="small" onClick={handleClearSearch}>
+              Сбросить поиск
+            </Button>
+          )}
+        </Box>
+      )}
+
       {/* Список заказов */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -338,13 +470,15 @@ const OrdersPage: React.FC = () => {
         </Box>
       ) : (
         <Alert severity="info" sx={{ mt: 2 }}>
-          {statusFilter === 'all' 
-            ? 'Заказов пока нет. Создайте первый заказ!' 
-            : `Нет заказов со статусом "${statusFilter}"`}
+          {isSearchActive 
+            ? 'Ничего не найдено по заданным критериям' 
+            : statusFilter !== 'all' 
+              ? `Нет заказов со статусом "${statusFilter}"`
+              : 'Заказов пока нет. Создайте первый заказ!'}
         </Alert>
       )}
 
-      {/* Подвал с количеством */}
+      {/* Подвал */}
       {!isLoading && filteredOrders.length > 0 && (
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
