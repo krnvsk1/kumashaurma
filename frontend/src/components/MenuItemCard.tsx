@@ -6,35 +6,22 @@ import {
   Typography,
   Box,
   Button,
-  Chip
+  Chip,
+  Stack
 } from '@mui/material';
+import { Link } from 'react-router-dom'; // 👈 ВАЖНО: добавить импорт!
+import type { Shawarma } from '../types';
 
-// Типы данных для товара
-interface MenuItem {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  weight?: string; // Например: "700 гр / 1100 гр"
-  category: string; // Например: "Пицца"
-  isNew?: boolean; // Новинка
-  isPromo?: boolean; // Акция
-}
-
-// Пропсы компонента
 interface MenuItemCardProps {
-  item: MenuItem;
-  onAddToCart?: (item: MenuItem) => void;
+  item: Shawarma;
+  onAddToCart?: (item: Shawarma) => void;
 }
 
-const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
-  const handleAddToCart = () => {
-    if (onAddToCart) {
-      onAddToCart(item);
-    }
-    console.log('Добавлено в корзину:', item.name);
-  };
+const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
+  // Проверка доступности товара
+  if (!item.isAvailable) {
+    return null;
+  }
 
   return (
     <Card
@@ -46,72 +33,92 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
           transform: 'translateY(-4px)',
           boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
         },
-        height: '100%', // Чтобы все карточки были одной высоты
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        position: 'relative', // Для позиционирования бейджей
-        overflow: 'visible', // Чтобы бейджи не обрезались
+        position: 'relative',
+        overflow: 'visible',
       }}
     >
-      {/* Бейдж "Новинка" */}
-      {item.isNew && (
-        <Chip
-          label="НОВИНКА"
-          size="small"
-          sx={{
-            position: 'absolute',
-            top: 12,
-            left: 12,
-            bgcolor: '#fbbf24', // Желтый цвет
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '0.7rem',
-            zIndex: 1,
-          }}
-        />
-      )}
+      {/* Бейджи для характеристик */}
+      <Stack
+        direction="row"
+        spacing={0.5}
+        sx={{
+          position: 'absolute',
+          top: 12,
+          left: 12,
+          zIndex: 1,
+          flexWrap: 'wrap',
+          gap: 0.5,
+        }}
+      >
+        {item.isSpicy && (
+          <Chip
+            label="Острая"
+            size="small"
+            sx={{
+              bgcolor: '#ef4444',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.7rem',
+            }}
+          />
+        )}
+        
+        {item.hasCheese && (
+          <Chip
+            label="С сыром"
+            size="small"
+            sx={{
+              bgcolor: '#fbbf24',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: '0.7rem',
+            }}
+          />
+        )}
+      </Stack>
 
-      {/* Бейдж "Акция" */}
-      {item.isPromo && (
-        <Chip
-          label="АКЦИЯ"
-          size="small"
-          sx={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            bgcolor: '#06f', // Красный цвет
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: '0.7rem',
-            zIndex: 1,
-          }}
-        />
-      )}
+      {/* Категория */}
+      <Chip
+        label={item.category}
+        size="small"
+        sx={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          bgcolor: 'rgba(0,0,0,0.6)',
+          color: 'white',
+          fontWeight: 'bold',
+          fontSize: '0.7rem',
+          zIndex: 1,
+        }}
+      />
 
-      {/* Изображение товара */}
+      {/* Изображение */}
       <CardMedia
         component="img"
         height="200"
-        image={item.imageUrl || 'https://via.placeholder.com/300x200?text=Шаурма'}
+        image={`https://via.placeholder.com/300x200?text=${encodeURIComponent(item.name)}`}
         alt={item.name}
         sx={{
           objectFit: 'cover',
           borderTopLeftRadius: 8,
           borderTopRightRadius: 8,
+          bgcolor: '#f5f5f5',
         }}
       />
 
-      {/* Контент карточки */}
       <CardContent
         sx={{
-          flexGrow: 1, // Растягивается на доступное пространство
+          flexGrow: 1,
           p: 2,
           display: 'flex',
           flexDirection: 'column',
         }}
       >
-        {/* Название товара */}
+        {/* Название */}
         <Typography
           gutterBottom
           variant="h6"
@@ -120,79 +127,71 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, onAddToCart }) => {
             fontWeight: 600,
             fontSize: '1.1rem',
             lineHeight: 1.3,
-            minHeight: '2.8em', // Фиксированная высота для названия
+            minHeight: '2.8em',
           }}
         >
           {item.name}
         </Typography>
 
-        {/* Описание товара */}
+        {/* Описание */}
         <Typography
           variant="body2"
           color="text.secondary"
           sx={{
             mb: 2,
-            flexGrow: 1, // Занимает всё доступное пространство
+            flexGrow: 1,
             fontSize: '0.875rem',
             lineHeight: 1.5,
             display: '-webkit-box',
-            WebkitLineClamp: 3, // Ограничение в 3 строки
+            WebkitLineClamp: 3,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
           }}
         >
-          {item.description}
+          {item.description || 'Без описания'}
         </Typography>
 
-        {/* Блок с весом и ценой */}
+        {/* Цена */}
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-end',
-            mt: 'auto', // Прижимаем к низу
+            justifyContent: 'flex-end',
+            alignItems: 'center',
+            mt: 'auto',
           }}
         >
-          {/* Вес (если есть) */}
-          {item.weight && (
-            <Typography variant="caption" color="text.secondary">
-              {item.weight}
-            </Typography>
-          )}
-
-          {/* Цена */}
           <Typography
             variant="h6"
             sx={{
-              color: '#06f', // Красный цвет как на сайте
+              color: '#ef4444',
               fontWeight: 700,
               fontSize: '1.25rem',
             }}
           >
-            от {item.price} ₽
+            {item.price} ₽
           </Typography>
         </Box>
       </CardContent>
 
-      {/* Кнопка "В корзину" */}
+      {/* Кнопка "Заказать" с переходом на страницу создания заказа */}
       <Box sx={{ p: 2, pt: 0 }}>
         <Button
+          component={Link}
+          to="/order"
+          state={{ selectedItem: item }} // 👈 Передаём товар в CreateOrderPage
           fullWidth
           variant="contained"
-          onClick={handleAddToCart}
           sx={{
-            bgcolor: '#06f', // Красный цвет
-            '&:hover': {
-              bgcolor: '#b91c1c', // Темнее при наведении
-            },
+            bgcolor: '#ef4444',
+            '&:hover': { bgcolor: '#dc2626' },
             fontWeight: 600,
             py: 1.2,
             borderRadius: 1,
-            textTransform: 'none', // Не делать текст заглавными
+            textTransform: 'none',
             fontSize: '1rem',
           }}
         >
-          В корзину
+          Быстрый заказ
         </Button>
       </Box>
     </Card>

@@ -14,7 +14,7 @@ namespace Kumashaurma.API.Models
         [Required]
         [MaxLength(100)]
         [Column("name")]
-        public string Name { get; set; }
+        public string Name { get; set; } = string.Empty;
         
         [Required]
         [Range(0, 10000)]
@@ -23,7 +23,7 @@ namespace Kumashaurma.API.Models
         
         [MaxLength(500)]
         [Column("description")]
-        public string Description { get; set; }
+        public string Description { get; set; } = string.Empty;
         
         [MaxLength(50)]
         [Column("category")]

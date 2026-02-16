@@ -24,7 +24,7 @@ namespace Kumashaurma.API.Controllers
             try
             {
                 var orders = await _context.Orders
-                    .Include(o => o.OrderItems) // Загружаем связанные позиции
+                    .Include(o => o.OrderItems)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync();
                     
@@ -64,61 +64,68 @@ namespace Kumashaurma.API.Controllers
             try
             {
                 // Валидация
-                if (string.IsNullOrEmpty(request.CustomerName))
+                if (string.IsNullOrWhiteSpace(request.CustomerName))
                     return BadRequest(new { Message = "Имя клиента обязательно" });
                     
                 if (request.Items == null || !request.Items.Any())
                     return BadRequest(new { Message = "Добавьте хотя бы один товар в заказ" });
 
-                // Рассчитываем сумму заказа
-                var total = request.Items.Sum(i => i.Price * i.Quantity);
+                // Получаем актуальные цены из базы данных
+                var shawarmaIds = request.Items.Select(i => i.ShawarmaId).Distinct();
+                var shawarmas = await _context.Shawarmas
+                    .Where(s => shawarmaIds.Contains(s.Id))
+                    .ToDictionaryAsync(s => s.Id, s => s.Price);
 
-                // Создаем заказ (БД сама сгенерирует ID)
+                // Создаем заказ
                 var newOrder = new Order
                 {
                     CustomerName = request.CustomerName.Trim(),
-                    Phone = request.Phone?.Trim(),
-                    Address = request.Address?.Trim(),
-                    Total = total,
+                    Phone = request.Phone?.Trim() ?? string.Empty,  // 👈 Исправлено
+                    Address = request.Address?.Trim() ?? string.Empty,  // 👈 Исправлено
+                    Total = 0, // Временно, пересчитаем после добавления позиций
                     Status = "Новый",
+                    Notes = null,
                     CreatedAt = DateTime.UtcNow,
                     CompletedAt = null
                 };
 
-                // Сохраняем заказ, чтобы получить ID
                 await _context.Orders.AddAsync(newOrder);
+                await _context.SaveChangesAsync();
+
+                decimal total = 0;
+                
+                // Добавляем позиции заказа
+                foreach (var itemRequest in request.Items)
+                {
+                    // Используем цену из базы данных
+                    var price = shawarmas.GetValueOrDefault(itemRequest.ShawarmaId, 0);
+                    
+                    var orderItem = new OrderItem
+                    {
+                        OrderId = newOrder.Id,
+                        ShawarmaId = itemRequest.ShawarmaId,
+                        Name = itemRequest.Name?.Trim() ?? "Без названия",  // 👈 Исправлено
+                        Quantity = itemRequest.Quantity,
+                        Price = price
+                    };
+                    
+                    await _context.OrderItems.AddAsync(orderItem);
+                    total += price * itemRequest.Quantity;
+                }
+
+                // Обновляем общую сумму заказа
+                newOrder.Total = total;
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}", 
                     newOrder.Id, newOrder.CustomerName);
 
-                // Добавляем позиции заказа
-                foreach (var itemRequest in request.Items)
-                {
-                    var orderItem = new OrderItem
-                    {
-                        OrderId = newOrder.Id, // Используем ID из БД
-                        ShawarmaId = itemRequest.ShawarmaId,
-                        Name = itemRequest.Name,
-                        Quantity = itemRequest.Quantity,
-                        Price = itemRequest.Price
-                    };
-                    await _context.OrderItems.AddAsync(orderItem);
-                }
+                // Загружаем полный заказ с позициями для ответа
+                var createdOrder = await _context.Orders
+                    .Include(o => o.OrderItems)
+                    .FirstOrDefaultAsync(o => o.Id == newOrder.Id);
 
-                await _context.SaveChangesAsync();
-
-                // Возвращаем созданный заказ
-                    return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, new 
-                    {
-                        Id = newOrder.Id,
-                        CustomerName = newOrder.CustomerName,
-                        Phone = newOrder.Phone,
-                        Address = newOrder.Address,
-                        Total = newOrder.Total,
-                        Status = newOrder.Status,
-                        CreatedAt = newOrder.CreatedAt
-                    });
+                return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, createdOrder);
             }
             catch (DbUpdateException ex)
             {
@@ -146,12 +153,10 @@ namespace Kumashaurma.API.Controllers
                 {
                     order.Status = request.Status;
                     
-                    // Если статус "Выполнен", ставим дату выполнения
                     if (request.Status == "Выполнен" && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
                     }
-                    // Если статус изменился с "Выполнен", очищаем дату
                     else if (order.Status == "Выполнен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
@@ -184,7 +189,6 @@ namespace Kumashaurma.API.Controllers
                 if (order == null)
                     return NotFound(new { Message = $"Заказ с ID {id} не найден" });
 
-                // Удаляем связанные позиции заказа
                 var orderItems = await _context.OrderItems
                     .Where(oi => oi.OrderId == id)
                     .ToListAsync();
@@ -206,7 +210,6 @@ namespace Kumashaurma.API.Controllers
             }
         }
 
-        // Дополнительный метод для получения статистики
         [HttpGet("stats")]
         public async Task<IActionResult> GetStats()
         {
@@ -214,8 +217,9 @@ namespace Kumashaurma.API.Controllers
             {
                 var totalOrders = await _context.Orders.CountAsync();
                 var totalRevenue = await _context.Orders.SumAsync(o => o.Total);
+                var today = DateTime.UtcNow.Date;
                 var todayOrders = await _context.Orders
-                    .Where(o => o.CreatedAt.Date == DateTime.UtcNow.Date)
+                    .Where(o => o.CreatedAt.Date == today)
                     .CountAsync();
                     
                 return Ok(new
@@ -236,16 +240,16 @@ namespace Kumashaurma.API.Controllers
 
     public class CreateOrderRequest
     {
-        public string? CustomerName { get; set; }
-        public string? Phone { get; set; }
-        public string? Address { get; set; }
+        public string CustomerName { get; set; } = string.Empty;  // 👈 Исправлено
+        public string Phone { get; set; } = string.Empty;  // 👈 Исправлено
+        public string Address { get; set; } = string.Empty;  // 👈 Исправлено
         public List<OrderItemRequest> Items { get; set; } = new();
     }
 
     public class OrderItemRequest
     {
         public int ShawarmaId { get; set; }
-        public string? Name { get; set; }
+        public string Name { get; set; } = string.Empty;  // 👈 Исправлено
         public int Quantity { get; set; }
         public decimal Price { get; set; }
     }
