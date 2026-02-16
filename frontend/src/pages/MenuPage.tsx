@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Container,
   Typography,
@@ -12,168 +12,72 @@ import {
   InputAdornment,
   Button
 } from '@mui/material';
-import { Search as SearchIcona, Add as AddIcon } from '@mui/icons-material';
-import { Link } from 'react-router-dom'; 
-import { Search as SearchIcon } from '@mui/icons-material';
+import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
+import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
+import { useShawarmas } from '../api/hooks';
+import type { Shawarma } from '../types';
 
-// Типы данных
-interface MenuItem {
-  id: number;
-  name: string;
-  description: string;
-  price: number;
-  imageUrl: string;
-  category: string;
-  weight?: string;
-  isNew?: boolean;
-  isPromo?: boolean;
-  isAvailable?: boolean;
-}
-
+// Интерфейс для категории (создаём на лету из данных)
 interface Category {
-  id: number;
   name: string;
   count: number;
 }
 
 const MenuPage: React.FC = () => {
-  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // Используем готовый хук!
+  const { data: menuItems, isLoading, error } = useShawarmas();
+  
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
 
-  // Загрузка меню из БД
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        setLoading(true);
-        
-        // Загружаем меню с бэкенда
-        const response = await fetch('http://localhost:5199/api/shawarma');
-        
-        if (!response.ok) {
-          throw new Error(`Ошибка загрузки меню: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('✅ Меню загружено:', data);
-        
-        // Преобразуем данные из бэкенда в наш формат
-        const formattedItems: MenuItem[] = data.map((item: any) => ({
-          id: item.id,
-          name: item.name,
-          description: item.description || 'Без описания',
-          price: item.price,
-          imageUrl: item.imageUrl || `https://via.placeholder.com/300x200?text=${encodeURIComponent(item.name)}`,
-          category: item.category || 'Другое',
-          weight: item.weight,
-          isNew: item.isNew || false,
-          isPromo: item.isPromo || false,
-          isAvailable: item.isAvailable !== false
-        }));
-        
-        setMenuItems(formattedItems);
-        
-        // Создаем категории из данных
-        const categoryMap = new Map<string, number>();
-        formattedItems.forEach(item => {
-          if (item.isAvailable) {
-            const count = categoryMap.get(item.category) || 0;
-            categoryMap.set(item.category, count + 1);
-          }
-        });
-        
-        const categoryList: Category[] = Array.from(categoryMap.entries()).map(([name, count], index) => ({
-          id: index + 1,
-          name,
-          count
-        }));
-        
-        setCategories(categoryList);
-        setError(null);
-      } catch (err) {
-        console.error('❌ Ошибка загрузки меню:', err);
-        setError(err instanceof Error ? err.message : 'Неизвестная ошибка');
-        
-        // Тестовые данные на случай ошибки
-        setMenuItems(getTestData());
-        setCategories([
-          { id: 1, name: 'Шаурма', count: 5 },
-          { id: 2, name: 'Пицца', count: 3 },
-          { id: 3, name: 'Напитки', count: 2 }
-        ]);
-      } finally {
-        setLoading(false);
+  // Получаем категории из данных (мемоизируем, чтобы не пересчитывать при каждом рендере)
+  const categories = useMemo<Category[]>(() => {
+    if (!menuItems) return [];
+    
+    const categoryMap = new Map<string, number>();
+    menuItems.forEach(item => {
+      if (item.isAvailable) {
+        const count = categoryMap.get(item.category) || 0;
+        categoryMap.set(item.category, count + 1);
       }
-    };
+    });
+    
+    return Array.from(categoryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name)); // сортировка по алфавиту
+  }, [menuItems]);
 
-    fetchMenu();
-  }, []);
-
-  // Фильтрация товаров
-  const filteredItems = menuItems.filter(item => {
-    // Фильтр по доступности
-    if (item.isAvailable === false) return false;
+  // Фильтрация товаров (тоже мемоизируем)
+  const filteredItems = useMemo(() => {
+    if (!menuItems) return [];
     
-    // Фильтр по категории
-    if (selectedCategory !== 'all' && item.category !== selectedCategory) {
-      return false;
-    }
-    
-    // Фильтр по поиску
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      return item.name.toLowerCase().includes(query) || 
-             item.description.toLowerCase().includes(query);
-    }
-    
-    return true;
-  });
+    return menuItems.filter(item => {
+      // Фильтр по доступности
+      if (!item.isAvailable) return false;
+      
+      // Фильтр по категории
+      if (selectedCategory !== 'all' && item.category !== selectedCategory) {
+        return false;
+      }
+      
+      // Фильтр по поиску
+      if (searchQuery) {
+        const query = searchQuery.toLowerCase();
+        return item.name.toLowerCase().includes(query) || 
+               (item.description?.toLowerCase().includes(query) ?? false);
+      }
+      
+      return true;
+    });
+  }, [menuItems, selectedCategory, searchQuery]);
 
   // Обработчик добавления в корзину
-  const handleAddToCart = (item: MenuItem) => {
+  const handleAddToCart = (item: Shawarma) => {
     console.log('🛒 Добавлено в корзину:', item);
-    // Здесь будет логика добавления в корзину
-    // Можно использовать Redux, Context API или localStorage
+    // TODO: реализовать корзину
   };
-
-  // Тестовые данные на случай если API не работает
-  const getTestData = (): MenuItem[] => [
-    {
-      id: 1,
-      name: 'Классическая шаурма',
-      description: 'С курицей, свежими овощами и соусом',
-      price: 250,
-      imageUrl: 'https://via.placeholder.com/300x200?text=Шаурма+Классическая',
-      category: 'Шаурма',
-      isAvailable: true
-    },
-    {
-      id: 2,
-      name: 'Острая шаурма',
-      description: 'С острой курицей и перцем',
-      price: 280,
-      imageUrl: 'https://via.placeholder.com/300x200?text=Шаурма+Острая',
-      category: 'Шаурма',
-      isNew: true,
-      isAvailable: true
-    },
-    {
-      id: 3,
-      name: 'Пицца "Пепперони"',
-      description: 'Красный соус, колбаса "Пепперони", моцарелла',
-      price: 600,
-      imageUrl: 'https://via.placeholder.com/300x200?text=Пицца+Пепперони',
-      category: 'Пицца',
-      weight: '700 гр / 33 см',
-      isPromo: true,
-      isAvailable: true
-    },
-  ];
 
   // Обработчик смены таба
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
@@ -185,13 +89,32 @@ const MenuPage: React.FC = () => {
     }
   };
 
-  if (loading) {
+  // Состояние загрузки
+  if (isLoading) {
     return (
       <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
         <Box textAlign="center">
           <CircularProgress size={60} sx={{ mb: 3 }} />
           <Typography variant="h6">Загружаем меню...</Typography>
         </Box>
+      </Container>
+    );
+  }
+
+  // Ошибка загрузки
+  if (error) {
+    return (
+      <Container sx={{ py: 4 }}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          Ошибка загрузки меню: {error.message}
+        </Alert>
+        <Button 
+          variant="contained" 
+          onClick={() => window.location.reload()}
+          sx={{ bgcolor: '#ef4444' }}
+        >
+          Попробовать снова
+        </Button>
       </Container>
     );
   }
@@ -205,7 +128,7 @@ const MenuPage: React.FC = () => {
           component="h1"
           sx={{
             fontWeight: 700,
-            color: '#06f',
+            color: '#ef4444',
             textAlign: 'center',
             mb: 3,
           }}
@@ -213,7 +136,7 @@ const MenuPage: React.FC = () => {
           Наше Меню
         </Typography>
 
-        {/* Поиск и кнопка добавления в одной строке */}
+        {/* Поиск и кнопка добавления */}
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 3 }}>
           <TextField
             fullWidth
@@ -231,12 +154,12 @@ const MenuPage: React.FC = () => {
           
           <Button
             component={Link}
-            to="/menu/new"
+            to="/admin/create" // правильный путь из вашего роутинга
             variant="contained"
             startIcon={<AddIcon />}
             sx={{
-              bgcolor: '#dc2626',
-              '&:hover': { bgcolor: '#b91c1c' },
+              bgcolor: '#ef4444',
+              '&:hover': { bgcolor: '#dc2626' },
               minWidth: '160px',
               height: '56px',
             }}
@@ -244,46 +167,42 @@ const MenuPage: React.FC = () => {
             Добавить товар
           </Button>
         </Box>
+
         {/* Категории */}
-        <Tabs
-          value={activeTab}
-          onChange={handleTabChange}
-          variant="scrollable"
-          scrollButtons="auto"
-          sx={{ mb: 3 }}
-        >
-          <Tab 
-            label={
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <span>Все</span>
-                <Chip 
-                  label={menuItems.filter(i => i.isAvailable).length} 
-                  size="small" 
-                  sx={{ height: 20 }}
-                />
-              </Box>
-            } 
-          />
-          {categories.map((category) => (
-            <Tab
-              key={category.id}
+        {categories.length > 0 && (
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{ mb: 3 }}
+          >
+            <Tab 
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <span>{category.name}</span>
-                  <Chip label={category.count} size="small" sx={{ height: 20 }} />
+                  <span>Все</span>
+                  <Chip 
+                    label={menuItems?.filter(i => i.isAvailable).length || 0} 
+                    size="small" 
+                    sx={{ height: 20 }}
+                  />
                 </Box>
-              }
+              } 
             />
-          ))}
-        </Tabs>
+            {categories.map((category) => (
+              <Tab
+                key={category.name}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <span>{category.name}</span>
+                    <Chip label={category.count} size="small" sx={{ height: 20 }} />
+                  </Box>
+                }
+              />
+            ))}
+          </Tabs>
+        )}
       </Box>
-
-      {/* Сообщение об ошибке */}
-      {error && (
-        <Alert severity="warning" sx={{ mb: 3 }}>
-          {error}. Показаны тестовые данные.
-        </Alert>
-      )}
 
       {/* Сетка товаров */}
       {filteredItems.length === 0 ? (
@@ -292,7 +211,7 @@ const MenuPage: React.FC = () => {
             😔 Ничего не найдено
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-            Попробуйте изменить поисковый запрос или выбрать другую категорию
+            {searchQuery ? 'Попробуйте изменить поисковый запрос' : 'В этой категории пока нет товаров'}
           </Typography>
         </Box>
       ) : (
@@ -307,19 +226,23 @@ const MenuPage: React.FC = () => {
           gap: 3
         }}>
           {filteredItems.map((item) => (
-            <Box key={item.id}>
-              <MenuItemCard item={item} onAddToCart={handleAddToCart} />
-            </Box>
+            <MenuItemCard 
+              key={item.id} 
+              item={item} 
+              onAddToCart={handleAddToCart} 
+            />
           ))}
         </Box>
       )}
 
       {/* Статистика */}
-      <Box sx={{ mt: 6, textAlign: 'center' }}>
-        <Typography variant="body2" color="text.secondary">
-          Показано {filteredItems.length} из {menuItems.filter(i => i.isAvailable).length} товаров
-        </Typography>
-      </Box>
+      {filteredItems.length > 0 && (
+        <Box sx={{ mt: 6, textAlign: 'center' }}>
+          <Typography variant="body2" color="text.secondary">
+            Показано {filteredItems.length} из {menuItems?.filter(i => i.isAvailable).length || 0} товаров
+          </Typography>
+        </Box>
+      )}
     </Container>
   );
 };

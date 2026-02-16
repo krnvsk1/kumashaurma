@@ -6,9 +6,10 @@ import {
   Card,
   CardContent,
   TextField,
-  Select,
   FormControl,
   InputLabel,
+  Select,
+  MenuItem,
   FormControlLabel,
   Switch,
   Alert,
@@ -19,19 +20,8 @@ import {
 } from '@mui/material';
 import { Save as SaveIcon, ArrowBack as ArrowBackIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-
-// Интерфейс для шаурмы (соответствует вашему API)
-interface ShawarmaItem {
-  id: number;
-  name: string;
-  price: number;
-  description: string;
-  category: string;
-  isSpicy: boolean;
-  hasCheese: boolean;
-  isAvailable: boolean;
-  imageUrl?: string;
-}
+import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma } from '../api/hooks';
+import type { CreateShawarmaDto } from '../types';
 
 // Категории для выпадающего списка
 const CATEGORIES = [
@@ -50,58 +40,57 @@ const CreateShawarmaPage: React.FC = () => {
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
-  // Состояния
-  const [formData, setFormData] = React.useState<Partial<ShawarmaItem>>({
+  // Используем наши хуки!
+  const { data: existingShawarma, isLoading: isLoadingShawarma } = useShawarma(
+    isEditMode ? Number(id) : 0
+  );
+  const createShawarma = useCreateShawarma();
+  const updateShawarma = useUpdateShawarma();
+  const deleteShawarma = useDeleteShawarma();
+
+  // Состояние формы
+  const [formData, setFormData] = React.useState<CreateShawarmaDto>({
     name: '',
     price: 0,
     description: '',
     category: 'Курица',
     isSpicy: false,
     hasCheese: false,
-    isAvailable: true,
-    imageUrl: ''
+    isAvailable: true
   });
 
-  const [loading, setLoading] = React.useState(isEditMode);
-  const [submitting, setSubmitting] = React.useState(false);
   const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: '',
     severity: 'success' as 'success' | 'error'
   });
 
-  // Загрузка данных для редактирования
+  // Заполняем форму данными при редактировании
   React.useEffect(() => {
-    if (isEditMode) {
-      fetchShawarma();
+    if (existingShawarma) {
+      setFormData({
+        name: existingShawarma.name,
+        price: existingShawarma.price,
+        description: existingShawarma.description,
+        category: existingShawarma.category,
+        isSpicy: existingShawarma.isSpicy,
+        hasCheese: existingShawarma.hasCheese,
+        isAvailable: existingShawarma.isAvailable
+      });
     }
-  }, [id]);
+  }, [existingShawarma]);
 
-  const fetchShawarma = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:5199/api/shawarma/${id}`);
-      
-      if (!response.ok) {
-        throw new Error(`Ошибка загрузки: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      console.log('✅ Товар загружен:', data);
-      setFormData(data);
-    } catch (err) {
-      console.error('❌ Ошибка загрузки:', err);
-      showSnackbar('Ошибка загрузки товара', 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Определяем, идет ли загрузка (для UI)
+  const isPending = 
+    createShawarma.isPending || 
+    updateShawarma.isPending || 
+    deleteShawarma.isPending;
 
   const showSnackbar = (message: string, severity: 'success' | 'error') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const handleChange = (field: keyof ShawarmaItem, value: any) => {
+  const handleChange = (field: keyof CreateShawarmaDto, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -131,48 +120,27 @@ const CreateShawarmaPage: React.FC = () => {
   const handleSubmit = async () => {
     if (!validateForm()) return;
 
-    setSubmitting(true);
-
     try {
-      const url = isEditMode 
-        ? `http://localhost:5199/api/shawarma/${id}`
-        : 'http://localhost:5199/api/shawarma';
-      
-      const method = isEditMode ? 'PUT' : 'POST';
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-        body: JSON.stringify(formData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ошибка ${response.status}`);
+      if (isEditMode && id) {
+        // Обновление существующего товара
+        await updateShawarma.mutateAsync({
+          id: Number(id),
+          ...formData
+        });
+        showSnackbar(`Товар "${formData.name}" обновлен!`, 'success');
+      } else {
+        // Создание нового товара
+        const result = await createShawarma.mutateAsync(formData);
+        showSnackbar(`Товар "${result.name}" создан!`, 'success');
       }
-
-      const data = await response.json();
-      console.log(isEditMode ? '✅ Товар обновлен:' : '✅ Товар создан:', data);
-
-      showSnackbar(
-        isEditMode 
-          ? `Товар "${data.name}" обновлен!` 
-          : `Товар "${data.name}" создан!`,
-        'success'
-      );
 
       // Возврат в меню через 1.5 секунды
       setTimeout(() => {
         navigate('/');
       }, 1500);
 
-    } catch (err: any) {
-      console.error('❌ Ошибка сохранения:', err);
-      showSnackbar(`Ошибка: ${err.message || 'Неизвестная ошибка'}`, 'error');
-    } finally {
-      setSubmitting(false);
+    } catch (error: any) {
+      showSnackbar(`Ошибка: ${error.message || 'Неизвестная ошибка'}`, 'error');
     }
   };
 
@@ -181,27 +149,16 @@ const CreateShawarmaPage: React.FC = () => {
       return;
     }
 
-    setSubmitting(true);
     try {
-      const response = await fetch(`http://localhost:5199/api/shawarma/${id}`, {
-        method: 'DELETE'
-      });
-
-      if (!response.ok) {
-        throw new Error(`Ошибка удаления: ${response.status}`);
-      }
-
+      await deleteShawarma.mutateAsync(Number(id));
       showSnackbar('Товар успешно удален', 'success');
       
       setTimeout(() => {
         navigate('/menu');
       }, 1500);
 
-    } catch (err: any) {
-      console.error('❌ Ошибка удаления:', err);
-      showSnackbar(`Ошибка: ${err.message}`, 'error');
-    } finally {
-      setSubmitting(false);
+    } catch (error: any) {
+      showSnackbar(`Ошибка: ${error.message}`, 'error');
     }
   };
 
@@ -209,13 +166,12 @@ const CreateShawarmaPage: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  if (loading) {
+  // Показываем загрузку
+  if (isLoadingShawarma) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-          <CircularProgress />
-          <Typography sx={{ ml: 2 }}>Загрузка товара...</Typography>
-        </Box>
+        <CircularProgress />
+        <Typography sx={{ ml: 2 }}>Загрузка товара...</Typography>
       </Box>
     );
   }
@@ -228,10 +184,11 @@ const CreateShawarmaPage: React.FC = () => {
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/')}
           sx={{ mr: 2 }}
+          disabled={isPending}
         >
           Назад
         </Button>
-        <Typography variant="h4" component="h1" gutterBottom>
+        <Typography variant="h4" component="h1">
           {isEditMode ? 'Редактировать товар' : 'Добавить новый товар'}
         </Typography>
       </Box>
@@ -250,7 +207,7 @@ const CreateShawarmaPage: React.FC = () => {
               label="Название товара *"
               value={formData.name || ''}
               onChange={(e) => handleChange('name', e.target.value)}
-              disabled={submitting}
+              disabled={isPending}
               helperText="Например: Классическая шаурма"
               required
             />
@@ -263,7 +220,7 @@ const CreateShawarmaPage: React.FC = () => {
                 type="number"
                 value={formData.price || ''}
                 onChange={(e) => handleChange('price', parseFloat(e.target.value) || 0)}
-                disabled={submitting}
+                disabled={isPending}
                 InputProps={{
                   startAdornment: <InputAdornment position="start">₽</InputAdornment>,
                   inputProps: { min: 0, step: 10 }
@@ -277,11 +234,10 @@ const CreateShawarmaPage: React.FC = () => {
                   value={formData.category || ''}
                   label="Категория *"
                   onChange={(e) => handleChange('category', e.target.value)}
-                  disabled={submitting}
-                  native
+                  disabled={isPending}
                 >
                   {CATEGORIES.map((cat) => (
-                    <option key={cat} value={cat}>{cat}</option>
+                    <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -293,7 +249,7 @@ const CreateShawarmaPage: React.FC = () => {
               label="Описание *"
               value={formData.description || ''}
               onChange={(e) => handleChange('description', e.target.value)}
-              disabled={submitting}
+              disabled={isPending}
               multiline
               rows={3}
               helperText="Подробное описание состава"
@@ -313,11 +269,11 @@ const CreateShawarmaPage: React.FC = () => {
                   <Switch
                     checked={formData.isSpicy || false}
                     onChange={(e) => handleChange('isSpicy', e.target.checked)}
-                    disabled={submitting}
+                    disabled={isPending}
                     color="error"
                   />
                 }
-                label="Острый"
+                label="Острая"
               />
 
               <FormControlLabel
@@ -325,7 +281,7 @@ const CreateShawarmaPage: React.FC = () => {
                   <Switch
                     checked={formData.hasCheese || false}
                     onChange={(e) => handleChange('hasCheese', e.target.checked)}
-                    disabled={submitting}
+                    disabled={isPending}
                     color="warning"
                   />
                 }
@@ -337,7 +293,7 @@ const CreateShawarmaPage: React.FC = () => {
                   <Switch
                     checked={formData.isAvailable ?? true}
                     onChange={(e) => handleChange('isAvailable', e.target.checked)}
-                    disabled={submitting}
+                    disabled={isPending}
                     color="success"
                   />
                 }
@@ -345,22 +301,10 @@ const CreateShawarmaPage: React.FC = () => {
               />
             </Box>
 
-            <Divider sx={{ my: 2 }} />
-
-            {/* Изображение (опционально) */}
-            <Typography variant="h6" gutterBottom>
-              Изображение (необязательно)
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="URL изображения"
-              value={formData.imageUrl || ''}
-              onChange={(e) => handleChange('imageUrl', e.target.value)}
-              disabled={submitting}
-              placeholder="https://example.com/image.jpg"
-              helperText="Оставьте пустым, если нет изображения"
-            />
+            {/* Примечание: изображения пока нет в API */}
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Функция загрузки изображений будет добавлена позже
+            </Alert>
           </Box>
 
           {/* Кнопки действий */}
@@ -371,29 +315,29 @@ const CreateShawarmaPage: React.FC = () => {
                 color="error"
                 startIcon={<DeleteIcon />}
                 onClick={handleDelete}
-                disabled={submitting}
+                disabled={isPending}
               >
                 Удалить
               </Button>
             )}
             <Button
               variant="outlined"
-              onClick={() => navigate('/menu')}
-              disabled={submitting}
+              onClick={() => navigate('/')}
+              disabled={isPending}
             >
               Отмена
             </Button>
             <Button
               variant="contained"
-              startIcon={submitting ? <CircularProgress size={20} /> : <SaveIcon />}
+              startIcon={isPending ? <CircularProgress size={20} /> : <SaveIcon />}
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={isPending}
               sx={{
-                bgcolor: '#dc2626',
-                '&:hover': { bgcolor: '#b91c1c' }
+                bgcolor: '#ef4444',
+                '&:hover': { bgcolor: '#dc2626' }
               }}
             >
-              {submitting 
+              {isPending 
                 ? 'Сохранение...' 
                 : isEditMode ? 'Сохранить' : 'Создать'
               }
