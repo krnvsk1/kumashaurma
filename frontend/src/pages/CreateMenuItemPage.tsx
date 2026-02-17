@@ -16,12 +16,20 @@ import {
   CircularProgress,
   Snackbar,
   Divider,
-  InputAdornment
+  InputAdornment,
+  Chip,
+  IconButton
 } from '@mui/material';
-import { Save as SaveIcon, ArrowBack as ArrowBackIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { 
+  Save as SaveIcon, 
+  ArrowBack as ArrowBackIcon, 
+  Delete as DeleteIcon,
+  Upload as UploadIcon
+} from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma } from '../api/hooks';
-import type { CreateShawarmaDto } from '../types';
+import type { CreateShawarmaDto, ShawarmaImage } from '../types';
+import { useUploadImage, useShawarmaImages, useDeleteImage } from '../api/hooks';
 
 // Категории для выпадающего списка
 const CATEGORIES = [
@@ -40,12 +48,49 @@ const CreateMenuItemPage: React.FC = () => {
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
+  const [uploading, setUploading] = React.useState(false);
+  const uploadImage = useUploadImage();
+  const { data: images = [], refetch: refetchImages } = useShawarmaImages(Number(id) || 0);
+  const deleteImage = useDeleteImage();
+
   const { data: existingShawarma, isLoading: isLoadingShawarma } = useShawarma(
     isEditMode ? Number(id) : 0
   );
   const createShawarma = useCreateShawarma();
   const updateShawarma = useUpdateShawarma();
   const deleteShawarma = useDeleteShawarma();
+
+  const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !id) {
+      showSnackbar('Сначала сохраните товар', 'info');
+      return;
+    }
+    
+    setUploading(true);
+    try {
+      await uploadImage.mutateAsync({ 
+        shawarmaId: Number(id), 
+        file 
+      });
+      await refetchImages();
+      showSnackbar('Изображение загружено', 'success');
+    } catch (error: any) {
+      showSnackbar(`Ошибка загрузки: ${error.message}`, 'error');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId: number) => {
+    try {
+      await deleteImage.mutateAsync(imageId);
+      await refetchImages();
+      showSnackbar('Изображение удалено', 'success');
+    } catch (error: any) {
+      showSnackbar(`Ошибка удаления: ${error.message}`, 'error');
+    }
+  };
 
   const [formData, setFormData] = React.useState<CreateShawarmaDto>({
     name: '',
@@ -60,7 +105,7 @@ const CreateMenuItemPage: React.FC = () => {
   const [snackbar, setSnackbar] = React.useState({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error'
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning'
   });
 
   React.useEffect(() => {
@@ -82,7 +127,7 @@ const CreateMenuItemPage: React.FC = () => {
     updateShawarma.isPending || 
     deleteShawarma.isPending;
 
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({ open: true, message, severity });
   };
 
@@ -117,15 +162,25 @@ const CreateMenuItemPage: React.FC = () => {
     if (!validateForm()) return;
 
     try {
+      let savedId: number;
+      
       if (isEditMode && id) {
         await updateShawarma.mutateAsync({
           id: Number(id),
           ...formData
         });
+        savedId = Number(id);
         showSnackbar(`Товар "${formData.name}" обновлен!`, 'success');
       } else {
         const result = await createShawarma.mutateAsync(formData);
+        savedId = result.id;
         showSnackbar(`Товар "${result.name}" создан!`, 'success');
+        
+        // Если это новый товар, перенаправляем на страницу редактирования
+        setTimeout(() => {
+          navigate(`/admin/edit/${savedId}`);
+        }, 1500);
+        return;
       }
 
       setTimeout(() => {
@@ -287,9 +342,91 @@ const CreateMenuItemPage: React.FC = () => {
               />
             </Box>
 
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Функция загрузки изображений будет добавлена позже
-            </Alert>
+            <Divider sx={{ my: 2 }} />
+
+            {/* Секция загрузки изображений */}
+            <Typography variant="h6" gutterBottom>
+              Изображения
+            </Typography>
+
+            {isEditMode ? (
+              <>
+                <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2 }}>
+                  <Button
+                    variant="outlined"
+                    component="label"
+                    startIcon={<UploadIcon />}
+                    disabled={uploading || isPending}
+                  >
+                    {uploading ? 'Загрузка...' : 'Загрузить изображение'}
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                    />
+                  </Button>
+                  {uploading && <CircularProgress size={24} />}
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                  {images.map((image: ShawarmaImage) => (
+                    <Box
+                      key={image.id}
+                      sx={{
+                        position: 'relative',
+                        width: 100,
+                        height: 100,
+                        border: image.isPrimary ? '2px solid #ef4444' : '1px solid #e0e0e0',
+                        borderRadius: 1,
+                        overflow: 'hidden'
+                      }}
+                    >
+                      <img
+                        src={`http://localhost:5199${image.filePath}`}
+                        alt=""
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover'
+                        }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => handleDeleteImage(image.id)}
+                        sx={{
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                          bgcolor: 'rgba(255,255,255,0.8)',
+                          '&:hover': { bgcolor: 'white' }
+                        }}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                      {image.isPrimary && (
+                        <Chip
+                          label="Главное"
+                          size="small"
+                          sx={{
+                            position: 'absolute',
+                            bottom: 2,
+                            left: 2,
+                            height: 20,
+                            bgcolor: '#ef4444',
+                            color: 'white'
+                          }}
+                        />
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              </>
+            ) : (
+              <Alert severity="info">
+                Сначала сохраните товар, чтобы можно было загружать изображения
+              </Alert>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>

@@ -16,17 +16,19 @@ import {
   Home as HomeIcon,
   ListAlt as ListAltIcon,
   AddShoppingCart as AddCartIcon,
-  Brightness4 as Brightness4Icon,      // 👈 Добавлено
-  Brightness7 as Brightness7Icon        // 👈 Добавлено
+  Brightness4 as Brightness4Icon,
+  Brightness7 as Brightness7Icon
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTheme } from './hooks/useTheme';
+import { useTotalItems, useTotalPrice } from './store/cartStore';
+import CartModal from './components/CartModal'; 
+import OrderModal from './components/OrderModal';
 
 // Страницы
 import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
-import CreateOrderPage from './pages/CreateOrderPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
 
@@ -40,15 +42,14 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  const { theme: themeMode, toggleTheme } = useTheme(); // 👈 ХУК ДОЛЖЕН БЫТЬ ЗДЕСЬ
+  const totalItems = useTotalItems();
+  const totalPrice = useTotalPrice();
   
-  // Временное значение для корзины
-  const cartTotal = 0;
-  
-  // Состояние для мобильного меню
+  const { theme: themeMode, toggleTheme } = useTheme();
+  const [cartOpen, setCartOpen] = useState(false);
+  const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // 👇 ТЕПЕРЬ СОЗДАЁМ ТЕМУ ВНУТРИ КОМПОНЕНТА
   const theme = createTheme({
     palette: {
       mode: themeMode,
@@ -86,10 +87,8 @@ function App() {
     },
   });
 
-  // Определяем, мобильное ли устройство
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Функции для открытия/закрытия меню
   const toggleMobileMenu = () => {
     setMobileMenuOpen(!mobileMenuOpen);
   };
@@ -98,7 +97,6 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  // Элементы меню для мобильной версии
   const menuItems = [
     { text: 'Меню', icon: <HomeIcon />, path: '/' },
     { text: 'Заказы', icon: <ListAltIcon />, path: '/orders' },
@@ -123,7 +121,6 @@ function App() {
               }}
             >
               <Toolbar>
-                {/* Бургер-меню для мобильных */}
                 {isMobile && (
                   <IconButton
                     size="large"
@@ -137,7 +134,6 @@ function App() {
                   </IconButton>
                 )}
 
-                {/* Логотип */}
                 <Typography 
                   variant="h5" 
                   component={Link} 
@@ -162,7 +158,6 @@ function App() {
                   </Box>
                 </Typography>
                 
-                {/* Кнопка переключения темы 👇 НОВОЕ */}
                 <IconButton
                   onClick={toggleTheme}
                   sx={{ 
@@ -176,7 +171,6 @@ function App() {
                   {themeMode === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
                 </IconButton>
 
-                {/* Время работы (скрыто на мобильных) */}
                 <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', mr: 3, gap: 1 }}>
                   <Schedule fontSize="small" />
                   <Typography variant="body2" sx={{ fontWeight: 500 }}>
@@ -184,9 +178,18 @@ function App() {
                   </Typography>
                 </Box>
 
-                {/* Корзина (всегда видна) */}
-                <Box sx={{ display: 'flex', alignItems: 'center', mr: { xs: 1, md: 3 } }}>
-                  <Badge badgeContent={0} color="primary">
+                <Box 
+                  onClick={() => setCartOpen(true)}
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    mr: { xs: 1, md: 3 },
+                    color: 'white',
+                    cursor: 'pointer',
+                    '&:hover': { opacity: 0.8 }
+                  }}
+                >
+                  <Badge badgeContent={totalItems} color="primary">
                     <ShoppingCart />
                   </Badge>
                   <Typography 
@@ -197,11 +200,10 @@ function App() {
                       display: { xs: 'none', sm: 'block' }
                     }}
                   >
-                    {cartTotal} ₽
+                    {totalPrice} ₽
                   </Typography>
                 </Box>
 
-                {/* Десктопная навигация */}
                 {!isMobile && (
                   <>
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -210,18 +212,6 @@ function App() {
                       </Button>
                       <Button component={Link} to="/orders" sx={{ color: 'white' }}>
                         Заказы
-                      </Button>
-                      <Button 
-                        component={Link} 
-                        to="/order"
-                        variant="contained"
-                        sx={{ 
-                          bgcolor: '#ef4444',
-                          '&:hover': { bgcolor: '#dc2626' },
-                          ml: 1
-                        }}
-                      >
-                        Новый заказ
                       </Button>
                     </Box>
 
@@ -325,7 +315,6 @@ function App() {
             >
               <Routes>
                 <Route path="/" element={<MenuPage />} />
-                <Route path="/order" element={<CreateOrderPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
                 <Route path="/admin/create" element={<CreateMenuItemPage />} />
@@ -333,7 +322,26 @@ function App() {
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Container>
+
+            {/* Модалки */}
+            <CartModal 
+              open={cartOpen} 
+              onClose={() => setCartOpen(false)}
+              onCheckout={() => {
+                setCartOpen(false);
+                setOrderOpen(true);
+              }}
+            />
+            <OrderModal 
+                open={orderOpen} 
+                onClose={() => setOrderOpen(false)}
+                onBackToCart={() => {
+                  setOrderOpen(false);
+                  setCartOpen(true);
+                }}
+            />
             
+            {/* Футер */}
             <Box 
               component="footer" 
               sx={{ 

@@ -12,20 +12,26 @@ import {
 } from '@mui/material';
 import { Link } from 'react-router-dom';
 import type { Shawarma } from '../types';
+import placeholderImage from '../assets/placeholder-shawarma.svg';
 
 interface MenuItemCardProps {
   item: Shawarma;
-  onAddToCart?: (item: Shawarma) => void;
 }
 
 const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
-  const theme = useTheme(); // 👈 Получаем текущую тему
+  const theme = useTheme();
   
-  // Проверка доступности товара
+  // 👇 Берём первое изображение или заглушку
+  const imageUrl = item.images && item.images.length > 0 && item.images[0]?.filePath
+    ? `http://localhost:5199${item.images[0].filePath}`
+    : '';
+
   if (!item.isAvailable) {
     return null;
   }
 
+  console.log('🖼️ Товар:', item.name, 'Изображения:', item.images);
+  
   return (
     <Card
       sx={{
@@ -45,9 +51,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         flexDirection: 'column',
         position: 'relative',
         overflow: 'visible',
-        bgcolor: theme.palette.mode === 'light' 
-          ? 'background.paper' 
-          : 'background.paper',
       }}
     >
       {/* Бейджи для характеристик */}
@@ -68,7 +71,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
             label="Острая"
             size="small"
             sx={{
-              bgcolor: 'primary.main', // 👈 Используем тему
+              bgcolor: 'primary.main',
               color: 'white',
               fontWeight: 'bold',
               fontSize: '0.7rem',
@@ -81,7 +84,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
             label="С сыром"
             size="small"
             sx={{
-              bgcolor: 'secondary.main', // 👈 Используем тему
+              bgcolor: 'secondary.main',
               color: theme.palette.mode === 'light' ? 'white' : 'black',
               fontWeight: 'bold',
               fontSize: '0.7rem',
@@ -113,14 +116,13 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
       <CardMedia
         component="img"
         height="200"
-        image={`https://via.placeholder.com/300x200?text=${encodeURIComponent(item.name)}`}
+        image={imageUrl}
         alt={item.name}
         sx={{
           objectFit: 'cover',
           borderTopLeftRadius: 8,
           borderTopRightRadius: 8,
           bgcolor: theme.palette.mode === 'light' ? '#f5f5f5' : '#334155',
-          opacity: theme.palette.mode === 'dark' ? 0.9 : 1,
         }}
       />
 
@@ -132,7 +134,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           flexDirection: 'column',
         }}
       >
-        {/* Название */}
         <Typography
           gutterBottom
           variant="h6"
@@ -148,7 +149,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           {item.name}
         </Typography>
 
-        {/* Описание */}
         <Typography
           variant="body2"
           sx={{
@@ -166,7 +166,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           {item.description || 'Без описания'}
         </Typography>
 
-        {/* Цена */}
         <Box
           sx={{
             display: 'flex',
@@ -178,7 +177,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           <Typography
             variant="h6"
             sx={{
-              color: 'primary.main', // 👈 Исправлено! Используем тему
+              color: 'primary.main',
               fontWeight: 700,
               fontSize: '1.25rem',
             }}
@@ -188,7 +187,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         </Box>
       </CardContent>
 
-      {/* Кнопка "Заказать" */}
       <Box sx={{ p: 2, pt: 0 }}>
         <Button
           component={Link}

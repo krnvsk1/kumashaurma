@@ -13,5 +13,9 @@ export default defineConfig({
         secure: false,
       }
     }
+  },
+  // 👇 Добавляем эту секцию для разрешения конфликтов
+  resolve: {
+    dedupe: ['react', 'react-dom']
   }
 })

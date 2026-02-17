@@ -17,6 +17,8 @@ import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
 import { useShawarmas } from '../api/hooks';
 import type { Shawarma } from '../types';
+import ProductModal from '../components/ProductModal';
+import { useCartStore } from '../store/cartStore';
 
 // Интерфейс для категории (создаём на лету из данных)
 interface Category {
@@ -27,10 +29,22 @@ interface Category {
 const MenuPage: React.FC = () => {
   // Используем готовый хук!
   const { data: menuItems, isLoading, error } = useShawarmas();
-  
+  const [selectedProduct, setSelectedProduct] = useState<Shawarma | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState(0);
+
+  // 👇 Обработчики
+  const handleProductClick = (item: Shawarma) => {
+    setSelectedProduct(item);
+    setModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setModalOpen(false);
+    setSelectedProduct(null);
+  };
 
   // Получаем категории из данных (мемоизируем, чтобы не пересчитывать при каждом рендере)
   const categories = useMemo<Category[]>(() => {
@@ -73,14 +87,17 @@ const MenuPage: React.FC = () => {
     });
   }, [menuItems, selectedCategory, searchQuery]);
 
+  const addToCart = useCartStore(state => state.addItem); 
+
   // Обработчик добавления в корзину
-  const handleAddToCart = (item: Shawarma) => {
-    console.log('🛒 Добавлено в корзину:', item);
-    // TODO: реализовать корзину
+  const handleAddToCart = (product: Shawarma, quantity: number) => {
+    addToCart(product, quantity);
+    console.log('🛒 Добавлено в корзину:', { product, quantity });
+    // TODO: показать уведомление
   };
 
   // Обработчик смены таба
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
     setActiveTab(newValue);
     if (newValue === 0) {
       setSelectedCategory('all');
@@ -226,11 +243,13 @@ const MenuPage: React.FC = () => {
           gap: 3
         }}>
           {filteredItems.map((item) => (
-            <MenuItemCard 
-              key={item.id} 
-              item={item} 
-              onAddToCart={handleAddToCart} 
-            />
+            <Box 
+              key={item.id}
+              onClick={() => handleProductClick(item)}
+              sx={{ cursor: 'pointer' }}
+            >
+              <MenuItemCard item={item} />
+            </Box>
           ))}
         </Box>
       )}
@@ -243,6 +262,14 @@ const MenuPage: React.FC = () => {
           </Typography>
         </Box>
       )}
+
+      {/* Модальное окно */}
+      <ProductModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        product={selectedProduct}
+        onAddToCart={handleAddToCart}
+      />
     </Container>
   );
 };

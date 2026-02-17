@@ -44,5 +44,10 @@ namespace Kumashaurma.API.Models
         
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
+
+        public ICollection<ShawarmaImage> Images { get; set; } = new List<ShawarmaImage>();
+    
+        [NotMapped]
+        public string? PrimaryImage => Images?.FirstOrDefault(i => i.IsPrimary)?.FilePath;
     }
 }

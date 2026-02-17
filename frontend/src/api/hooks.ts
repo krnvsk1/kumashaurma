@@ -7,7 +7,8 @@ import type {
   CreateOrderDto, 
   UpdateOrderStatusDto,
   HealthStatus,
-  DashboardStats 
+  DashboardStats,
+  ShawarmaImage
 } from '../types';
 
 // ==================== SHAWARMA HOOKS ====================
@@ -118,5 +119,56 @@ export const useHealth = () => {
     queryKey: ['health'],
     queryFn: () => apiClient.get('/health').then(res => res.data),
     refetchInterval: 30 * 1000,
+  });
+};
+
+// Загрузка изображения
+export const useUploadImage = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ shawarmaId, file }: { shawarmaId: number; file: File }) => {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const { data } = await apiClient.post(`/image/upload/${shawarmaId}`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      return data;
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['shawarma', variables.shawarmaId] });
+      queryClient.invalidateQueries({ queryKey: ['shawarma-images', variables.shawarmaId] });
+    },
+  });
+};
+
+// Получение изображений шаурмы
+export const useShawarmaImages = (shawarmaId: number) => {
+  return useQuery({
+    queryKey: ['shawarma-images', shawarmaId],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/image/shawarma/${shawarmaId}`);
+      return data as ShawarmaImage[];
+    },
+    enabled: !!shawarmaId,
+  });
+};
+
+// Удаление изображения
+export const useDeleteImage = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (imageId: number) => {
+      await apiClient.delete(`/image/${imageId}`);
+    },
+    onSuccess: (_) => {
+      // Находим shawarmaId через query cache (сложно), 
+      // лучше инвалидировать по ключу шаурмы
+      queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
+    },
   });
 };
