@@ -35,6 +35,7 @@ var app = builder.Build();
 
 // 👇 ВАЖНО: порядок!
 app.UseCors();
+app.UseStaticFiles(); 
 
 if (app.Environment.IsDevelopment())
 {

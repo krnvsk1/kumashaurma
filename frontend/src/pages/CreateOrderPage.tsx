@@ -18,29 +18,26 @@ import {
   Divider,
   Alert,
   CircularProgress,
-  Snackbar,
-  Paper,
-  InputAdornment
+  Snackbar
 } from '@mui/material';
 import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { useShawarmas, useCreateOrder } from '../api/hooks';
-import type { Shawarma, CreateOrderDto } from '../types';
-
-// Тип для элементов корзины (расширяем Shawarma полем quantity)
-interface CartItem extends Shawarma {
-  quantity: number;
-}
+import type { CreateOrderDto } from '../types';
+import { useCartStore } from '../store/cartStore'; // 👈 импортируем корзину
 
 const CreateOrderPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   
-  // Хуки для данных
   const { data: shawarmas = [], isLoading, error: shawarmasError } = useShawarmas();
   const createOrder = useCreateOrder();
 
-  // Состояние формы
-  const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+  // 👇 Получаем данные из корзины
+  const cartItems = useCartStore(state => state.items);
+  const clearCart = useCartStore(state => state.clearCart);
+  const removeItem = useCartStore(state => state.removeItem);
+  const updateQuantity = useCartStore(state => state.updateQuantity);
+
   const [selectedShawarmaId, setSelectedShawarmaId] = React.useState<number | ''>('');
   const [quantity, setQuantity] = React.useState(1);
   
@@ -50,42 +47,36 @@ const CreateOrderPage: React.FC = () => {
   const [address, setAddress] = React.useState('');
   const [notes, setNotes] = React.useState('');
 
-  // UI состояния
   const [snackbar, setSnackbar] = React.useState({ 
     open: false, 
     message: '', 
-    severity: 'success' as 'success' | 'error' 
+    severity: 'success' as 'success' | 'error' | 'info' | 'warning' 
   });
-
-  // Получаем переданный товар из MenuPage (если есть)
-  const preselectedItem = location.state?.selectedItem;
-
-  // Автоматически добавляем переданный товар при загрузке
-  React.useEffect(() => {
-    if (preselectedItem && shawarmas.length > 0) {
-      const fullItem = shawarmas.find(s => s.id === preselectedItem.id);
-      if (fullItem) {
-        const newItem: CartItem = {
-          ...fullItem,
-          quantity: 1
-        };
-        setCartItems([newItem]);
-        console.log('✅ Товар добавлен из меню:', newItem.name);
-      }
-    }
-  }, [preselectedItem, shawarmas]);
 
   // Вычисляем итоговую сумму
   const totalAmount = React.useMemo(() => {
     return cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
   }, [cartItems]);
 
-  // Показываем уведомления
-  const showSnackbar = (message: string, severity: 'success' | 'error') => {
+  const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({ open: true, message, severity });
   };
 
-  // Добавление товара в корзину
+  // Добавление товара из меню (если передан через state)
+  const preselectedItem = location.state?.selectedItem;
+
+  React.useEffect(() => {
+    if (preselectedItem && shawarmas.length > 0) {
+      const fullItem = shawarmas.find(s => s.id === preselectedItem.id);
+      if (fullItem) {
+        // Используем addItem из store (нужно добавить в store, если нет)
+        // Пока просто покажем сообщение
+        showSnackbar(`Товар "${fullItem.name}" нужно добавить через меню`, 'info');
+      }
+    }
+  }, [preselectedItem, shawarmas]);
+
+  // Добавление товара в корзину (локально, для новой позиции)
   const handleAddItem = () => {
     if (!selectedShawarmaId) {
       showSnackbar('Выберите блюдо', 'error');
@@ -95,51 +86,15 @@ const CreateOrderPage: React.FC = () => {
     const shawarma = shawarmas.find(s => s.id === selectedShawarmaId);
     if (!shawarma) return;
 
-    // Проверяем, есть ли уже такой товар в корзине
-    const existingItem = cartItems.find(item => item.id === shawarma.id);
-    
-    if (existingItem) {
-      // Если есть - увеличиваем количество
-      setCartItems(prev => prev.map(item => 
-        item.id === shawarma.id 
-          ? { ...item, quantity: item.quantity + quantity }
-          : item
-      ));
-    } else {
-      // Если нет - добавляем новый
-      const newItem: CartItem = {
-        ...shawarma,
-        quantity
-      };
-      setCartItems(prev => [...prev, newItem]);
-    }
-
-    // Сбрасываем выбор
-    setSelectedShawarmaId('');
-    setQuantity(1);
-    
-    showSnackbar(`"${shawarma.name}" добавлен в заказ`, 'success');
-  };
-
-  // Удаление товара из корзины
-  const handleRemoveItem = (itemId: number) => {
-    setCartItems(prev => prev.filter(item => item.id !== itemId));
-  };
-
-  // Изменение количества товара
-  const handleQuantityChange = (itemId: number, newQuantity: number) => {
-    if (newQuantity < 1) return;
-    
-    setCartItems(prev => prev.map(item => 
-      item.id === itemId 
-        ? { ...item, quantity: newQuantity }
-        : item
-    ));
+    // Используем addItem из store (нужно добавить)
+    // Временно через console.log
+    console.log('Нужно добавить товар в корзину:', shawarma);
+    showSnackbar(`Функция добавления в корзину будет позже`, 'info');
   };
 
   // Очистка корзины
   const handleClearCart = () => {
-    setCartItems([]);
+    clearCart();
     showSnackbar('Корзина очищена', 'success');
   };
 
@@ -159,7 +114,7 @@ const CreateOrderPage: React.FC = () => {
       return;
     }
 
-    // Подготавливаем данные в формате, который ждет бэкенд
+    // Подготавливаем данные
     const orderData: CreateOrderDto = {
       customerName: customerName.trim(),
       phone: phone.trim(),
@@ -176,14 +131,15 @@ const CreateOrderPage: React.FC = () => {
       
       showSnackbar(`Заказ #${result.id} создан успешно!`, 'success');
       
+      // Очищаем корзину после успешного заказа
+      clearCart();
+      
       // Сбрасываем форму
       setCustomerName('');
       setPhone('');
       setAddress('');
       setNotes('');
-      setCartItems([]);
       
-      // Через 2 секунды переходим на страницу заказов
       setTimeout(() => {
         navigate('/orders');
       }, 2000);
@@ -197,7 +153,6 @@ const CreateOrderPage: React.FC = () => {
     setSnackbar({ ...snackbar, open: false });
   };
 
-  // Если ошибка загрузки меню
   if (shawarmasError) {
     return (
       <Box sx={{ p: 3 }}>
@@ -214,7 +169,7 @@ const CreateOrderPage: React.FC = () => {
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" component="h1" gutterBottom>
-        Создание нового заказа
+        Оформление заказа
       </Typography>
 
       <Box sx={{ 
@@ -275,11 +230,11 @@ const CreateOrderPage: React.FC = () => {
             </CardContent>
           </Card>
           
-          {/* Добавление товара */}
+          {/* Добавление товара (опционально, можно убрать) */}
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom>
-                Добавить блюдо
+                Добавить ещё товар
               </Typography>
               
               {isLoading ? (
@@ -328,8 +283,8 @@ const CreateOrderPage: React.FC = () => {
                     disabled={!selectedShawarmaId || createOrder.isPending}
                     sx={{ 
                       minWidth: 120,
-                      bgcolor: '#ef4444',
-                      '&:hover': { bgcolor: '#dc2626' }
+                      bgcolor: 'primary.main',
+                      '&:hover': { bgcolor: 'primary.dark' }
                     }}
                   >
                     Добавить
@@ -340,7 +295,7 @@ const CreateOrderPage: React.FC = () => {
           </Card>
         </Box>
         
-        {/* Правая колонка - корзина */}
+        {/* Правая колонка - корзина из store */}
         <Box>
           <Card sx={{ height: '100%' }}>
             <CardContent>
@@ -350,7 +305,7 @@ const CreateOrderPage: React.FC = () => {
               
               {cartItems.length === 0 ? (
                 <Typography color="text.secondary" align="center" sx={{ py: 3 }}>
-                  Добавьте блюда в заказ
+                  Корзина пуста. Добавьте товары из меню.
                 </Typography>
               ) : (
                 <List>
@@ -360,7 +315,7 @@ const CreateOrderPage: React.FC = () => {
                         secondaryAction={
                           <IconButton 
                             edge="end" 
-                            onClick={() => handleRemoveItem(item.id)}
+                            onClick={() => removeItem(item.id)}
                             disabled={createOrder.isPending}
                           >
                             <DeleteIcon />
@@ -374,7 +329,7 @@ const CreateOrderPage: React.FC = () => {
                               <TextField
                                 type="number"
                                 value={item.quantity}
-                                onChange={(e) => handleQuantityChange(
+                                onChange={(e) => updateQuantity(
                                   item.id, 
                                   Math.max(1, parseInt(e.target.value) || 1)
                                 )}
@@ -400,7 +355,7 @@ const CreateOrderPage: React.FC = () => {
                 <Typography variant="h6">
                   Итого:
                 </Typography>
-                <Typography variant="h5" color="#ef4444" fontWeight="bold">
+                <Typography variant="h5" color="primary.main" fontWeight="bold">
                   {totalAmount} ₽
                 </Typography>
               </Box>
@@ -428,18 +383,14 @@ const CreateOrderPage: React.FC = () => {
                   }
                   startIcon={createOrder.isPending ? <CircularProgress size={20} color="inherit" /> : null}
                   sx={{
-                    bgcolor: '#ef4444',
-                    '&:hover': { bgcolor: '#dc2626' },
-                    '&:disabled': { bgcolor: '#9ca3af' }
+                    bgcolor: 'primary.main',
+                    '&:hover': { bgcolor: 'primary.dark' },
+                    '&:disabled': { bgcolor: 'grey.400' }
                   }}
                 >
                   {createOrder.isPending ? 'Создание...' : 'Создать заказ'}
                 </Button>
               </Box>
-              
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 2 }}>
-                * Обязательные поля. Цены фиксируются на момент заказа.
-              </Typography>
             </CardContent>
           </Card>
         </Box>

@@ -13,6 +13,7 @@ namespace Kumashaurma.API.Data
         public DbSet<Shawarma> Shawarmas { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
+        public DbSet<ShawarmaImage> ShawarmaImages { get; set; } 
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

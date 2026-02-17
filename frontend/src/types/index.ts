@@ -3,16 +3,26 @@
 // ==================== SHAWARMA (Меню) ====================
 
 export interface Shawarma {
+  id: number;
+  name: string;
+  price: number;
+  description: string;
+  category: string;
+  isSpicy: boolean;
+  hasCheese: boolean;
+  isAvailable: boolean;
+  createdAt: string;
+  updatedAt?: string | null;
+  images?: ShawarmaImage[];  // 👈 добавить
+  primaryImage?: string;      // 👈 добавить (для быстрого доступа)
+}
+
+  export interface ShawarmaImage {
     id: number;
-    name: string;
-    price: number;
-    description: string;
-    category: string;           // По умолчанию "Курица"
-    isSpicy: boolean;
-    hasCheese: boolean;
-    isAvailable: boolean;
-    createdAt: string;          // ISO date string
-    updatedAt?: string | null;  // может быть null
+    shawarmaId: number;
+    filePath: string;
+    isPrimary: boolean;
+    createdAt: string;
   }
   
   // Для создания (все обязательные поля, без автогенерируемых)
