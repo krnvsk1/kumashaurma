@@ -2,7 +2,7 @@ import * as React from 'react';
 import { 
   Typography, Box, Button, Card, CardContent, 
   Grid, Alert, Paper,
-  LinearProgress, Chip
+  LinearProgress, Chip, useTheme  // 👈 Добавлено useTheme
 } from '@mui/material';
 import { 
   Restaurant as RestaurantIcon,
@@ -14,8 +14,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { useShawarmas } from '../api/hooks';
-import { useOrders } from '../api/hooks';
+import { useShawarmas, useOrders } from '../api/hooks';
 import type { Order, Shawarma } from '../types';
 
 // Компонент для карточки статистики
@@ -26,45 +25,69 @@ const StatCard: React.FC<{
   color: string;
   subtitle?: string;
   loading?: boolean;
-}> = ({ title, value, icon, color, subtitle, loading }) => (
-  <Card sx={{ height: '100%' }}>
-    <CardContent>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-        <Box sx={{ color, mr: 2 }}>
-          {icon}
+}> = ({ title, value, icon, color, subtitle, loading }) => {
+  //const theme = useTheme();
+  
+  return (
+    <Card sx={{ height: '100%' }}>
+      <CardContent>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <Box sx={{ color, mr: 2 }}>
+            {icon}
+          </Box>
+          <Typography variant="h6" component="div">
+            {title}
+          </Typography>
         </Box>
-        <Typography variant="h6" component="div">
-          {title}
-        </Typography>
-      </Box>
-      {loading ? (
-        <Box sx={{ py: 2 }}>
-          <LinearProgress />
-        </Box>
-      ) : (
-        <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
-          {value}
-        </Typography>
-      )}
-      {subtitle && (
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-          {subtitle}
-        </Typography>
-      )}
-    </CardContent>
-  </Card>
-);
+        {loading ? (
+          <Box sx={{ py: 2 }}>
+            <LinearProgress />
+          </Box>
+        ) : (
+          <Typography variant="h4" component="div" sx={{ fontWeight: 'bold' }}>
+            {value}
+          </Typography>
+        )}
+        {subtitle && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            {subtitle}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
 
 // Компонент для строки заказа в списке последних
 const RecentOrderRow: React.FC<{ order: Order }> = ({ order }) => {
+  const theme = useTheme();
+  
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'Новый': return { bg: '#e3f2fd', color: '#1976d2' };
-      case 'Готовится': return { bg: '#fff3e0', color: '#f57c00' };
-      case 'Готов': return { bg: '#e8f5e9', color: '#2e7d32' };
-      case 'Доставлен': return { bg: '#e8f5e9', color: '#2e7d32' };
-      case 'Отменён': return { bg: '#ffebee', color: '#d32f2f' };
-      default: return { bg: '#f5f5f5', color: '#757575' };
+      case 'Новый': return { 
+        bg: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f', 
+        color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9' 
+      };
+      case 'Готовится': return { 
+        bg: theme.palette.mode === 'light' ? '#fff3e0' : '#663c00', 
+        color: theme.palette.mode === 'light' ? '#f57c00' : '#ffb74d' 
+      };
+      case 'Готов': return { 
+        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
+        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
+      };
+      case 'Доставлен': return { 
+        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
+        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
+      };
+      case 'Отменён': return { 
+        bg: theme.palette.mode === 'light' ? '#ffebee' : '#7f1d1d', 
+        color: theme.palette.mode === 'light' ? '#d32f2f' : '#ef5350' 
+      };
+      default: return { 
+        bg: theme.palette.mode === 'light' ? '#f5f5f5' : '#424242', 
+        color: theme.palette.mode === 'light' ? '#757575' : '#bdbdbd' 
+      };
     }
   };
 
@@ -87,7 +110,10 @@ const RecentOrderRow: React.FC<{ order: Order }> = ({ order }) => {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Typography variant="h6" color="#ef4444" fontWeight="bold">
+          <Typography 
+            variant="h6" 
+            sx={{ color: 'primary.main', fontWeight: 'bold' }}
+          >
             {order.total} ₽
           </Typography>
           <Chip
@@ -106,8 +132,9 @@ const RecentOrderRow: React.FC<{ order: Order }> = ({ order }) => {
 };
 
 // Компонент для популярных товаров
-const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ orders, shawarmas }) => {
-  // Считаем статистику по товарам
+const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ orders }) => {
+  const theme = useTheme();
+  
   const itemStats = React.useMemo(() => {
     const stats = new Map<number, { name: string; quantity: number; revenue: number }>();
     
@@ -129,7 +156,7 @@ const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ or
     return Array.from(stats.entries())
       .map(([id, data]) => ({ id, ...data }))
       .sort((a, b) => b.quantity - a.quantity)
-      .slice(0, 5); // Топ-5
+      .slice(0, 5);
   }, [orders]);
 
   if (itemStats.length === 0) {
@@ -160,9 +187,9 @@ const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ or
             sx={{
               height: 8,
               borderRadius: 4,
-              bgcolor: '#ffe5e5',
+              bgcolor: theme.palette.mode === 'light' ? '#ffe5e5' : '#7f1d1d',
               '& .MuiLinearProgress-bar': {
-                bgcolor: '#ef4444'
+                bgcolor: 'primary.main'
               }
             }}
           />
@@ -173,7 +200,8 @@ const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ or
 };
 
 const DashboardPage: React.FC = () => {
-  // Используем наши хуки!
+  //const theme = useTheme();
+  
   const { 
     data: shawarmas = [], 
     isLoading: shawarmasLoading, 
@@ -190,7 +218,6 @@ const DashboardPage: React.FC = () => {
 
   const [refreshing, setRefreshing] = React.useState(false);
 
-  // Функция для ручного обновления
   const handleRefresh = async () => {
     setRefreshing(true);
     await Promise.all([refetchShawarmas(), refetchOrders()]);
@@ -200,7 +227,6 @@ const DashboardPage: React.FC = () => {
   const loading = shawarmasLoading || ordersLoading || refreshing;
   const error = shawarmasError || ordersError;
 
-  // Вычисляем статистику
   const stats = React.useMemo(() => {
     const totalShawarmas = shawarmas.length;
     const availableShawarmas = shawarmas.filter(s => s.isAvailable).length;
@@ -212,7 +238,6 @@ const DashboardPage: React.FC = () => {
     
     const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
     
-    // Заказы за сегодня
     const today = new Date().toDateString();
     const todayOrders = orders.filter(o => 
       new Date(o.createdAt).toDateString() === today
@@ -252,7 +277,6 @@ const DashboardPage: React.FC = () => {
 
   return (
     <Box>
-      {/* Заголовок с кнопкой обновления */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
           <Typography variant="h4" component="h1" gutterBottom>
@@ -272,7 +296,6 @@ const DashboardPage: React.FC = () => {
         </Button>
       </Box>
 
-      {/* Статистика */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 6, md: 3 }}>
           <StatCard
@@ -316,14 +339,12 @@ const DashboardPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Два блока в ряд */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
-        {/* Последние заказы */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <CartIcon sx={{ color: '#ef4444' }} />
+                <CartIcon sx={{ color: 'primary.main' }} />
                 <Typography variant="h6">
                   Последние заказы
                 </Typography>
@@ -354,12 +375,11 @@ const DashboardPage: React.FC = () => {
           </Card>
         </Grid>
 
-        {/* Популярные товары */}
         <Grid size={{ xs: 12, md: 6 }}>
           <Card sx={{ height: '100%' }}>
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <TrendingUpIcon sx={{ color: '#ef4444' }} />
+                <TrendingUpIcon sx={{ color: 'primary.main' }} />
                 <Typography variant="h6">
                   Популярные товары
                 </Typography>
@@ -381,15 +401,14 @@ const DashboardPage: React.FC = () => {
         </Grid>
       </Grid>
 
-      {/* Быстрые действия */}
       <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
         <Button
           variant="contained"
           component={Link}
           to="/order"
           sx={{
-            bgcolor: '#ef4444',
-            '&:hover': { bgcolor: '#dc2626' }
+            bgcolor: 'primary.main',
+            '&:hover': { bgcolor: 'primary.dark' }
           }}
         >
           Создать новый заказ

@@ -19,7 +19,8 @@ import {
   MenuItem,
   Paper,
   TextField,
-  InputAdornment
+  InputAdornment,
+  useTheme  // 👈 Добавлено
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -36,14 +37,34 @@ import type { Order, OrderStatus } from '../types';
 
 // Компонент для отображения статуса с цветом
 const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
+  const theme = useTheme();
+  
   const getStatusColor = (status: OrderStatus) => {
     switch (status) {
-      case 'Новый': return { bg: '#e3f2fd', color: '#1976d2' };
-      case 'Готовится': return { bg: '#fff3e0', color: '#f57c00' };
-      case 'Готов': return { bg: '#e8f5e9', color: '#2e7d32' };
-      case 'Доставлен': return { bg: '#e8f5e9', color: '#2e7d32' };
-      case 'Отменён': return { bg: '#ffebee', color: '#d32f2f' };
-      default: return { bg: '#f5f5f5', color: '#757575' };
+      case 'Новый': return { 
+        bg: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f', 
+        color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9' 
+      };
+      case 'Готовится': return { 
+        bg: theme.palette.mode === 'light' ? '#fff3e0' : '#663c00', 
+        color: theme.palette.mode === 'light' ? '#f57c00' : '#ffb74d' 
+      };
+      case 'Готов': return { 
+        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
+        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
+      };
+      case 'Доставлен': return { 
+        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
+        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
+      };
+      case 'Отменён': return { 
+        bg: theme.palette.mode === 'light' ? '#ffebee' : '#7f1d1d', 
+        color: theme.palette.mode === 'light' ? '#d32f2f' : '#ef5350' 
+      };
+      default: return { 
+        bg: theme.palette.mode === 'light' ? '#f5f5f5' : '#424242', 
+        color: theme.palette.mode === 'light' ? '#757575' : '#bdbdbd' 
+      };
     }
   };
 
@@ -64,6 +85,7 @@ const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
 
 // Компонент одной карточки заказа
 const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
+  const theme = useTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
   const updateStatus = useUpdateOrderStatus();
@@ -93,7 +115,6 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
   return (
     <Card sx={{ mb: 2 }}>
       <CardContent>
-        {/* Верхняя часть с основной информацией */}
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <Box sx={{ flex: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
@@ -133,9 +154,15 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
             </Grid>
           </Box>
 
-          {/* Правая часть с суммой и действиями */}
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 2 }}>
-            <Typography variant="h5" color="#ef4444" fontWeight="bold" gutterBottom>
+            <Typography 
+              variant="h5" 
+              gutterBottom
+              sx={{ 
+                color: 'primary.main',
+                fontWeight: 'bold'
+              }}
+            >
               {order.total} ₽
             </Typography>
             
@@ -158,7 +185,6 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
               </IconButton>
             </Box>
 
-            {/* Меню изменения статуса */}
             <Menu
               anchorEl={anchorEl}
               open={Boolean(anchorEl)}
@@ -177,13 +203,17 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
           </Box>
         </Box>
 
-        {/* Состав заказа (раскрывающийся) */}
         <Collapse in={expanded}>
           <Box sx={{ mt: 3 }}>
             <Typography variant="subtitle2" gutterBottom>
               Состав заказа:
             </Typography>
-            <Paper variant="outlined" sx={{ bgcolor: '#fafafa' }}>
+            <Paper 
+              variant="outlined" 
+              sx={{ 
+                bgcolor: theme.palette.mode === 'light' ? '#fafafa' : '#1e293b'
+              }}
+            >
               <List dense>
                 {order.orderItems.map((item, index) => (
                   <React.Fragment key={item.id}>
@@ -202,7 +232,11 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
                 <Divider />
                 <ListItem>
                   <ListItemText primary="Итого" />
-                  <Typography variant="subtitle1" fontWeight="bold" color="#ef4444">
+                  <Typography 
+                    variant="subtitle1" 
+                    fontWeight="bold" 
+                    sx={{ color: 'primary.main' }}
+                  >
                     {order.total} ₽
                   </Typography>
                 </ListItem>
@@ -217,59 +251,38 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
 
 // Основной компонент страницы
 const OrdersPage: React.FC = () => {
+  const theme = useTheme();
   const { data: orders = [], isLoading, error, refetch } = useOrders();
 
-  // Состояния для фильтрации и поиска
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus | 'all'>('all');
-  const [searchId, setSearchId] = React.useState('');        // Поиск по номеру
-  const [searchName, setSearchName] = React.useState('');    // Поиск по имени
-  const [searchPhone, setSearchPhone] = React.useState('');  // Поиск по телефону
+  const [searchId, setSearchId] = React.useState('');
+  const [searchName, setSearchName] = React.useState('');
+  const [searchPhone, setSearchPhone] = React.useState('');
 
-  // Фильтрация заказов
   const filteredOrders = React.useMemo(() => {
     return orders.filter(order => {
-      // Фильтр по статусу
-      if (statusFilter !== 'all' && order.status !== statusFilter) {
-        return false;
-      }
-      
-      // Фильтр по номеру заказа
-      if (searchId && !order.id.toString().includes(searchId)) {
-        return false;
-      }
-      
-      // Фильтр по имени клиента
-      if (searchName && !order.customerName.toLowerCase().includes(searchName.toLowerCase())) {
-        return false;
-      }
-      
-      // Фильтр по телефону
-      if (searchPhone && !order.phone.includes(searchPhone)) {
-        return false;
-      }
-      
+      if (statusFilter !== 'all' && order.status !== statusFilter) return false;
+      if (searchId && !order.id.toString().includes(searchId)) return false;
+      if (searchName && !order.customerName.toLowerCase().includes(searchName.toLowerCase())) return false;
+      if (searchPhone && !order.phone.includes(searchPhone)) return false;
       return true;
     });
   }, [orders, statusFilter, searchId, searchName, searchPhone]);
 
-  // Статистика
   const stats = React.useMemo(() => {
     const total = orders.reduce((sum, order) => sum + order.total, 0);
     const newCount = orders.filter(o => o.status === 'Новый').length;
     const preparingCount = orders.filter(o => o.status === 'Готовится').length;
     const readyCount = orders.filter(o => o.status === 'Готов').length;
-    
     return { total, newCount, preparingCount, readyCount };
   }, [orders]);
 
-  // Очистка всех полей поиска
   const handleClearSearch = () => {
     setSearchId('');
     setSearchName('');
     setSearchPhone('');
   };
 
-  // Проверяем, активен ли поиск
   const isSearchActive = searchId || searchName || searchPhone;
 
   if (error) {
@@ -290,7 +303,6 @@ const OrdersPage: React.FC = () => {
 
   return (
     <Box>
-      {/* Заголовок и действия */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
           Заказы
@@ -309,8 +321,8 @@ const OrdersPage: React.FC = () => {
             component={Link}
             to="/order"
             sx={{
-              bgcolor: '#ef4444',
-              '&:hover': { bgcolor: '#dc2626' }
+              bgcolor: 'primary.main',
+              '&:hover': { bgcolor: 'primary.dark' }
             }}
           >
             Новый заказ
@@ -318,10 +330,8 @@ const OrdersPage: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Поля поиска */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Grid container spacing={2} alignItems="center">
-          {/* Поиск по номеру */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               fullWidth
@@ -340,8 +350,6 @@ const OrdersPage: React.FC = () => {
               size="small"
             />
           </Grid>
-
-          {/* Поиск по имени */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               fullWidth
@@ -360,8 +368,6 @@ const OrdersPage: React.FC = () => {
               size="small"
             />
           </Grid>
-
-          {/* Поиск по телефону */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <TextField
               fullWidth
@@ -380,8 +386,6 @@ const OrdersPage: React.FC = () => {
               size="small"
             />
           </Grid>
-
-          {/* Кнопка очистки */}
           <Grid size={{ xs: 12, sm: 6, md: 3 }}>
             <Button
               fullWidth
@@ -396,33 +400,39 @@ const OrdersPage: React.FC = () => {
         </Grid>
       </Paper>
 
-      {/* Статистика */}
       {!isLoading && orders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <Paper sx={{ p: 2, minWidth: 120 }}>
             <Typography variant="body2" color="text.secondary">Всего заказов</Typography>
             <Typography variant="h6">{orders.length}</Typography>
           </Paper>
-          <Paper sx={{ p: 2, minWidth: 120, bgcolor: '#e3f2fd' }}>
+          <Paper sx={{ p: 2, minWidth: 120, bgcolor: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f' }}>
             <Typography variant="body2" color="text.secondary">Новые</Typography>
-            <Typography variant="h6" color="#1976d2">{stats.newCount}</Typography>
+            <Typography variant="h6" sx={{ color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9' }}>
+              {stats.newCount}
+            </Typography>
           </Paper>
-          <Paper sx={{ p: 2, minWidth: 120, bgcolor: '#fff3e0' }}>
+          <Paper sx={{ p: 2, minWidth: 120, bgcolor: theme.palette.mode === 'light' ? '#fff3e0' : '#663c00' }}>
             <Typography variant="body2" color="text.secondary">Готовятся</Typography>
-            <Typography variant="h6" color="#f57c00">{stats.preparingCount}</Typography>
+            <Typography variant="h6" sx={{ color: theme.palette.mode === 'light' ? '#f57c00' : '#ffb74d' }}>
+              {stats.preparingCount}
+            </Typography>
           </Paper>
-          <Paper sx={{ p: 2, minWidth: 120, bgcolor: '#e8f5e9' }}>
+          <Paper sx={{ p: 2, minWidth: 120, bgcolor: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20' }}>
             <Typography variant="body2" color="text.secondary">Готовы</Typography>
-            <Typography variant="h6" color="#2e7d32">{stats.readyCount}</Typography>
+            <Typography variant="h6" sx={{ color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' }}>
+              {stats.readyCount}
+            </Typography>
           </Paper>
           <Paper sx={{ p: 2, minWidth: 120 }}>
             <Typography variant="body2" color="text.secondary">Выручка</Typography>
-            <Typography variant="h6" color="#ef4444">{stats.total} ₽</Typography>
+            <Typography variant="h6" sx={{ color: 'primary.main' }}>
+              {stats.total} ₽
+            </Typography>
           </Paper>
         </Box>
       )}
 
-      {/* Фильтры по статусу */}
       {!isLoading && orders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
@@ -442,7 +452,6 @@ const OrdersPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Результаты поиска */}
       {isSearchActive && (
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="body2" color="text.secondary">
@@ -456,7 +465,6 @@ const OrdersPage: React.FC = () => {
         </Box>
       )}
 
-      {/* Список заказов */}
       {isLoading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
           <CircularProgress />
@@ -478,7 +486,6 @@ const OrdersPage: React.FC = () => {
         </Alert>
       )}
 
-      {/* Подвал */}
       {!isLoading && filteredOrders.length > 0 && (
         <Box sx={{ mt: 3, textAlign: 'center' }}>
           <Typography variant="body2" color="text.secondary">
