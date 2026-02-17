@@ -11,14 +11,17 @@ import {
   Schedule,
   Dashboard as DashboardIcon,
   AddCircle as AddIcon,
-  Menu as MenuIcon,           // 👈 Новая иконка для бургера
-  Close as CloseIcon,          // 👈 Иконка закрытия
+  Menu as MenuIcon,
+  Close as CloseIcon,
   Home as HomeIcon,
   ListAlt as ListAltIcon,
-  AddShoppingCart as AddCartIcon
+  AddShoppingCart as AddCartIcon,
+  Brightness4 as Brightness4Icon,      // 👈 Добавлено
+  Brightness7 as Brightness7Icon        // 👈 Добавлено
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
+import { useTheme } from './hooks/useTheme';
 
 // Страницы
 import DashboardPage from './pages/DashboardPage';
@@ -27,7 +30,6 @@ import CreateOrderPage from './pages/CreateOrderPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
 
-// Создаем QueryClient для React Query
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -37,49 +39,53 @@ const queryClient = new QueryClient({
   },
 });
 
-// Создаем тему в стиле kumashaurma
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#ef4444',
-    },
-    secondary: {
-      main: '#fbbf24',
-    },
-    background: {
-      default: '#f8fafc',
-    },
-  },
-  typography: {
-    fontFamily: [
-      'Roboto',
-      '-apple-system',
-      'BlinkMacSystemFont',
-      'Segoe UI',
-      'sans-serif'
-    ].join(','),
-    h6: {
-      fontWeight: 700,
-    },
-  },
-  breakpoints: {
-    values: {
-      xs: 0,
-      sm: 600,
-      md: 960,
-      lg: 1280,
-      xl: 1920,
-    },
-  },
-});
-
 function App() {
+  const { theme: themeMode, toggleTheme } = useTheme(); // 👈 ХУК ДОЛЖЕН БЫТЬ ЗДЕСЬ
+  
   // Временное значение для корзины
   const cartTotal = 0;
   
   // Состояние для мобильного меню
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  
+
+  // 👇 ТЕПЕРЬ СОЗДАЁМ ТЕМУ ВНУТРИ КОМПОНЕНТА
+  const theme = createTheme({
+    palette: {
+      mode: themeMode,
+      primary: {
+        main: '#ef4444',
+      },
+      secondary: {
+        main: '#fbbf24',
+      },
+      background: {
+        default: themeMode === 'light' ? '#f8fafc' : '#0f172a',
+        paper: themeMode === 'light' ? '#ffffff' : '#1e293b',
+      },
+    },
+    typography: {
+      fontFamily: [
+        'Roboto',
+        '-apple-system',
+        'BlinkMacSystemFont',
+        'Segoe UI',
+        'sans-serif'
+      ].join(','),
+      h6: {
+        fontWeight: 700,
+      },
+    },
+    breakpoints: {
+      values: {
+        xs: 0,
+        sm: 600,
+        md: 960,
+        lg: 1280,
+        xl: 1920,
+      },
+    },
+  });
+
   // Определяем, мобильное ли устройство
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
@@ -144,7 +150,7 @@ function App() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1,
-                    fontSize: { xs: '1.1rem', sm: '1.5rem' } // Адаптивный размер
+                    fontSize: { xs: '1.1rem', sm: '1.5rem' }
                   }}
                 >
                   <RestaurantIcon sx={{ color: '#ef4444', fontSize: { xs: '1.5rem', sm: '2rem' } }} />
@@ -156,6 +162,20 @@ function App() {
                   </Box>
                 </Typography>
                 
+                {/* Кнопка переключения темы 👇 НОВОЕ */}
+                <IconButton
+                  onClick={toggleTheme}
+                  sx={{ 
+                    color: 'white',
+                    mr: 1,
+                    '&:hover': {
+                      backgroundColor: 'rgba(255,255,255,0.1)'
+                    }
+                  }}
+                >
+                  {themeMode === 'light' ? <Brightness4Icon /> : <Brightness7Icon />}
+                </IconButton>
+
                 {/* Время работы (скрыто на мобильных) */}
                 <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', mr: 3, gap: 1 }}>
                   <Schedule fontSize="small" />
@@ -174,7 +194,7 @@ function App() {
                     sx={{ 
                       fontWeight: 500, 
                       ml: 1,
-                      display: { xs: 'none', sm: 'block' } // Скрываем сумму на очень маленьких
+                      display: { xs: 'none', sm: 'block' }
                     }}
                   >
                     {cartTotal} ₽
@@ -184,7 +204,6 @@ function App() {
                 {/* Десктопная навигация */}
                 {!isMobile && (
                   <>
-                    {/* Публичная навигация */}
                     <Box sx={{ display: 'flex', gap: 1 }}>
                       <Button component={Link} to="/" sx={{ color: 'white' }}>
                         Меню
@@ -206,7 +225,6 @@ function App() {
                       </Button>
                     </Box>
 
-                    {/* Админ-меню */}
                     <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
                       <Button 
                         component={Link} 
@@ -230,7 +248,7 @@ function App() {
               </Toolbar>
             </AppBar>
 
-            {/* Мобильное меню (Drawer) */}
+            {/* Мобильное меню */}
             <Drawer
               anchor="left"
               open={mobileMenuOpen}
@@ -244,7 +262,6 @@ function App() {
               }}
             >
               <Box sx={{ p: 2 }}>
-                {/* Заголовок меню с кнопкой закрытия */}
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Typography variant="h6" sx={{ color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
                     <RestaurantIcon sx={{ color: '#ef4444' }} />
@@ -257,7 +274,6 @@ function App() {
 
                 <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 2 }} />
 
-                {/* Список пунктов меню */}
                 <List>
                   {menuItems.map((item) => (
                     <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
@@ -289,7 +305,6 @@ function App() {
 
                 <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
 
-                {/* Время работы в мобильном меню */}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'rgba(255,255,255,0.7)', p: 1 }}>
                   <Schedule fontSize="small" />
                   <Typography variant="body2">
@@ -299,14 +314,13 @@ function App() {
               </Box>
             </Drawer>
             
-            {/* Основной контент */}
             <Container 
               maxWidth="lg" 
               sx={{ 
                 mt: { xs: 2, sm: 4 }, 
                 mb: { xs: 2, sm: 4 }, 
                 flex: 1,
-                px: { xs: 1, sm: 2, md: 3 } // Адаптивные отступы
+                px: { xs: 1, sm: 2, md: 3 }
               }}
             >
               <Routes>
@@ -320,7 +334,6 @@ function App() {
               </Routes>
             </Container>
             
-            {/* Футер */}
             <Box 
               component="footer" 
               sx={{ 
@@ -344,4 +357,5 @@ function App() {
     </QueryClientProvider>
   );
 }
+
 export default App;

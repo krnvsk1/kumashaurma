@@ -2,6 +2,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  /* 👇 Добавляем плавные переходы для всех элементов */
+  transition: background-color 0.3s ease, 
+              color 0.2s ease, 
+              border-color 0.2s ease, 
+              box-shadow 0.2s ease;
 }
 
 body {
@@ -11,8 +16,76 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   background-color: #fafafa;
+  /* 👇 Добавляем переход для body */
+  transition: background-color 0.3s ease;
+}
+
+/* 👇 Стили для тёмной темы */
+[data-theme="dark"] body {
+  background-color: #0f172a;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .MuiPaper-root {
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+/* 👇 Стилизация скроллбара для тёмной темы */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-track {
+  background: #1e293b;
+  border-radius: 8px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 8px;
+  border: 2px solid #1e293b;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* 👇 Стили для светлой темы (скроллбар) */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 8px;
+  border: 2px solid #f1f5f9;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
 }
 
 #root {
   min-height: 100vh;
+}
+
+/* 👇 Утилитарные классы для тёмной темы */
+[data-theme="dark"] .text-primary {
+  color: #ef4444;
+}
+
+[data-theme="dark"] .bg-paper {
+  background-color: #1e293b;
+}
+
+[data-theme="dark"] .border-subtle {
+  border-color: #334155;
 }
