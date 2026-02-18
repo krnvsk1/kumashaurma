@@ -23,18 +23,21 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // 👇 УПРОЩЁННЫЙ CORS
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        policy.WithOrigins(
+            "http://localhost:3000",  // для разработки
+            "https://твой-проект.vercel.app"  // домен фронтенда (заменишь позже)
+        )
+        .AllowAnyMethod()
+        .AllowAnyHeader()
+        .AllowCredentials();  // если используешь куки/авторизацию
     });
 });
-
 var app = builder.Build();
 
 // 👇 ВАЖНО: порядок!
-app.UseCors();
+app.UseCors("AllowFrontend");
 app.UseStaticFiles(); 
 
 if (app.Environment.IsDevelopment())
