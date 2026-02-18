@@ -25,7 +25,11 @@ interface Category {
   count: number;
 }
 
-const MenuPage: React.FC = () => {
+interface MenuPageProps {
+  role: 'user' | 'admin';
+}
+
+const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
   const theme = useTheme();
   const { data: menuItems, isLoading, error } = useShawarmas();
   const [selectedProduct, setSelectedProduct] = useState<Shawarma | null>(null);
@@ -111,7 +115,7 @@ const MenuPage: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
-      {/* Заголовок в стиле Bento */}
+      {/* Заголовок */}
       <Box sx={{ mb: 6, textAlign: 'center' }}>
         <Typography
           variant="h2"
@@ -166,23 +170,25 @@ const MenuPage: React.FC = () => {
             }}
           />
           
-          <Button
-            component={Link}
-            to="/admin/create"
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{
-              borderRadius: 3,
-              px: 4,
-              py: 1.5,
-              whiteSpace: 'nowrap',
-            }}
-          >
-            Добавить товар
-          </Button>
+          {role === 'admin' && (
+            <Button
+              component={Link}
+              to="/admin/create"
+              variant="contained"
+              startIcon={<AddIcon />}
+              sx={{
+                borderRadius: 3,
+                px: 4,
+                py: 1.5,
+                whiteSpace: 'nowrap',
+              }}
+            >
+              Добавить товар
+            </Button>
+          )}
         </Box>
 
-        {/* Категории в виде чипсов */}
+        {/* Категории */}
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
           <Chip
             label={`Все (${menuItems?.filter(i => i.isAvailable).length || 0})`}
@@ -216,7 +222,7 @@ const MenuPage: React.FC = () => {
         </Box>
       </Paper>
 
-      {/* Динамическая Bento-сетка */}
+      {/* Сетка товаров */}
       {filteredItems.length === 0 ? (
         <Box textAlign="center" py={8}>
           <Typography variant="h5" color="text.secondary" sx={{ mb: 2 }}>

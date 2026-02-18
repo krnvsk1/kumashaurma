@@ -20,7 +20,7 @@ import {
   Paper,
   TextField,
   InputAdornment,
-  useTheme  // 👈 Добавлено
+  useTheme
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -84,7 +84,10 @@ const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
 };
 
 // Компонент одной карточки заказа
-const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
+const OrderCard: React.FC<{ 
+  order: Order;
+  role: 'user' | 'admin';
+}> = ({ order, role }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -175,31 +178,36 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
                 {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
               
-              <IconButton 
-                size="small" 
-                onClick={(e) => setAnchorEl(e.currentTarget)}
-                title="Изменить статус"
-                disabled={updateStatus.isPending}
-              >
-                <MoreVertIcon />
-              </IconButton>
-            </Box>
+              {/* Меню изменения статуса — только для админа */}
+              {role === 'admin' && (
+                <>
+                  <IconButton 
+                    size="small" 
+                    onClick={(e) => setAnchorEl(e.currentTarget)}
+                    title="Изменить статус"
+                    disabled={updateStatus.isPending}
+                  >
+                    <MoreVertIcon />
+                  </IconButton>
 
-            <Menu
-              anchorEl={anchorEl}
-              open={Boolean(anchorEl)}
-              onClose={() => setAnchorEl(null)}
-            >
-              {['Новый', 'Готовится', 'Готов', 'Доставлен', 'Отменён'].map((status) => (
-                <MenuItem 
-                  key={status} 
-                  onClick={() => handleStatusChange(status as OrderStatus)}
-                  selected={order.status === status}
-                >
-                  {status}
-                </MenuItem>
-              ))}
-            </Menu>
+                  <Menu
+                    anchorEl={anchorEl}
+                    open={Boolean(anchorEl)}
+                    onClose={() => setAnchorEl(null)}
+                  >
+                    {['Новый', 'Готовится', 'Готов', 'Доставлен', 'Отменён'].map((status) => (
+                      <MenuItem 
+                        key={status} 
+                        onClick={() => handleStatusChange(status as OrderStatus)}
+                        selected={order.status === status}
+                      >
+                        {status}
+                      </MenuItem>
+                    ))}
+                  </Menu>
+                </>
+              )}
+            </Box>
           </Box>
         </Box>
 
@@ -249,8 +257,12 @@ const OrderCard: React.FC<{ order: Order }> = ({ order }) => {
   );
 };
 
+interface OrdersPageProps {
+  role: 'user' | 'admin';
+}
+
 // Основной компонент страницы
-const OrdersPage: React.FC = () => {
+const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
   const theme = useTheme();
   const { data: orders = [], isLoading, error, refetch } = useOrders();
 
@@ -259,15 +271,24 @@ const OrdersPage: React.FC = () => {
   const [searchName, setSearchName] = React.useState('');
   const [searchPhone, setSearchPhone] = React.useState('');
 
+  // Фильтрация заказов (позже здесь будет фильтр по пользователю для покупателя)
   const filteredOrders = React.useMemo(() => {
-    return orders.filter(order => {
+    let filtered = orders;
+    
+    // Для покупателя показываем только его заказы (заглушка)
+    if (role === 'user') {
+      // TODO: фильтровать по реальному пользователю
+      filtered = orders.filter(order => order.customerName === 'Гость');
+    }
+    
+    return filtered.filter(order => {
       if (statusFilter !== 'all' && order.status !== statusFilter) return false;
       if (searchId && !order.id.toString().includes(searchId)) return false;
       if (searchName && !order.customerName.toLowerCase().includes(searchName.toLowerCase())) return false;
       if (searchPhone && !order.phone.includes(searchPhone)) return false;
       return true;
     });
-  }, [orders, statusFilter, searchId, searchName, searchPhone]);
+  }, [orders, statusFilter, searchId, searchName, searchPhone, role]);
 
   const stats = React.useMemo(() => {
     const total = orders.reduce((sum, order) => sum + order.total, 0);
@@ -305,7 +326,7 @@ const OrdersPage: React.FC = () => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          Заказы
+          {role === 'admin' ? 'Все заказы' : 'Мои заказы'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -316,17 +337,20 @@ const OrdersPage: React.FC = () => {
           >
             Обновить
           </Button>
-          <Button
-            variant="contained"
-            component={Link}
-            to="/order"
-            sx={{
-              bgcolor: 'primary.main',
-              '&:hover': { bgcolor: 'primary.dark' }
-            }}
-          >
-            Новый заказ
-          </Button>
+          {/* Кнопка нового заказа — только для покупателя */}
+          {role === 'user' && (
+            <Button
+              variant="contained"
+              component={Link}
+              to="/order"
+              sx={{
+                bgcolor: 'primary.main',
+                '&:hover': { bgcolor: 'primary.dark' }
+              }}
+            >
+              Новый заказ
+            </Button>
+          )}
         </Box>
       </Box>
 
@@ -400,7 +424,7 @@ const OrdersPage: React.FC = () => {
         </Grid>
       </Paper>
 
-      {!isLoading && orders.length > 0 && (
+      {!isLoading && orders.length > 0 && role === 'admin' && (
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <Paper sx={{ p: 2, minWidth: 120 }}>
             <Typography variant="body2" color="text.secondary">Всего заказов</Typography>
@@ -433,7 +457,7 @@ const OrdersPage: React.FC = () => {
         </Box>
       )}
 
-      {!isLoading && orders.length > 0 && (
+      {!isLoading && filteredOrders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
             label="Все"
@@ -473,7 +497,11 @@ const OrdersPage: React.FC = () => {
       ) : filteredOrders.length > 0 ? (
         <Box>
           {filteredOrders.map((order) => (
-            <OrderCard key={order.id} order={order} />
+            <OrderCard 
+              key={order.id} 
+              order={order} 
+              role={role}
+            />
           ))}
         </Box>
       ) : (
@@ -482,7 +510,9 @@ const OrdersPage: React.FC = () => {
             ? 'Ничего не найдено по заданным критериям' 
             : statusFilter !== 'all' 
               ? `Нет заказов со статусом "${statusFilter}"`
-              : 'Заказов пока нет. Создайте первый заказ!'}
+              : role === 'admin' 
+                ? 'Заказов пока нет.' 
+                : 'У вас пока нет заказов'}
         </Alert>
       )}
 
