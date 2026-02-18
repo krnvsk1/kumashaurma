@@ -4,7 +4,7 @@ import {
   ThemeProvider, createTheme, CssBaseline, Badge,
   IconButton, Drawer, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Divider, useMediaQuery,
-  Menu, MenuItem, Avatar
+  Menu, MenuItem
 } from '@mui/material';
 import { 
   LocalDining as RestaurantIcon, 
@@ -34,6 +34,7 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
+import AdminMenuPage from './pages/AdminMenuPage';
 
 type UserRole = 'user' | 'admin';
 
@@ -54,7 +55,7 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [role, setRole] = useState<UserRole>('user'); // По умолчанию покупатель
+  const [role, setRole] = useState<UserRole>('user');
   const [roleMenuAnchor, setRoleMenuAnchor] = useState<null | HTMLElement>(null);
 
   const theme = createTheme({
@@ -110,22 +111,21 @@ function App() {
     setRoleMenuAnchor(null);
   };
 
-  // Элементы меню для мобильной версии (зависят от роли)
   const getMenuItems = () => {
     const items = [
       { text: 'Меню', icon: <HomeIcon />, path: '/' },
       { text: 'Заказы', icon: <ListAltIcon />, path: '/orders' },
       { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
     ];
-
-    // Админские пункты
+  
     if (role === 'admin') {
       items.push(
         { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
-        { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' }
+        { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },  // 👈 здесь
+        { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' },
       );
     }
-
+  
     return items;
   };
 
@@ -135,7 +135,6 @@ function App() {
         <CssBaseline />
         <Router>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-            {/* Шапка */}
             <AppBar 
               position="static" 
               sx={{ 
@@ -159,7 +158,6 @@ function App() {
                   </IconButton>
                 )}
 
-                {/* Логотип */}
                 <Typography 
                   variant="h5" 
                   component={Link} 
@@ -184,7 +182,6 @@ function App() {
                   </Box>
                 </Typography>
 
-                {/* Переключатель ролей */}
                 <Button
                   onClick={handleRoleClick}
                   startIcon={role === 'admin' ? <AdminIcon /> : <PersonIcon />}
@@ -249,7 +246,6 @@ function App() {
                   </Typography>
                 </Box>
 
-                {/* Корзина (видна всем) */}
                 <Box 
                   onClick={() => setCartOpen(true)}
                   sx={{ 
@@ -277,7 +273,6 @@ function App() {
                   </Typography>
                 </Box>
 
-                {/* Десктопная навигация (зависит от роли) */}
                 {!isMobile && (
                   <>
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -301,11 +296,11 @@ function App() {
                         </Button>
                         <Button 
                           component={Link} 
-                          to="/admin/create"
+                          to="/admin/menu"
                           startIcon={<AddIcon />}
                           sx={{ color: 'text.primary' }}
                         >
-                          Добавить
+                          Товары
                         </Button>
                       </Box>
                     )}
@@ -314,7 +309,6 @@ function App() {
               </Toolbar>
             </AppBar>
 
-            {/* Мобильное меню (зависит от роли) */}
             <Drawer
               anchor="left"
               open={mobileMenuOpen}
@@ -392,13 +386,17 @@ function App() {
               }}
             >
               <Routes>
-                <Route path="/" element={<MenuPage />} />
-                <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/" element={<MenuPage role={role} />} />
+                <Route path="/orders" element={<OrdersPage role={role} />} />
                 
-                {/* Админские маршруты доступны всем, но ссылки на них видны только админу */}
-                <Route path="/admin/dashboard" element={<DashboardPage />} />
-                <Route path="/admin/create" element={<CreateMenuItemPage />} />
-                <Route path="/admin/edit/:id" element={<CreateMenuItemPage />} />
+                {role === 'admin' && (
+                  <>
+                    <Route path="/admin/dashboard" element={<DashboardPage />} />
+                    <Route path="/admin/create" element={<CreateMenuItemPage />} />
+                    <Route path="/admin/edit/:id" element={<CreateMenuItemPage />} />
+                    <Route path="/admin/menu" element={<AdminMenuPage />} />
+                  </>
+                )}
                 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -413,12 +411,12 @@ function App() {
               }}
             />
             <OrderModal 
-                open={orderOpen} 
-                onClose={() => setOrderOpen(false)}
-                onBackToCart={() => {
-                  setOrderOpen(false);
-                  setCartOpen(true);
-                }}
+              open={orderOpen} 
+              onClose={() => setOrderOpen(false)}
+              onBackToCart={() => {
+                setOrderOpen(false);
+                setCartOpen(true);
+              }}
             />
             
             <Box 

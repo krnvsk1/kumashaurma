@@ -10,7 +10,7 @@ import {
   InputAdornment,
   Button,
   Paper,
-  useTheme
+  useTheme,
 } from '@mui/material';
 import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
@@ -32,10 +32,19 @@ interface MenuPageProps {
 const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
   const theme = useTheme();
   const { data: menuItems, isLoading, error } = useShawarmas();
+  
   const [selectedProduct, setSelectedProduct] = useState<Shawarma | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [items, setItems] = useState<Shawarma[]>([]);
+
+  // Синхронизируем items с menuItems
+  React.useEffect(() => {
+    if (menuItems) {
+      setItems(menuItems);
+    }
+  }, [menuItems]);
 
   const handleProductClick = (item: Shawarma) => {
     setSelectedProduct(item);
@@ -48,10 +57,10 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
   };
 
   const categories = useMemo<Category[]>(() => {
-    if (!menuItems) return [];
+    if (!items) return [];
     
     const categoryMap = new Map<string, number>();
-    menuItems.forEach(item => {
+    items.forEach(item => {
       if (item.isAvailable) {
         const count = categoryMap.get(item.category) || 0;
         categoryMap.set(item.category, count + 1);
@@ -61,12 +70,12 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
     return Array.from(categoryMap.entries())
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => a.name.localeCompare(b.name));
-  }, [menuItems]);
+  }, [items]);
 
   const filteredItems = useMemo(() => {
-    if (!menuItems) return [];
+    if (!items) return [];
     
-    return menuItems.filter(item => {
+    return items.filter(item => {
       if (!item.isAvailable) return false;
       if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
       if (searchQuery) {
@@ -76,7 +85,7 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
       }
       return true;
     });
-  }, [menuItems, selectedCategory, searchQuery]);
+  }, [items, selectedCategory, searchQuery]);
 
   const addToCart = useCartStore(state => state.addItem);
 
@@ -135,7 +144,7 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
           Наше Меню
         </Typography>
         <Typography variant="h6" color="text.secondary" sx={{ fontWeight: 400 }}>
-          Свежие ингредиенты, любимые рецепты
+          {role === 'admin' ? 'Просмотр меню' : 'Свежие ингредиенты, любимые рецепты'}
         </Typography>
       </Box>
 
@@ -191,7 +200,7 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
         {/* Категории */}
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
           <Chip
-            label={`Все (${menuItems?.filter(i => i.isAvailable).length || 0})`}
+            label={`Все (${items?.filter(i => i.isAvailable).length || 0})`}
             onClick={() => setSelectedCategory('all')}
             color={selectedCategory === 'all' ? 'primary' : 'default'}
             variant={selectedCategory === 'all' ? 'filled' : 'outlined'}
@@ -286,12 +295,12 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
           }}
         >
           <Typography variant="body1" color="text.secondary">
-            Показано {filteredItems.length} из {menuItems?.filter(i => i.isAvailable).length || 0} товаров
+            Показано {filteredItems.length} из {items?.filter(i => i.isAvailable).length || 0} товаров
           </Typography>
         </Paper>
       )}
 
-      {/* Модальное окно */}
+      {/* Модалка для товара */}
       <ProductModal
         open={modalOpen}
         onClose={handleCloseModal}

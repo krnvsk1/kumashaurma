@@ -62,6 +62,39 @@ export const useDeleteShawarma = () => {
   });
 };
 
+// 👇 Новый хук для обновления только доступности
+export const useUpdateShawarmaAvailability = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ id, isAvailable }: { id: number; isAvailable: boolean }) => {
+      // Сначала получаем текущий товар
+      const { data: shawarma } = await apiClient.get(`/shawarma/${id}`);
+      // Обновляем только поле isAvailable
+      const updated = { ...shawarma, isAvailable };
+      await apiClient.put(`/shawarma/${id}`, updated);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
+      queryClient.invalidateQueries({ queryKey: ['shawarma', variables.id] });
+    },
+  });
+};
+
+// 👇 Новый хук для обновления порядка сортировки
+export const useUpdateShawarmaOrder = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (items: { id: number; sortOrder: number }[]) => {
+      await apiClient.put('/shawarma/reorder', items);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
+    },
+  });
+};
+
 // ==================== ORDER HOOKS ====================
 
 export const useOrders = () => {
@@ -122,7 +155,8 @@ export const useHealth = () => {
   });
 };
 
-// Загрузка изображения
+// ==================== IMAGE HOOKS ====================
+
 export const useUploadImage = () => {
   const queryClient = useQueryClient();
   
@@ -145,7 +179,6 @@ export const useUploadImage = () => {
   });
 };
 
-// Получение изображений шаурмы
 export const useShawarmaImages = (shawarmaId: number) => {
   return useQuery({
     queryKey: ['shawarma-images', shawarmaId],
@@ -157,7 +190,6 @@ export const useShawarmaImages = (shawarmaId: number) => {
   });
 };
 
-// Удаление изображения
 export const useDeleteImage = () => {
   const queryClient = useQueryClient();
   
@@ -166,8 +198,22 @@ export const useDeleteImage = () => {
       await apiClient.delete(`/image/${imageId}`);
     },
     onSuccess: (_) => {
-      // Находим shawarmaId через query cache (сложно), 
-      // лучше инвалидировать по ключу шаурмы
+      queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
+    },
+  });
+};
+
+// 👇 Оставил, но он используется только в старом MenuPage
+// Если везде убрали перетаскивание — можно удалить
+export const useReorderShawarmas = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (items: { id: number; order: number }[]) => {
+      const response = await apiClient.put('/shawarma/reorder', items);
+      return response.data;
+    },
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
     },
   });
