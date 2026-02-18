@@ -20,6 +20,7 @@ namespace Kumashaurma.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var shawarmas = await _context.Shawarmas
+                .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ИЗОБРАЖЕНИЯ
                 .Where(s => s.IsAvailable)
                 .OrderBy(s => s.Name)
                 .ToListAsync();
@@ -30,7 +31,10 @@ namespace Kumashaurma.API.Controllers
         [HttpGet("{id}")]
         public async Task<IActionResult> GetById(int id)
         {
-            var shawarma = await _context.Shawarmas.FindAsync(id);
+            var shawarma = await _context.Shawarmas
+                .Include(s => s.Images)  // 👈 И ЗДЕСЬ ТОЖЕ
+                .FirstOrDefaultAsync(s => s.Id == id);
+                
             if (shawarma == null)
                 return NotFound();
                 
@@ -47,13 +51,21 @@ namespace Kumashaurma.API.Controllers
             _context.Shawarmas.Add(shawarma);
             await _context.SaveChangesAsync();
             
-            return CreatedAtAction(nameof(GetById), new { id = shawarma.Id }, shawarma);
+            // Загружаем созданный товар с изображениями (их пока нет)
+            var created = await _context.Shawarmas
+                .Include(s => s.Images)
+                .FirstOrDefaultAsync(s => s.Id == shawarma.Id);
+                
+            return CreatedAtAction(nameof(GetById), new { id = shawarma.Id }, created);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(int id, [FromBody] Shawarma updatedShawarma)
         {
-            var shawarma = await _context.Shawarmas.FindAsync(id);
+            var shawarma = await _context.Shawarmas
+                .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ДЛЯ ОТВЕТА
+                .FirstOrDefaultAsync(s => s.Id == id);
+                
             if (shawarma == null)
                 return NotFound();
                 
