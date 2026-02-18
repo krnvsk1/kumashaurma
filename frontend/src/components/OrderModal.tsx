@@ -18,7 +18,6 @@ import {
   CircularProgress,
   Snackbar,
   Slide,
-  useTheme,
   Paper
 } from '@mui/material';
 import type { SlideProps } from '@mui/material';
@@ -41,7 +40,6 @@ interface OrderModalProps {
 }
 
 const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) => {
-  const theme = useTheme();
   const createOrder = useCreateOrder();
 
   const cartItems = useCartStore(state => state.items);

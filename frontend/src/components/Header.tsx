@@ -1,6 +1,6 @@
 // src/components/Header.tsx
 import { AppBar, Toolbar, Typography, IconButton, Badge, Box } from '@mui/material';
-import { ShoppingCart, Menu as MenuIcon } from '@mui/icons-material';
+import { ShoppingCart} from '@mui/icons-material';
 
 const Header = () => {
   return (

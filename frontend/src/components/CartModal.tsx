@@ -8,7 +8,6 @@ import {
   Typography,
   IconButton,
   Button,
-  Divider,
   List,
   ListItem,
   ListItemAvatar,
@@ -20,10 +19,8 @@ import {
 } from '@mui/material';
 import {
   Close as CloseIcon,
-  Delete as DeleteIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
-  ShoppingCart as CartIcon,
   Search as SearchIcon,
   LocalOffer as OfferIcon
 } from '@mui/icons-material';
@@ -40,7 +37,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const items = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
-  const { updateQuantity, removeItem } = useCartStore();
+  const { updateQuantity} = useCartStore();
 
   const [promoCode, setPromoCode] = React.useState('');
   const [promoError, setPromoError] = React.useState(false);

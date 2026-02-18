@@ -7,8 +7,6 @@ import {
   Typography,
   Box,
   Button,
-  Chip,
-  Stack,
   IconButton,
   TextField,
   Divider,
@@ -23,7 +21,6 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Alert
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -77,7 +74,6 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
     isAvailable: true
   });
 
-  const [uploading, setUploading] = useState(false);
   const [tempImages, setTempImages] = useState<TempImage[]>([]);
   const [existingImages, setExistingImages] = useState<ShawarmaImage[]>([]);
   const [cropModalOpen, setCropModalOpen] = useState(false);
