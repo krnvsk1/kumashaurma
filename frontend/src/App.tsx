@@ -3,7 +3,8 @@ import {
   AppBar, Toolbar, Typography, Button, Box, Container, 
   ThemeProvider, createTheme, CssBaseline, Badge,
   IconButton, Drawer, List, ListItem, ListItemButton,
-  ListItemIcon, ListItemText, Divider, useMediaQuery
+  ListItemIcon, ListItemText, Divider, useMediaQuery,
+  Menu, MenuItem, Avatar
 } from '@mui/material';
 import { 
   LocalDining as RestaurantIcon, 
@@ -17,7 +18,9 @@ import {
   ListAlt as ListAltIcon,
   AddShoppingCart as AddCartIcon,
   Brightness4 as Brightness4Icon,
-  Brightness7 as Brightness7Icon
+  Brightness7 as Brightness7Icon,
+  AdminPanelSettings as AdminIcon,
+  Person as PersonIcon
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -31,6 +34,8 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
+
+type UserRole = 'user' | 'admin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -49,8 +54,9 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [role, setRole] = useState<UserRole>('user'); // По умолчанию покупатель
+  const [roleMenuAnchor, setRoleMenuAnchor] = useState<null | HTMLElement>(null);
 
-  // 🌈 Тема адаптируется под режим
   const theme = createTheme({
     palette: {
       mode: themeMode,
@@ -77,33 +83,9 @@ function App() {
         '-apple-system',
         'sans-serif'
       ].join(','),
-      h4: {
-        fontWeight: 700,
-        letterSpacing: '-0.02em',
-      },
-      h5: {
-        fontWeight: 600,
-        letterSpacing: '-0.01em',
-      },
-      h6: {
-        fontWeight: 600,
-      },
-      button: {
-        textTransform: 'none',
-        fontWeight: 500,
-      },
     },
     shape: {
       borderRadius: 16,
-    },
-    breakpoints: {
-      values: {
-        xs: 0,
-        sm: 600,
-        md: 960,
-        lg: 1280,
-        xl: 1920,
-      },
     },
   });
 
@@ -117,13 +99,35 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  const menuItems = [
-    { text: 'Меню', icon: <HomeIcon />, path: '/' },
-    { text: 'Заказы', icon: <ListAltIcon />, path: '/orders' },
-    { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
-    { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
-    { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' },
-  ];
+  const handleRoleClick = (event: React.MouseEvent<HTMLElement>) => {
+    setRoleMenuAnchor(event.currentTarget);
+  };
+
+  const handleRoleClose = (newRole?: UserRole) => {
+    if (newRole) {
+      setRole(newRole);
+    }
+    setRoleMenuAnchor(null);
+  };
+
+  // Элементы меню для мобильной версии (зависят от роли)
+  const getMenuItems = () => {
+    const items = [
+      { text: 'Меню', icon: <HomeIcon />, path: '/' },
+      { text: 'Заказы', icon: <ListAltIcon />, path: '/orders' },
+      { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
+    ];
+
+    // Админские пункты
+    if (role === 'admin') {
+      items.push(
+        { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
+        { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' }
+      );
+    }
+
+    return items;
+  };
 
   return (
     <QueryClientProvider client={queryClient}>
@@ -155,6 +159,7 @@ function App() {
                   </IconButton>
                 )}
 
+                {/* Логотип */}
                 <Typography 
                   variant="h5" 
                   component={Link} 
@@ -178,6 +183,49 @@ function App() {
                     КУМА
                   </Box>
                 </Typography>
+
+                {/* Переключатель ролей */}
+                <Button
+                  onClick={handleRoleClick}
+                  startIcon={role === 'admin' ? <AdminIcon /> : <PersonIcon />}
+                  sx={{
+                    color: 'text.primary',
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: 3,
+                    mr: 1,
+                    textTransform: 'none',
+                  }}
+                >
+                  {role === 'admin' ? 'Админ' : 'Покупатель'}
+                </Button>
+                <Menu
+                  anchorEl={roleMenuAnchor}
+                  open={Boolean(roleMenuAnchor)}
+                  onClose={() => handleRoleClose()}
+                  PaperProps={{
+                    sx: {
+                      borderRadius: 3,
+                      mt: 1,
+                    }
+                  }}
+                >
+                  <MenuItem 
+                    onClick={() => handleRoleClose('user')}
+                    selected={role === 'user'}
+                    sx={{ borderRadius: 2, mx: 0.5 }}
+                  >
+                    <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
+                    Покупатель
+                  </MenuItem>
+                  <MenuItem 
+                    onClick={() => handleRoleClose('admin')}
+                    selected={role === 'admin'}
+                    sx={{ borderRadius: 2, mx: 0.5 }}
+                  >
+                    <AdminIcon sx={{ mr: 1, fontSize: 20 }} />
+                    Администратор
+                  </MenuItem>
+                </Menu>
                 
                 <IconButton
                   onClick={toggleTheme}
@@ -201,6 +249,7 @@ function App() {
                   </Typography>
                 </Box>
 
+                {/* Корзина (видна всем) */}
                 <Box 
                   onClick={() => setCartOpen(true)}
                   sx={{ 
@@ -228,6 +277,7 @@ function App() {
                   </Typography>
                 </Box>
 
+                {/* Десктопная навигация (зависит от роли) */}
                 {!isMobile && (
                   <>
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -239,30 +289,32 @@ function App() {
                       </Button>
                     </Box>
 
-                    <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
-                      <Button 
-                        component={Link} 
-                        to="/admin/dashboard"
-                        startIcon={<DashboardIcon />}
-                        sx={{ color: 'text.primary' }}
-                      >
-                        Дашборд
-                      </Button>
-                      <Button 
-                        component={Link} 
-                        to="/admin/create"
-                        startIcon={<AddIcon />}
-                        sx={{ color: 'text.primary' }}
-                      >
-                        Добавить
-                      </Button>
-                    </Box>
+                    {role === 'admin' && (
+                      <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
+                        <Button 
+                          component={Link} 
+                          to="/admin/dashboard"
+                          startIcon={<DashboardIcon />}
+                          sx={{ color: 'text.primary' }}
+                        >
+                          Дашборд
+                        </Button>
+                        <Button 
+                          component={Link} 
+                          to="/admin/create"
+                          startIcon={<AddIcon />}
+                          sx={{ color: 'text.primary' }}
+                        >
+                          Добавить
+                        </Button>
+                      </Box>
+                    )}
                   </>
                 )}
               </Toolbar>
             </AppBar>
 
-            {/* Мобильное меню */}
+            {/* Мобильное меню (зависит от роли) */}
             <Drawer
               anchor="left"
               open={mobileMenuOpen}
@@ -290,7 +342,7 @@ function App() {
                 <Divider sx={{ bgcolor: theme.palette.divider, mb: 2 }} />
 
                 <List>
-                  {menuItems.map((item) => (
+                  {getMenuItems().map((item) => (
                     <ListItem key={item.text} disablePadding sx={{ mb: 1 }}>
                       <ListItemButton
                         component={Link}
@@ -342,9 +394,12 @@ function App() {
               <Routes>
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                
+                {/* Админские маршруты доступны всем, но ссылки на них видны только админу */}
                 <Route path="/admin/dashboard" element={<DashboardPage />} />
                 <Route path="/admin/create" element={<CreateMenuItemPage />} />
                 <Route path="/admin/edit/:id" element={<CreateMenuItemPage />} />
+                
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Container>
