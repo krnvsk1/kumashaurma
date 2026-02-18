@@ -18,7 +18,9 @@ import {
   Divider,
   InputAdornment,
   Chip,
-  IconButton
+  IconButton,
+  Paper,
+  useTheme
 } from '@mui/material';
 import { 
   Save as SaveIcon, 
@@ -31,7 +33,6 @@ import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma } 
 import type { CreateShawarmaDto, ShawarmaImage } from '../types';
 import { useUploadImage, useShawarmaImages, useDeleteImage } from '../api/hooks';
 
-// Категории для выпадающего списка
 const CATEGORIES = [
   'Курица',
   'Баранина',
@@ -44,6 +45,7 @@ const CATEGORIES = [
 ];
 
 const CreateMenuItemPage: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
   const { id } = useParams();
   const isEditMode = Boolean(id);
@@ -176,7 +178,6 @@ const CreateMenuItemPage: React.FC = () => {
         savedId = result.id;
         showSnackbar(`Товар "${result.name}" создан!`, 'success');
         
-        // Если это новый товар, перенаправляем на страницу редактирования
         setTimeout(() => {
           navigate(`/admin/edit/${savedId}`);
         }, 1500);
@@ -225,27 +226,40 @@ const CreateMenuItemPage: React.FC = () => {
 
   return (
     <Box sx={{ p: 3, maxWidth: 800, mx: 'auto' }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+      {/* Шапка */}
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
         <Button
           startIcon={<ArrowBackIcon />}
           onClick={() => navigate('/')}
-          sx={{ mr: 2 }}
           disabled={isPending}
+          sx={{
+            mr: 2,
+            borderRadius: 3,
+            border: `1px solid ${theme.palette.divider}`,
+            px: 2,
+          }}
         >
           Назад
         </Button>
-        <Typography variant="h4" component="h1">
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
           {isEditMode ? 'Редактировать товар' : 'Добавить новый товар'}
         </Typography>
       </Box>
 
-      <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom sx={{ mb: 2 }}>
+      <Card
+        sx={{
+          borderRadius: 4,
+          border: `1px solid ${theme.palette.divider}`,
+          boxShadow: 'none',
+          bgcolor: 'background.paper',
+        }}
+      >
+        <CardContent sx={{ p: 4 }}>
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
             Основная информация
           </Typography>
 
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
             <TextField
               fullWidth
               label="Название товара *"
@@ -254,6 +268,11 @@ const CreateMenuItemPage: React.FC = () => {
               disabled={isPending}
               helperText="Например: Классическая шаурма"
               required
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                }
+              }}
             />
 
             <Box sx={{ display: 'flex', gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
@@ -269,6 +288,11 @@ const CreateMenuItemPage: React.FC = () => {
                   inputProps: { min: 0, step: 10 }
                 }}
                 required
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 3,
+                  }
+                }}
               />
 
               <FormControl fullWidth>
@@ -278,6 +302,7 @@ const CreateMenuItemPage: React.FC = () => {
                   label="Категория *"
                   onChange={(e) => handleChange('category', e.target.value)}
                   disabled={isPending}
+                  sx={{ borderRadius: 3 }}
                 >
                   {CATEGORIES.map((cat) => (
                     <MenuItem key={cat} value={cat}>{cat}</MenuItem>
@@ -296,15 +321,20 @@ const CreateMenuItemPage: React.FC = () => {
               rows={3}
               helperText="Подробное описание состава"
               required
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                }
+              }}
             />
 
             <Divider sx={{ my: 2 }} />
 
-            <Typography variant="h6" gutterBottom>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Характеристики
             </Typography>
 
-            <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
               <FormControlLabel
                 control={
                   <Switch
@@ -344,8 +374,8 @@ const CreateMenuItemPage: React.FC = () => {
 
             <Divider sx={{ my: 2 }} />
 
-            {/* Секция загрузки изображений */}
-            <Typography variant="h6" gutterBottom>
+            {/* Изображения */}
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
               Изображения
             </Typography>
 
@@ -357,6 +387,11 @@ const CreateMenuItemPage: React.FC = () => {
                     component="label"
                     startIcon={<UploadIcon />}
                     disabled={uploading || isPending}
+                    sx={{
+                      borderRadius: 3,
+                      border: `1px solid ${theme.palette.divider}`,
+                      py: 1,
+                    }}
                   >
                     {uploading ? 'Загрузка...' : 'Загрузить изображение'}
                     <input
@@ -371,15 +406,23 @@ const CreateMenuItemPage: React.FC = () => {
 
                 <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
                   {images.map((image: ShawarmaImage) => (
-                    <Box
+                    <Paper
                       key={image.id}
+                      elevation={0}
                       sx={{
                         position: 'relative',
-                        width: 100,
-                        height: 100,
-                        border: image.isPrimary ? '2px solid #ef4444' : '1px solid #e0e0e0',
-                        borderRadius: 1,
-                        overflow: 'hidden'
+                        width: 120,
+                        height: 120,
+                        borderRadius: 3,
+                        border: image.isPrimary 
+                          ? `2px solid ${theme.palette.primary.main}` 
+                          : `1px solid ${theme.palette.divider}`,
+                        overflow: 'hidden',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          transform: 'scale(1.05)',
+                        },
+                        bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
                       }}
                     >
                       <img
@@ -396,10 +439,16 @@ const CreateMenuItemPage: React.FC = () => {
                         onClick={() => handleDeleteImage(image.id)}
                         sx={{
                           position: 'absolute',
-                          top: 2,
-                          right: 2,
-                          bgcolor: 'rgba(255,255,255,0.8)',
-                          '&:hover': { bgcolor: 'white' }
+                          top: 4,
+                          right: 4,
+                          bgcolor: theme.palette.mode === 'light' 
+                            ? 'rgba(255,255,255,0.9)' 
+                            : 'rgba(0,0,0,0.7)',
+                          border: `1px solid ${theme.palette.divider}`,
+                          '&:hover': { 
+                            bgcolor: theme.palette.mode === 'light' ? 'white' : 'black',
+                            color: 'error.main'
+                          }
                         }}
                       >
                         <DeleteIcon fontSize="small" />
@@ -410,26 +459,36 @@ const CreateMenuItemPage: React.FC = () => {
                           size="small"
                           sx={{
                             position: 'absolute',
-                            bottom: 2,
-                            left: 2,
-                            height: 20,
-                            bgcolor: '#ef4444',
-                            color: 'white'
+                            bottom: 4,
+                            left: 4,
+                            height: 24,
+                            bgcolor: 'primary.main',
+                            color: 'white',
+                            fontWeight: 600,
+                            fontSize: '0.7rem',
                           }}
                         />
                       )}
-                    </Box>
+                    </Paper>
                   ))}
                 </Box>
               </>
             ) : (
-              <Alert severity="info">
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  borderRadius: 3,
+                  bgcolor: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f',
+                  color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9',
+                }}
+              >
                 Сначала сохраните товар, чтобы можно было загружать изображения
               </Alert>
             )}
           </Box>
 
-          <Box sx={{ display: 'flex', gap: 2, mt: 3, justifyContent: 'flex-end' }}>
+          {/* Кнопки */}
+          <Box sx={{ display: 'flex', gap: 2, mt: 4, justifyContent: 'flex-end' }}>
             {isEditMode && (
               <Button
                 variant="outlined"
@@ -437,6 +496,13 @@ const CreateMenuItemPage: React.FC = () => {
                 startIcon={<DeleteIcon />}
                 onClick={handleDelete}
                 disabled={isPending}
+                sx={{
+                  borderRadius: 3,
+                  borderWidth: 2,
+                  '&:hover': {
+                    borderWidth: 2,
+                  },
+                }}
               >
                 Удалить
               </Button>
@@ -445,6 +511,10 @@ const CreateMenuItemPage: React.FC = () => {
               variant="outlined"
               onClick={() => navigate('/')}
               disabled={isPending}
+              sx={{
+                borderRadius: 3,
+                border: `1px solid ${theme.palette.divider}`,
+              }}
             >
               Отмена
             </Button>
@@ -454,8 +524,8 @@ const CreateMenuItemPage: React.FC = () => {
               onClick={handleSubmit}
               disabled={isPending}
               sx={{
-                bgcolor: '#ef4444',
-                '&:hover': { bgcolor: '#dc2626' }
+                borderRadius: 3,
+                px: 4,
               }}
             >
               {isPending 
@@ -476,7 +546,11 @@ const CreateMenuItemPage: React.FC = () => {
         <Alert
           onClose={handleCloseSnackbar}
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: '100%',
+            borderRadius: 3,
+            border: `1px solid ${theme.palette.divider}`,
+          }}
         >
           {snackbar.message}
         </Alert>

@@ -21,7 +21,6 @@ interface MenuItemCardProps {
 const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
   const theme = useTheme();
   
-  // 👇 Берём первое изображение или заглушку
   const imageUrl = item.images && item.images.length > 0 && item.images[0]?.filePath
     ? `http://localhost:5199${item.images[0].filePath}`
     : '';
@@ -30,119 +29,125 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
     return null;
   }
 
-  console.log('🖼️ Товар:', item.name, 'Изображения:', item.images);
-  
   return (
     <Card
       sx={{
-        borderRadius: 2,
-        boxShadow: theme.palette.mode === 'light' 
-          ? '0 4px 12px rgba(0,0,0,0.05)' 
-          : '0 4px 12px rgba(0,0,0,0.3)',
-        transition: 'transform 0.2s, box-shadow 0.2s',
+        borderRadius: 4,
+        border: `1px solid ${theme.palette.divider}`,
+        boxShadow: 'none',
+        transition: 'all 0.2s ease',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: theme.palette.mode === 'light'
-            ? '0 8px 24px rgba(0,0,0,0.1)'
-            : '0 8px 24px rgba(0,0,0,0.5)',
+            ? '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)'
+            : '0 20px 25px -5px rgba(0,0,0,0.3), 0 10px 10px -5px rgba(0,0,0,0.2)',
+          borderColor: 'primary.main',
         },
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
         position: 'relative',
-        overflow: 'visible',
+        overflow: 'hidden',
+        bgcolor: 'background.paper',
       }}
     >
-      {/* Бейджи для характеристик */}
-      <Stack
-        direction="row"
-        spacing={0.5}
-        sx={{
-          position: 'absolute',
-          top: 12,
-          left: 12,
-          zIndex: 1,
-          flexWrap: 'wrap',
-          gap: 0.5,
-        }}
-      >
-        {item.isSpicy && (
-          <Chip
-            label="Острая"
-            size="small"
-            sx={{
-              bgcolor: 'primary.main',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '0.7rem',
-            }}
-          />
-        )}
+      <Box sx={{ position: 'relative', pt: '100%' }}>
+        <CardMedia
+          component="img"
+          image={imageUrl || placeholderImage}
+          alt={item.name}
+          sx={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+          }}
+        />
         
-        {item.hasCheese && (
-          <Chip
-            label="С сыром"
-            size="small"
-            sx={{
-              bgcolor: 'secondary.main',
-              color: theme.palette.mode === 'light' ? 'white' : 'black',
-              fontWeight: 'bold',
-              fontSize: '0.7rem',
-            }}
-          />
-        )}
-      </Stack>
+        <Stack
+          direction="row"
+          spacing={0.5}
+          sx={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            zIndex: 1,
+            flexWrap: 'wrap',
+            gap: 0.5,
+          }}
+        >
+          {item.isSpicy && (
+            <Chip
+              label="🌶️ Острая"
+              size="small"
+              sx={{
+                bgcolor: theme.palette.mode === 'light'
+                  ? 'rgba(239, 68, 68, 0.9)'
+                  : 'rgba(239, 68, 68, 0.8)',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '0.7rem',
+                backdropFilter: 'blur(4px)',
+                border: 'none',
+              }}
+            />
+          )}
+          
+          {item.hasCheese && (
+            <Chip
+              label="🧀 С сыром"
+              size="small"
+              sx={{
+                bgcolor: theme.palette.mode === 'light'
+                  ? 'rgba(251, 191, 36, 0.9)'
+                  : 'rgba(251, 191, 36, 0.8)',
+                color: theme.palette.mode === 'light' ? 'white' : 'black',
+                fontWeight: 600,
+                fontSize: '0.7rem',
+                backdropFilter: 'blur(4px)',
+                border: 'none',
+              }}
+            />
+          )}
+        </Stack>
 
-      {/* Категория */}
-      <Chip
-        label={item.category}
-        size="small"
-        sx={{
-          position: 'absolute',
-          top: 12,
-          right: 12,
-          bgcolor: theme.palette.mode === 'light' 
-            ? 'rgba(0,0,0,0.6)' 
-            : 'rgba(255,255,255,0.2)',
-          color: 'white',
-          fontWeight: 'bold',
-          fontSize: '0.7rem',
-          zIndex: 1,
-          backdropFilter: 'blur(4px)',
-        }}
-      />
-
-      {/* Изображение */}
-      <CardMedia
-        component="img"
-        height="200"
-        image={imageUrl}
-        alt={item.name}
-        sx={{
-          objectFit: 'cover',
-          borderTopLeftRadius: 8,
-          borderTopRightRadius: 8,
-          bgcolor: theme.palette.mode === 'light' ? '#f5f5f5' : '#334155',
-        }}
-      />
+        <Chip
+          label={item.category}
+          size="small"
+          sx={{
+            position: 'absolute',
+            top: 12,
+            right: 12,
+            bgcolor: theme.palette.mode === 'light'
+              ? 'rgba(255,255,255,0.9)'
+              : 'rgba(0,0,0,0.7)',
+            color: 'text.primary',
+            fontWeight: 600,
+            fontSize: '0.7rem',
+            backdropFilter: 'blur(4px)',
+            border: 'none',
+          }}
+        />
+      </Box>
 
       <CardContent
         sx={{
           flexGrow: 1,
-          p: 2,
+          p: 2.5,
           display: 'flex',
           flexDirection: 'column',
+          gap: 1,
         }}
       >
         <Typography
-          gutterBottom
           variant="h6"
           component="div"
           sx={{
-            fontWeight: 600,
-            fontSize: '1.1rem',
+            fontWeight: 700,
+            fontSize: '1.25rem',
             lineHeight: 1.3,
-            minHeight: '2.8em',
             color: 'text.primary',
           }}
         >
@@ -152,15 +157,14 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         <Typography
           variant="body2"
           sx={{
-            mb: 2,
-            flexGrow: 1,
             fontSize: '0.875rem',
-            lineHeight: 1.5,
+            lineHeight: 1.6,
+            color: 'text.secondary',
             display: '-webkit-box',
-            WebkitLineClamp: 3,
+            WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
-            color: 'text.secondary',
+            mb: 1,
           }}
         >
           {item.description || 'Без описания'}
@@ -169,46 +173,45 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         <Box
           sx={{
             display: 'flex',
-            justifyContent: 'flex-end',
+            justifyContent: 'space-between',
             alignItems: 'center',
             mt: 'auto',
+            pt: 2,
           }}
         >
           <Typography
-            variant="h6"
+            variant="h5"
             sx={{
               color: 'primary.main',
               fontWeight: 700,
-              fontSize: '1.25rem',
+              fontSize: '1.5rem',
             }}
           >
             {item.price} ₽
           </Typography>
+
+          <Button
+            component={Link}
+            to="/order"
+            state={{ selectedItem: item }}
+            variant="contained"
+            sx={{
+              bgcolor: 'primary.main',
+              '&:hover': { 
+                bgcolor: 'primary.dark',
+              },
+              fontWeight: 600,
+              px: 3,
+              py: 1,
+              borderRadius: 3,
+              textTransform: 'none',
+              fontSize: '0.9rem',
+            }}
+          >
+            Заказать
+          </Button>
         </Box>
       </CardContent>
-
-      <Box sx={{ p: 2, pt: 0 }}>
-        <Button
-          component={Link}
-          to="/order"
-          state={{ selectedItem: item }}
-          fullWidth
-          variant="contained"
-          sx={{
-            bgcolor: 'primary.main',
-            '&:hover': { 
-              bgcolor: 'primary.dark',
-            },
-            fontWeight: 600,
-            py: 1.2,
-            borderRadius: 1,
-            textTransform: 'none',
-            fontSize: '1rem',
-          }}
-        >
-          Быстрый заказ
-        </Button>
-      </Box>
     </Card>
   );
 };

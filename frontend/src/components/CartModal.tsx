@@ -15,24 +15,19 @@ import {
   Avatar,
   TextField,
   Paper,
-  useTheme,
-  Zoom,
-  Slide
+  Chip,
+  useTheme
 } from '@mui/material';
-import type { SlideProps } from '@mui/material';
 import {
   Close as CloseIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
-  ShoppingCart as CartIcon
+  ShoppingCart as CartIcon,
+  Search as SearchIcon,
+  LocalOffer as OfferIcon
 } from '@mui/icons-material';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
-
-// 👇 Правильно типизированный Transition
-const Transition = React.forwardRef<unknown, SlideProps>(function Transition(props, ref) {
-  return <Slide direction="up" ref={ref} {...props} />;
-});
 
 interface CartModalProps {
   open: boolean;
@@ -45,262 +40,245 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const items = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
-  const { updateQuantity, removeItem, clearCart } = useCartStore();
+  const { updateQuantity, removeItem } = useCartStore();
 
-  console.log('🛒 CartModal items:', items.map(i => ({
-    name: i.name,
-    hasImages: !!i.images,
-    imagesCount: i.images?.length,
-    firstImage: i.images?.[0]?.filePath
-  })));
-  
+  const [promoCode, setPromoCode] = React.useState('');
+  const [promoError, setPromoError] = React.useState(false);
+  const [deliveryType, setDeliveryType] = React.useState('Доставка');
+  const [address, setAddress] = React.useState('Пионерский переулок, 1');
+
+  const MIN_ORDER = 499;
+  const deliveryPrice = 0;
+  const isMinOrderReached = totalPrice >= MIN_ORDER;
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
       maxWidth="sm"
       fullWidth
-      TransitionComponent={Transition}
       PaperProps={{
         sx: {
-          borderRadius: 3,
-          bgcolor: theme.palette.mode === 'light' ? '#ffffff' : '#1e293b',
-          maxHeight: '80vh',
-          minHeight: items.length > 0 ? '60vh' : 'auto',
+          borderRadius: 4,
+          bgcolor: 'background.paper',
+          maxHeight: '90vh',
         }
       }}
     >
       {/* Заголовок */}
-      <DialogTitle sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        borderBottom: `1px solid ${theme.palette.divider}`,
-        py: 2
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <CartIcon sx={{ color: 'primary.main' }} />
-          <Typography variant="h6">
-            Ваша корзина
+      <DialogTitle sx={{ p: 3, pb: 1 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h4" sx={{ fontWeight: 700 }}>
+            Корзина
           </Typography>
-          {totalItems > 0 && (
-            <Typography variant="body2" color="text.secondary" component="span">
-              ({totalItems} {totalItems === 1 ? 'товар' : 'товаров'})
+          <IconButton onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
+        </Box>
+
+        {/* Табы доставки */}
+        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+          {['Доставка', 'Самовывоз', 'В зале', 'Food Drive'].map((type) => (
+            <Chip
+              key={type}
+              label={type}
+              onClick={() => setDeliveryType(type)}
+              variant={deliveryType === type ? 'filled' : 'outlined'}
+              color={deliveryType === type ? 'primary' : 'default'}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 500,
+              }}
+            />
+          ))}
+        </Box>
+      </DialogTitle>
+
+      <DialogContent sx={{ p: 3, pt: 1 }}>
+        {/* Поиск адреса */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 1,
+            mb: 3,
+            display: 'flex',
+            alignItems: 'center',
+            borderRadius: 3,
+            borderColor: theme.palette.divider,
+          }}
+        >
+          <SearchIcon sx={{ mx: 1, color: 'text.secondary' }} />
+          <TextField
+            fullWidth
+            placeholder="Поиск адреса"
+            value={address}
+            onChange={(e) => setAddress(e.target.value)}
+            variant="standard"
+            InputProps={{
+              disableUnderline: true,
+            }}
+          />
+        </Paper>
+
+        {/* Список товаров */}
+        <List sx={{ mb: 2 }}>
+          {items.map((item) => (
+            <ListItem key={item.id} sx={{ px: 0, alignItems: 'flex-start' }}>
+              <ListItemAvatar>
+                <Avatar
+                  variant="rounded"
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: 3,
+                    bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
+                    border: `1px solid ${theme.palette.divider}`,
+                  }}
+                >
+                  {item.images?.[0]?.filePath ? (
+                    <img
+                      src={`http://localhost:5199${item.images[0].filePath}`}
+                      alt={item.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover',
+                        borderRadius: 12,
+                      }}
+                    />
+                  ) : (
+                    <Typography sx={{ fontSize: '2rem' }}>🥙</Typography>
+                  )}
+                </Avatar>
+              </ListItemAvatar>
+              <Box sx={{ flex: 1, ml: 2 }}>
+                <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  {item.name}
+                </Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  {item.description || 'Состав'}
+                </Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                    {item.price} ₽
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <IconButton
+                      size="small"
+                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      sx={{
+                        border: `1px solid ${theme.palette.divider}`,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <RemoveIcon fontSize="small" />
+                    </IconButton>
+                    <Typography sx={{ minWidth: 30, textAlign: 'center' }}>
+                      {item.quantity}
+                    </Typography>
+                    <IconButton
+                      size="small"
+                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      sx={{
+                        border: `1px solid ${theme.palette.divider}`,
+                        borderRadius: 2,
+                      }}
+                    >
+                      <AddIcon fontSize="small" />
+                    </IconButton>
+                  </Box>
+                </Box>
+              </Box>
+            </ListItem>
+          ))}
+        </List>
+
+        {/* Промокод */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            mb: 2,
+            borderRadius: 3,
+            borderColor: promoError ? 'error.main' : theme.palette.divider,
+            bgcolor: promoError 
+              ? theme.palette.mode === 'light' ? '#fff5f5' : '#4a1f1f'
+              : 'transparent',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <OfferIcon sx={{ color: promoError ? 'error.main' : 'text.secondary' }} />
+            <TextField
+              fullWidth
+              placeholder="Промокод ШАУРМА"
+              value={promoCode}
+              onChange={(e) => {
+                setPromoCode(e.target.value);
+                setPromoError(false);
+              }}
+              variant="standard"
+              InputProps={{
+                disableUnderline: true,
+              }}
+            />
+          </Box>
+          {promoError && (
+            <Typography variant="caption" color="error">
+              Не найдены блюда в корзине для промокода
+            </Typography>
+          )}
+        </Paper>
+
+        {/* Итого */}
+        <Box sx={{ mb: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography color="text.secondary">Товары в заказе {totalItems} шт.</Typography>
+            <Typography fontWeight={600}>{totalPrice} ₽</Typography>
+          </Box>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Typography color="text.secondary">Доставка</Typography>
+            <Typography fontWeight={600}>{deliveryPrice} ₽</Typography>
+          </Box>
+          {!isMinOrderReached && (
+            <Typography variant="body2" color="error" sx={{ mt: 1 }}>
+              Пожалуйста, дозакажите до минимальной суммы. Минимальный заказ по указанному адресу — {MIN_ORDER} ₽
             </Typography>
           )}
         </Box>
-        <IconButton onClick={onClose} size="small">
-          <CloseIcon />
-        </IconButton>
-      </DialogTitle>
 
-      <DialogContent sx={{ p: 0 }}>
-        {items.length === 0 ? (
-          <Box sx={{ 
-            p: 4, 
-            textAlign: 'center',
+        {/* Бонусы */}
+        <Paper
+          variant="outlined"
+          sx={{
+            p: 2,
+            borderRadius: 3,
+            borderColor: theme.palette.divider,
+            bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
             display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2
-          }}>
-            <Zoom in={open}>
-              <CartIcon sx={{ fontSize: 80, color: 'text.secondary', opacity: 0.3 }} />
-            </Zoom>
-            <Typography variant="h6" color="text.secondary">
-              Корзина пуста
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Добавьте товары из меню
-            </Typography>
-            <Button 
-              variant="contained" 
-              onClick={onClose}
-              sx={{ 
-                bgcolor: 'primary.main',
-                mt: 2,
-                px: 4
-              }}
-            >
-              Продолжить покупки
-            </Button>
-          </Box>
-        ) : (
-          <>
-            {/* Список товаров */}
-            <List sx={{ p: 2 }}>
-              {items.map((item, index) => (
-                <React.Fragment key={item.id}>
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 1.5,
-                      bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#0f172a',
-                      borderRadius: 2,
-                      position: 'relative',
-                      transition: 'transform 0.2s',
-                      '&:hover': {
-                        transform: 'scale(1.02)',
-                        boxShadow: theme.shadows[2]
-                      }
-                    }}
-                  >
-                    <ListItem alignItems="flex-start" disablePadding>
-                      <ListItemAvatar>
-                        <Avatar
-                          variant="rounded"
-                          sx={{
-                            width: 60,
-                            height: 60,
-                            bgcolor: theme.palette.mode === 'light' ? '#e2e8f0' : '#334155',
-                            mr: 2
-                          }}
-                        >
-                          {item.images?.[0]?.filePath ? (
-                            <img
-                              src={`http://localhost:5199${item.images[0].filePath}`}
-                              alt={item.name}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover'
-                              }}
-                            />
-                          ) : (
-                            <Typography component="span" sx={{ fontSize: '2rem' }}>
-                              🥙
-                            </Typography>
-                          )}
-                        </Avatar>
-                      </ListItemAvatar>
-                      
-                      <Box component="div" sx={{ flex: 1 }}>
-                        <Box component="div" sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600, pr: 4 }} component="span">
-                            {item.name}
-                          </Typography>
-                          <IconButton
-                            size="small"
-                            onClick={() => removeItem(item.id)}
-                            sx={{
-                              color: 'text.secondary',
-                              '&:hover': { 
-                                color: 'error.main',
-                                bgcolor: theme.palette.mode === 'light' 
-                                  ? 'rgba(239, 68, 68, 0.1)' 
-                                  : 'rgba(239, 68, 68, 0.2)'
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                        
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block', mt: 0.5 }}>
-                          {item.price} ₽
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }} component="span">
-                          <IconButton
-                            size="small"
-                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                            sx={{
-                              border: `1px solid ${theme.palette.divider}`,
-                              borderRadius: 1,
-                            }}
-                          >
-                            <RemoveIcon fontSize="small" />
-                          </IconButton>
-                          <TextField
-                            value={item.quantity}
-                            onChange={(e) => {
-                              const val = parseInt(e.target.value);
-                              if (!isNaN(val) && val > 0) updateQuantity(item.id, val);
-                            }}
-                            size="small"
-                            sx={{ width: 50 }}
-                            inputProps={{
-                              min: 1,
-                              style: { textAlign: 'center' }
-                            }}
-                          />
-                          <IconButton
-                            size="small"
-                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                            sx={{
-                              border: `1px solid ${theme.palette.divider}`,
-                              borderRadius: 1,
-                            }}
-                          >
-                            <AddIcon fontSize="small" />
-                          </IconButton>
-                          
-                          <Typography variant="body2" sx={{ ml: 'auto', fontWeight: 600 }} component="span">
-                            = {item.price * item.quantity} ₽
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </ListItem>
-                  </Paper>
-                  {index < items.length - 1 && (
-                    <Divider sx={{ my: 1.5 }} />
-                  )}
-                </React.Fragment>
-              ))}
-            </List>
-          </>
-        )}
+            justifyContent: 'space-between',
+          }}
+        >
+          <Typography color="text.secondary">Бонусы к начислению</Typography>
+          <Typography fontWeight={600} color="primary.main">+35 ₽</Typography>
+        </Paper>
       </DialogContent>
 
-      {items.length > 0 && (
-        <DialogActions sx={{ 
-          p: 2, 
-          borderTop: `1px solid ${theme.palette.divider}`,
-          bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#0f172a',
-          flexDirection: 'column',
-          gap: 2
-        }}>
-          {/* Итого */}
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="body1">Товаров:</Typography>
-              <Typography variant="body1" fontWeight={500}>{totalItems} шт.</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-              <Typography variant="h6">Итого:</Typography>
-              <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                {totalPrice} ₽
-              </Typography>
-            </Box>
-          </Box>
-
-          {/* Кнопки */}
-          <Box sx={{ display: 'flex', gap: 1, width: '100%' }}>
-            <Button
-              variant="outlined"
-              color="error"
-              onClick={clearCart}
-              fullWidth
-              size="large"
-            >
-              Очистить
-            </Button>
-            <Button
-              variant="contained"
-              onClick={onCheckout}
-              fullWidth
-              size="large"
-              sx={{ bgcolor: 'primary.main' }}
-            >
-              Оформить заказ
-            </Button>
-          </Box>
-
-          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-            Бесплатная доставка от 500 ₽
-          </Typography>
-        </DialogActions>
-      )}
+      <DialogActions sx={{ p: 3, pt: 0 }}>
+        <Button
+          variant="contained"
+          onClick={onCheckout}
+          fullWidth
+          disabled={!isMinOrderReached || items.length === 0}
+          sx={{
+            borderRadius: 3,
+            py: 2,
+            fontSize: '1.1rem',
+            fontWeight: 600,
+          }}
+        >
+          Продолжить оформление
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };

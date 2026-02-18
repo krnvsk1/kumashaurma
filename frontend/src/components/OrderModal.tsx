@@ -44,11 +44,9 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
   const theme = useTheme();
   const createOrder = useCreateOrder();
 
-  // Данные из корзины (только для чтения)
   const cartItems = useCartStore(state => state.items);
   const clearCart = useCartStore(state => state.clearCart);
 
-  // Поля заказа
   const [address, setAddress] = React.useState('');
   const [notes, setNotes] = React.useState('');
 
@@ -119,66 +117,88 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
         TransitionComponent={Transition}
         PaperProps={{
           sx: {
-            borderRadius: 3,
-            bgcolor: theme.palette.mode === 'light' ? '#ffffff' : '#1e293b',
+            borderRadius: 6,
+            bgcolor: 'background.paper',
+            border: '1px solid #e2e8f0',
+            boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)',
           }
         }}
       >
-        {/* Заголовок с кнопками */}
+        {/* Заголовок */}
         <DialogTitle sx={{ 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          py: 2
+          borderBottom: '1px solid #e2e8f0',
+          py: 3,
+          px: 3,
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <IconButton onClick={onBackToCart} size="small" sx={{ color: 'text.secondary' }}>
+            <IconButton 
+              onClick={onBackToCart} 
+              size="small"
+              sx={{
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+              }}
+            >
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+            <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
               Оформление заказа
             </Typography>
           </Box>
-          <IconButton onClick={onClose} size="small">
+          <IconButton 
+            onClick={onClose} 
+            size="small"
+            sx={{
+              border: '1px solid #e2e8f0',
+              borderRadius: 2,
+            }}
+          >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 2 }}>
+        <DialogContent sx={{ p: 3 }}>
           {/* Адрес доставки */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 3 }}>
             <TextField
               fullWidth
               label="Адрес доставки *"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               disabled={createOrder.isPending}
-              size="small"
               placeholder="ул. Ленина, д. 1, кв. 1"
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  borderRadius: 3,
+                }
+              }}
             />
           </Box>
 
-          {/* Состав заказа (только просмотр) */}
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
-            Ваш заказ {cartItems.length > 0 && `(${cartItems.length} позиции)`}
+          {/* Состав заказа */}
+          <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
+            Ваш заказ {cartItems.length > 0 && `(${cartItems.length})`}
           </Typography>
 
           {cartItems.length === 0 ? (
-            <Typography color="text.secondary" align="center" sx={{ py: 2 }}>
+            <Typography color="text.secondary" align="center" sx={{ py: 4 }}>
               Корзина пуста
             </Typography>
           ) : (
-            <List sx={{ mb: 2 }}>
+            <List sx={{ mb: 3 }}>
               {cartItems.map((item) => (
                 <Paper
                   key={item.id}
                   elevation={0}
                   sx={{
-                    mb: 1,
-                    p: 1,
-                    bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#0f172a',
-                    borderRadius: 1.5,
+                    mb: 1.5,
+                    p: 1.5,
+                    borderRadius: 4,
+                    border: '1px solid #e2e8f0',
+                    bgcolor: 'background.paper',
                   }}
                 >
                   <ListItem alignItems="center" disablePadding>
@@ -186,9 +206,12 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                       <Avatar
                         variant="rounded"
                         sx={{
-                          width: 48,
-                          height: 48,
-                          bgcolor: theme.palette.mode === 'light' ? '#e2e8f0' : '#334155',
+                          width: 56,
+                          height: 56,
+                          bgcolor: '#f8fafc',
+                          borderRadius: 3,
+                          mr: 2,
+                          border: '1px solid #e2e8f0',
                         }}
                       >
                         {item.images?.[0]?.filePath ? (
@@ -198,11 +221,12 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                             style={{
                               width: '100%',
                               height: '100%',
-                              objectFit: 'cover'
+                              objectFit: 'cover',
+                              borderRadius: 12,
                             }}
                           />
                         ) : (
-                          <Typography component="span" sx={{ fontSize: '1.5rem' }}>
+                          <Typography component="span" sx={{ fontSize: '1.8rem' }}>
                             🥙
                           </Typography>
                         )}
@@ -210,7 +234,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                     </ListItemAvatar>
                     <ListItemText
                       primary={
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }} component="span">
+                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }} component="span">
                           {item.name}
                         </Typography>
                       }
@@ -220,8 +244,8 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                             <Typography variant="body2" color="text.secondary" component="span">
                               {item.quantity} × {item.price} ₽
                             </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 600, color: 'primary.main' }} component="span">
-                              = {item.price * item.quantity} ₽
+                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }} component="span">
+                              {item.price * item.quantity} ₽
                             </Typography>
                           </Box>
                         </Box>
@@ -233,7 +257,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             </List>
           )}
 
-          {/* Комментарий к заказу */}
+          {/* Комментарий */}
           <TextField
             fullWidth
             label="Комментарий к заказу"
@@ -242,38 +266,48 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             disabled={createOrder.isPending}
             multiline
             rows={2}
-            size="small"
             placeholder="Пожелания по доставке, звонок в домофон и т.д."
-            sx={{ mb: 2 }}
+            sx={{
+              mb: 3,
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 3,
+              }
+            }}
           />
 
           {/* Итого */}
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'center',
-            p: 1.5,
-            bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#0f172a',
-            borderRadius: 2,
-            mb: 1
-          }}>
-            <Typography variant="body1" sx={{ fontWeight: 600 }}>Итого:</Typography>
-            <Typography variant="h6" sx={{ color: 'primary.main', fontWeight: 700 }}>
-              {totalAmount} ₽
-            </Typography>
-          </Box>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              borderRadius: 4,
+              border: '1px solid #e2e8f0',
+              bgcolor: '#f8fafc',
+              mb: 2,
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 600 }}>Итого:</Typography>
+              <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 800 }}>
+                {totalAmount} ₽
+              </Typography>
+            </Box>
+          </Paper>
 
-          {/* Заглушка для будущей авторизации */}
-          <Box sx={{ mt: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 2 }}>
-            <Typography variant="caption" color="text.secondary">
+          {/* Заглушка авторизации */}
+          <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
+            <Typography variant="body2" color="text.secondary">
               🔐 В будущем здесь будут имя и телефон из профиля
             </Typography>
           </Box>
         </DialogContent>
 
         <DialogActions sx={{ 
-          p: 2, 
-          borderTop: `1px solid ${theme.palette.divider}`,
+          p: 3, 
+          borderTop: '1px solid #e2e8f0',
+          bgcolor: '#f8fafc',
+          borderBottomLeftRadius: 24,
+          borderBottomRightRadius: 24,
         }}>
           <Button
             variant="contained"
@@ -286,10 +320,9 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             }
             startIcon={createOrder.isPending ? <CircularProgress size={20} color="inherit" /> : null}
             sx={{
-              bgcolor: 'primary.main',
-              '&:hover': { bgcolor: 'primary.dark' },
-              '&:disabled': { bgcolor: 'grey.400' },
-              py: 1.2
+              borderRadius: 3,
+              py: 1.8,
+              fontSize: '1.1rem',
             }}
           >
             {createOrder.isPending ? 'Создание...' : 'Оформить заказ'}
@@ -306,7 +339,11 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
         <Alert 
           onClose={handleCloseSnackbar} 
           severity={snackbar.severity}
-          sx={{ width: '100%' }}
+          sx={{ 
+            width: '100%',
+            borderRadius: 3,
+            border: '1px solid #e2e8f0',
+          }}
         >
           {snackbar.message}
         </Alert>

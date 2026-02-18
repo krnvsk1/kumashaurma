@@ -50,6 +50,7 @@ function App() {
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  // 🌈 Тема адаптируется под режим
   const theme = createTheme({
     palette: {
       mode: themeMode,
@@ -60,21 +61,40 @@ function App() {
         main: '#fbbf24',
       },
       background: {
-        default: themeMode === 'light' ? '#f8fafc' : '#0f172a',
-        paper: themeMode === 'light' ? '#ffffff' : '#1e293b',
+        default: themeMode === 'light' ? '#ffffff' : '#0f172a',
+        paper: themeMode === 'light' ? '#f8fafc' : '#1e293b',
       },
+      text: {
+        primary: themeMode === 'light' ? '#0f172a' : '#f1f5f9',
+        secondary: themeMode === 'light' ? '#475569' : '#94a3b8',
+      },
+      divider: themeMode === 'light' ? '#e2e8f0' : '#334155',
     },
     typography: {
       fontFamily: [
+        'Inter',
         'Roboto',
         '-apple-system',
-        'BlinkMacSystemFont',
-        'Segoe UI',
         'sans-serif'
       ].join(','),
-      h6: {
+      h4: {
         fontWeight: 700,
+        letterSpacing: '-0.02em',
       },
+      h5: {
+        fontWeight: 600,
+        letterSpacing: '-0.01em',
+      },
+      h6: {
+        fontWeight: 600,
+      },
+      button: {
+        textTransform: 'none',
+        fontWeight: 500,
+      },
+    },
+    shape: {
+      borderRadius: 16,
     },
     breakpoints: {
       values: {
@@ -115,9 +135,10 @@ function App() {
             <AppBar 
               position="static" 
               sx={{ 
-                bgcolor: '#0E1C28', 
-                color: 'white',
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                bgcolor: 'background.paper',
+                color: 'text.primary',
+                boxShadow: 'none',
+                borderBottom: `1px solid ${theme.palette.divider}`,
               }}
             >
               <Toolbar>
@@ -140,7 +161,7 @@ function App() {
                   to="/"
                   sx={{ 
                     fontWeight: 700, 
-                    color: 'white',
+                    color: 'text.primary',
                     flexGrow: 1,
                     textDecoration: 'none',
                     display: 'flex',
@@ -149,7 +170,7 @@ function App() {
                     fontSize: { xs: '1.1rem', sm: '1.5rem' }
                   }}
                 >
-                  <RestaurantIcon sx={{ color: '#ef4444', fontSize: { xs: '1.5rem', sm: '2rem' } }} />
+                  <RestaurantIcon sx={{ color: 'primary.main', fontSize: { xs: '1.5rem', sm: '2rem' } }} />
                   <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
                     КУМА ШАУРМА
                   </Box>
@@ -161,10 +182,12 @@ function App() {
                 <IconButton
                   onClick={toggleTheme}
                   sx={{ 
-                    color: 'white',
+                    color: 'text.primary',
                     mr: 1,
                     '&:hover': {
-                      backgroundColor: 'rgba(255,255,255,0.1)'
+                      backgroundColor: theme.palette.mode === 'light' 
+                        ? 'rgba(0,0,0,0.05)' 
+                        : 'rgba(255,255,255,0.05)',
                     }
                   }}
                 >
@@ -172,8 +195,8 @@ function App() {
                 </IconButton>
 
                 <Box sx={{ display: { xs: 'none', md: 'flex' }, alignItems: 'center', mr: 3, gap: 1 }}>
-                  <Schedule fontSize="small" />
-                  <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                  <Schedule fontSize="small" sx={{ color: 'text.secondary' }} />
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: 'text.secondary' }}>
                     10:00−21:55
                   </Typography>
                 </Box>
@@ -184,7 +207,7 @@ function App() {
                     display: 'flex', 
                     alignItems: 'center', 
                     mr: { xs: 1, md: 3 },
-                    color: 'white',
+                    color: 'text.primary',
                     cursor: 'pointer',
                     '&:hover': { opacity: 0.8 }
                   }}
@@ -197,7 +220,8 @@ function App() {
                     sx={{ 
                       fontWeight: 500, 
                       ml: 1,
-                      display: { xs: 'none', sm: 'block' }
+                      display: { xs: 'none', sm: 'block' },
+                      color: 'text.primary'
                     }}
                   >
                     {totalPrice} ₽
@@ -207,10 +231,10 @@ function App() {
                 {!isMobile && (
                   <>
                     <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button component={Link} to="/" sx={{ color: 'white' }}>
+                      <Button component={Link} to="/" sx={{ color: 'text.primary' }}>
                         Меню
                       </Button>
-                      <Button component={Link} to="/orders" sx={{ color: 'white' }}>
+                      <Button component={Link} to="/orders" sx={{ color: 'text.primary' }}>
                         Заказы
                       </Button>
                     </Box>
@@ -220,7 +244,7 @@ function App() {
                         component={Link} 
                         to="/admin/dashboard"
                         startIcon={<DashboardIcon />}
-                        sx={{ color: 'white' }}
+                        sx={{ color: 'text.primary' }}
                       >
                         Дашборд
                       </Button>
@@ -228,7 +252,7 @@ function App() {
                         component={Link} 
                         to="/admin/create"
                         startIcon={<AddIcon />}
-                        sx={{ color: 'white' }}
+                        sx={{ color: 'text.primary' }}
                       >
                         Добавить
                       </Button>
@@ -246,23 +270,24 @@ function App() {
               sx={{
                 '& .MuiDrawer-paper': {
                   width: 280,
-                  bgcolor: '#0E1C28',
-                  color: 'white',
+                  bgcolor: 'background.paper',
+                  color: 'text.primary',
+                  borderRadius: '0 16px 16px 0',
                 },
               }}
             >
               <Box sx={{ p: 2 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                  <Typography variant="h6" sx={{ color: 'white', display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <RestaurantIcon sx={{ color: '#ef4444' }} />
+                  <Typography variant="h6" sx={{ color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <RestaurantIcon sx={{ color: 'primary.main' }} />
                     Меню
                   </Typography>
-                  <IconButton onClick={closeMobileMenu} sx={{ color: 'white' }}>
+                  <IconButton onClick={closeMobileMenu} sx={{ color: 'text.primary' }}>
                     <CloseIcon />
                   </IconButton>
                 </Box>
 
-                <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', mb: 2 }} />
+                <Divider sx={{ bgcolor: theme.palette.divider, mb: 2 }} />
 
                 <List>
                   {menuItems.map((item) => (
@@ -272,14 +297,15 @@ function App() {
                         to={item.path}
                         onClick={closeMobileMenu}
                         sx={{
-                          borderRadius: 1,
-                          bgcolor: item.highlight ? '#ef4444' : 'transparent',
+                          borderRadius: 2,
+                          bgcolor: item.highlight ? 'primary.main' : 'transparent',
+                          color: item.highlight ? 'white' : 'text.primary',
                           '&:hover': {
-                            bgcolor: item.highlight ? '#dc2626' : 'rgba(255,255,255,0.1)',
+                            bgcolor: item.highlight ? 'primary.dark' : 'action.hover',
                           },
                         }}
                       >
-                        <ListItemIcon sx={{ color: 'white', minWidth: 40 }}>
+                        <ListItemIcon sx={{ color: item.highlight ? 'white' : 'text.primary', minWidth: 40 }}>
                           {item.icon}
                         </ListItemIcon>
                         <ListItemText 
@@ -293,9 +319,9 @@ function App() {
                   ))}
                 </List>
 
-                <Divider sx={{ bgcolor: 'rgba(255,255,255,0.1)', my: 2 }} />
+                <Divider sx={{ bgcolor: theme.palette.divider, my: 2 }} />
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'rgba(255,255,255,0.7)', p: 1 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', p: 1 }}>
                   <Schedule fontSize="small" />
                   <Typography variant="body2">
                     Время работы: 10:00−21:55
@@ -310,7 +336,7 @@ function App() {
                 mt: { xs: 2, sm: 4 }, 
                 mb: { xs: 2, sm: 4 }, 
                 flex: 1,
-                px: { xs: 1, sm: 2, md: 3 }
+                px: { xs: 2, sm: 3, md: 4 }
               }}
             >
               <Routes>
@@ -323,7 +349,6 @@ function App() {
               </Routes>
             </Container>
 
-            {/* Модалки */}
             <CartModal 
               open={cartOpen} 
               onClose={() => setCartOpen(false)}
@@ -341,16 +366,15 @@ function App() {
                 }}
             />
             
-            {/* Футер */}
             <Box 
               component="footer" 
               sx={{ 
                 py: { xs: 2, sm: 3 }, 
                 px: 2, 
                 mt: 'auto', 
-                backgroundColor: '#0E1C28',
-                color: 'white',
-                borderTop: '1px solid #1e293b',
+                backgroundColor: 'background.paper',
+                color: 'text.primary',
+                borderTop: `1px solid ${theme.palette.divider}`,
               }}
             >
               <Container maxWidth="lg">
