@@ -236,6 +236,43 @@ namespace Kumashaurma.API.Controllers
                 return StatusCode(500, new { Message = "Ошибка сервера при получении статистики" });
             }
         }
+
+        [HttpPatch("{id}/status")]
+        public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderRequest request)
+        {
+            try
+            {
+                var order = await _context.Orders.FindAsync(id);
+                if (order == null)
+                    return NotFound(new { Message = $"Заказ с ID {id} не найден" });
+
+                if (!string.IsNullOrEmpty(request.Status))
+                {
+                    order.Status = request.Status;
+                    
+                    if (request.Status == "Выполнен" && order.CompletedAt == null)
+                    {
+                        order.CompletedAt = DateTime.UtcNow;
+                    }
+                    else if (order.Status == "Выполнен" && request.Status != "Выполнен")
+                    {
+                        order.CompletedAt = null;
+                    }
+                }
+
+                await _context.SaveChangesAsync();
+                
+                _logger.LogInformation("🔄 Статус заказа обновлен: ID {OrderId}, новый статус: {Status}", 
+                    id, order.Status);
+                    
+                return Ok(order);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при обновлении статуса заказа ID {OrderId}", id);
+                return StatusCode(500, new { Message = "Ошибка сервера при обновлении статуса" });
+            }
+        }
     }
 
     public class CreateOrderRequest
