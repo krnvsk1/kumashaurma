@@ -13,8 +13,9 @@ export interface Shawarma {
   isAvailable: boolean;
   createdAt: string;
   updatedAt?: string | null;
-  images?: ShawarmaImage[];  // 👈 добавить
-  primaryImage?: string;      // 👈 добавить (для быстрого доступа)
+  images?: ShawarmaImage[];
+  primaryImage?: string;
+  sortOrder?: number;
 }
 
   export interface ShawarmaImage {

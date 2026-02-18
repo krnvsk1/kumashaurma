@@ -16,12 +16,46 @@ namespace Kumashaurma.API.Controllers
             _context = context;
         }
 
+        [HttpPut("reorder")]
+        public async Task<IActionResult> Reorder([FromBody] List<ReorderItem> items)
+        {
+            Console.WriteLine($"📥 Получен reorder запрос. Items count: {items?.Count ?? 0}");
+            
+            if (items == null || !items.Any())
+            {
+                Console.WriteLine("❌ Нет данных");
+                return BadRequest("No items provided");
+            }
+            
+            foreach (var item in items)
+            {
+                Console.WriteLine($"  - Id: {item.Id}, Order: {item.Order}");
+            }
+            
+            foreach (var item in items)
+            {
+                var shawarma = await _context.Shawarmas.FindAsync(item.Id);
+                if (shawarma != null)
+                {
+                    shawarma.SortOrder = item.Order;
+                }
+            }
+            await _context.SaveChangesAsync();
+            return Ok();
+        }
+
+        public class ReorderItem
+        {
+            public int Id { get; set; }
+            public int Order { get; set; }
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
             var shawarmas = await _context.Shawarmas
                 .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ИЗОБРАЖЕНИЯ
-                .Where(s => s.IsAvailable)
+                .OrderBy(s => s.SortOrder)
                 .OrderBy(s => s.Name)
                 .ToListAsync();
                 

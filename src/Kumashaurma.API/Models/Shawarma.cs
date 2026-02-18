@@ -49,5 +49,8 @@ namespace Kumashaurma.API.Models
     
         [NotMapped]
         public string? PrimaryImage => Images?.FirstOrDefault(i => i.IsPrimary)?.FilePath;
+
+        [Column("sort_order")]
+        public int SortOrder { get; set; }
     }
 }
