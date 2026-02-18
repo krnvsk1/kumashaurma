@@ -27,7 +27,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:3000",  // для разработки
-            "https://твой-проект.vercel.app"  // домен фронтенда (заменишь позже)
+            "https://kumashaurma-frontend.vercel.app"  // домен фронтенда (заменишь позже)
         )
         .AllowAnyMethod()
         .AllowAnyHeader()
