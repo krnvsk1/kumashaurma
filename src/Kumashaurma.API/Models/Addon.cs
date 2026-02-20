@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations.Schema;
 
 namespace Kumashaurma.API.Models
 {
-    [Table("shawarmas")]
-    public class Shawarma
+    [Table("addons")]
+    public class Addon
     {
         [Key]
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
@@ -16,27 +16,26 @@ namespace Kumashaurma.API.Models
         [Column("name")]
         public string Name { get; set; } = string.Empty;
         
+        [MaxLength(500)]
+        [Column("description")]
+        public string? Description { get; set; }
+        
         [Required]
         [Range(0, 10000)]
         [Column("price", TypeName = "decimal(10,2)")]
         public decimal Price { get; set; }
         
-        [MaxLength(500)]
-        [Column("description")]
-        public string Description { get; set; } = string.Empty;
-        
-        [MaxLength(50)]
-        [Column("category")]
-        public string Category { get; set; } = "Курица";
-        
-        [Column("is_spicy")]
-        public bool IsSpicy { get; set; }
-        
-        [Column("has_cheese")]
-        public bool HasCheese { get; set; }
+        [Column("display_order")]
+        public int DisplayOrder { get; set; }
         
         [Column("is_available")]
         public bool IsAvailable { get; set; } = true;
+        
+        [Column("addon_category_id")]
+        public int AddonCategoryId { get; set; }
+        
+        [ForeignKey("AddonCategoryId")]
+        public AddonCategory Category { get; set; } = null!;
         
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("created_at")]
@@ -44,16 +43,8 @@ namespace Kumashaurma.API.Models
         
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
-
-        public ICollection<ShawarmaImage> Images { get; set; } = new List<ShawarmaImage>();
-    
-        [NotMapped]
-        public string? PrimaryImage => Images?.FirstOrDefault(i => i.IsPrimary)?.FilePath;
-
-        [Column("sort_order")]
-        public int SortOrder { get; set; }
         
-        // НОВОЕ: связь с добавками
-        public ICollection<ShawarmaAddon> Addons { get; set; } = new List<ShawarmaAddon>();
+        // Связь многие-ко-многим с Shawarma
+        public ICollection<ShawarmaAddon> Shawarmas { get; set; } = new List<ShawarmaAddon>();
     }
 }

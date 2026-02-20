@@ -16,6 +16,7 @@ export interface Shawarma {
   images?: ShawarmaImage[];
   primaryImage?: string;
   sortOrder?: number;
+  addonCategories?: AddonCategory[];
 }
 
   export interface ShawarmaImage {
@@ -36,6 +37,13 @@ export interface Shawarma {
     hasCheese?: boolean;
     isAvailable?: boolean;
   };
+
+  export interface CartItem extends Shawarma {
+    quantity: number;
+    selectedAddons: SelectedAddon[]; // 👈 НОВОЕ
+    specialInstructions?: string; // 👈 НОВОЕ
+    uniqueId?: string;
+  }
   
   // Для обновления (все опционально, кроме id)
   export type UpdateShawarmaDto = Partial<CreateShawarmaDto> & { id: number };
@@ -77,7 +85,11 @@ export interface Shawarma {
       shawarmaId: number;
       quantity: number;
       name?: string;            // опционально, бэкенд сам подставит
-      price?: number;           // опционально, бэкенд сам подставит
+      price?: number;
+      selectedAddons?: {              // 👈 НОВОЕ
+        addonId: number;
+        quantity: number;
+      }[];
     }[];
   }
   
@@ -116,4 +128,48 @@ export interface Shawarma {
     data: T;
     message?: string;
     errors?: string[];
+  }
+
+  // ==================== ADDONS (Добавки) ====================
+
+  export interface AddonCategory {
+    id: number;
+    name: string;
+    description?: string | null;
+    isRequired: boolean;
+    minSelections: number;
+    maxSelections: number;
+    addons: Addon[];
+  }
+
+  export interface Addon {
+    id: number;
+    name: string;
+    description?: string | null;
+    price: number;
+    isAvailable: boolean;
+    addonCategoryId?: number;  // Добавьте это поле
+    displayOrder?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  }
+
+  export interface SelectedAddon {
+    addonId: number;
+    addonName: string;
+    price: number;
+    quantity: number;
+    categoryId: number;
+    categoryName: string;
+  }
+
+  export interface OrderItemAddon {
+    id: number;
+    orderItemId: number;
+    addonId: number;
+    addonName: string;
+    addonCategoryId: number;
+    addonCategoryName: string;
+    price: number;
+    quantity: number;
   }

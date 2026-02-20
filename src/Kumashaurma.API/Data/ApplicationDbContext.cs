@@ -13,7 +13,13 @@ namespace Kumashaurma.API.Data
         public DbSet<Shawarma> Shawarmas { get; set; }
         public DbSet<Order> Orders { get; set; }
         public DbSet<OrderItem> OrderItems { get; set; }
-        public DbSet<ShawarmaImage> ShawarmaImages { get; set; } 
+        public DbSet<ShawarmaImage> ShawarmaImages { get; set; }
+        
+        // НОВЫЕ DbSet
+        public DbSet<AddonCategory> AddonCategories { get; set; }
+        public DbSet<Addon> Addons { get; set; }
+        public DbSet<ShawarmaAddon> ShawarmaAddons { get; set; }
+        public DbSet<OrderItemAddon> OrderItemAddons { get; set; }
         
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -40,6 +46,50 @@ namespace Kumashaurma.API.Data
                 entity.HasOne(e => e.Order)
                     .WithMany(o => o.OrderItems)
                     .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            
+            // НОВОЕ: AddonCategory configuration
+            modelBuilder.Entity<AddonCategory>(entity =>
+            {
+                entity.HasIndex(e => e.Name);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+            });
+            
+            // НОВОЕ: Addon configuration
+            modelBuilder.Entity<Addon>(entity =>
+            {
+                entity.HasIndex(e => e.Name);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+                
+                entity.HasOne(e => e.Category)
+                    .WithMany(c => c.Addons)
+                    .HasForeignKey(e => e.AddonCategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+            
+            // НОВОЕ: ShawarmaAddon configuration (многие-ко-многим)
+            modelBuilder.Entity<ShawarmaAddon>(entity =>
+            {
+                entity.HasIndex(e => new { e.ShawarmaId, e.AddonId }).IsUnique();
+                
+                entity.HasOne(e => e.Shawarma)
+                    .WithMany(s => s.Addons)
+                    .HasForeignKey(e => e.ShawarmaId)
+                    .OnDelete(DeleteBehavior.Cascade);
+                    
+                entity.HasOne(e => e.Addon)
+                    .WithMany(a => a.Shawarmas)
+                    .HasForeignKey(e => e.AddonId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+            
+            // НОВОЕ: OrderItemAddon configuration
+            modelBuilder.Entity<OrderItemAddon>(entity =>
+            {
+                entity.HasOne(e => e.OrderItem)
+                    .WithMany(oi => oi.SelectedAddons)
+                    .HasForeignKey(e => e.OrderItemId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }
