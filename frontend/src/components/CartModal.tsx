@@ -44,7 +44,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const [deliveryType, setDeliveryType] = React.useState('Доставка');
   const [address, setAddress] = React.useState('Пионерский переулок, 1');
 
-  const MIN_ORDER = 499;
+  const MIN_ORDER = 599;
   const deliveryPrice = 0;
   const isMinOrderReached = totalPrice >= MIN_ORDER;
 

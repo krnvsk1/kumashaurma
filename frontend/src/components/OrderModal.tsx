@@ -55,7 +55,10 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
   });
 
   const totalAmount = React.useMemo(() => {
-    return cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    return cartItems.reduce((sum, item) => {
+      const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
+      return sum + (item.price + addonsTotal) * item.quantity;
+    }, 0);
   }, [cartItems]);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
@@ -79,7 +82,12 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
       notes: notes.trim() || null,
       items: cartItems.map(item => ({
         shawarmaId: item.id,
-        quantity: item.quantity
+        quantity: item.quantity,
+        name: item.name,
+        selectedAddons: item.selectedAddons?.map(addon => ({
+          addonId: addon.addonId,
+          quantity: addon.quantity
+        }))
       }))
     };
 
@@ -187,71 +195,101 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             </Typography>
           ) : (
             <List sx={{ mb: 3 }}>
-              {cartItems.map((item) => (
-                <Paper
-                  key={item.id}
-                  elevation={0}
-                  sx={{
-                    mb: 1.5,
-                    p: 1.5,
-                    borderRadius: 4,
-                    border: '1px solid #e2e8f0',
-                    bgcolor: 'background.paper',
-                  }}
-                >
-                  <ListItem alignItems="center" disablePadding>
-                    <ListItemAvatar>
-                      <Avatar
-                        variant="rounded"
-                        sx={{
-                          width: 56,
-                          height: 56,
-                          bgcolor: '#f8fafc',
-                          borderRadius: 3,
-                          mr: 2,
-                          border: '1px solid #e2e8f0',
-                        }}
-                      >
-                        {item.images?.[0]?.filePath ? (
-                          <img
-                            src={`http://localhost:5199${item.images[0].filePath}`}
-                            alt={item.name}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              objectFit: 'cover',
-                              borderRadius: 12,
-                            }}
-                          />
-                        ) : (
-                          <Typography component="span" sx={{ fontSize: '1.8rem' }}>
-                            🥙
+              {cartItems.map((item) => {
+                const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
+                const itemTotal = (item.price + addonsTotal) * item.quantity;
+
+                return (
+                  <Paper
+                    key={item.uniqueKey || item.id}
+                    elevation={0}
+                    sx={{
+                      mb: 1.5,
+                      p: 1.5,
+                      borderRadius: 4,
+                      border: '1px solid #e2e8f0',
+                      bgcolor: 'background.paper',
+                    }}
+                  >
+                    <ListItem alignItems="flex-start" disablePadding>
+                      <ListItemAvatar>
+                        <Avatar
+                          variant="rounded"
+                          sx={{
+                            width: 56,
+                            height: 56,
+                            bgcolor: '#f8fafc',
+                            borderRadius: 3,
+                            mr: 2,
+                            border: '1px solid #e2e8f0',
+                          }}
+                        >
+                          {item.images?.[0]?.filePath ? (
+                            <img
+                              src={`http://localhost:5199${item.images[0].filePath}`}
+                              alt={item.name}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                borderRadius: 12,
+                              }}
+                            />
+                          ) : (
+                            <Typography component="span" sx={{ fontSize: '1.8rem' }}>
+                              🥙
+                            </Typography>
+                          )}
+                        </Avatar>
+                      </ListItemAvatar>
+                      <ListItemText
+                        primary={
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }} component="span">
+                            {item.name}
                           </Typography>
-                        )}
-                      </Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={
-                        <Typography variant="subtitle1" sx={{ fontWeight: 600 }} component="span">
-                          {item.name}
-                        </Typography>
-                      }
-                      secondary={
-                        <Box component="span">
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }} component="span">
-                            <Typography variant="body2" color="text.secondary" component="span">
-                              {item.quantity} × {item.price} ₽
-                            </Typography>
-                            <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }} component="span">
-                              {item.price * item.quantity} ₽
-                            </Typography>
+                        }
+                        secondary={
+                          <Box component="span">
+                            {/* Добавки */}
+                            {item.selectedAddons && item.selectedAddons.length > 0 && (
+                              <Box sx={{ mt: 0.5, mb: 0.5 }}>
+                                {item.selectedAddons.map((addon, idx) => (
+                                  <Typography 
+                                    key={idx} 
+                                    variant="caption" 
+                                    display="block" 
+                                    color="text.secondary"
+                                    sx={{ lineHeight: 1.4 }}
+                                  >
+                                    • {addon.addonName} {addon.quantity > 1 ? `×${addon.quantity}` : ''} +{addon.price * addon.quantity} ₽
+                                  </Typography>
+                                ))}
+                              </Box>
+                            )}
+                            
+                            {/* Количество и цена */}
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }} component="span">
+                              <Typography variant="body2" color="text.secondary" component="span">
+                                {item.quantity} × {item.price} ₽
+                              </Typography>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }} component="span">
+                                {itemTotal} ₽
+                              </Typography>
+                            </Box>
+
+                            {/* Особые пожелания */}
+                            {item.specialInstructions && (
+                              <Typography variant="caption" color="info.main" sx={{ display: 'block', mt: 0.5 }}>
+                                ✏️ {item.specialInstructions}
+                              </Typography>
+                            )}
                           </Box>
-                        </Box>
-                      }
-                    />
-                  </ListItem>
-                </Paper>
-              ))}
+                        }
+                      />
+                    </ListItem>
+                  </Paper>
+                );
+              })}
             </List>
           )}
 
