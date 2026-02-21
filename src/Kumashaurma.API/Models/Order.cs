@@ -76,5 +76,7 @@ namespace Kumashaurma.API.Models
         
         [Column("subtotal", TypeName = "decimal(10,2)")]
         public decimal Subtotal => Price * Quantity;
+
+        public ICollection<OrderItemAddon> SelectedAddons { get; set; } = new List<OrderItemAddon>();
     }
 }

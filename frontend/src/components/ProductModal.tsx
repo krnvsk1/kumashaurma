@@ -1,252 +1,484 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogTitle,
- DialogContent,
+  DialogContent,
   DialogActions,
   Typography,
   Box,
   Button,
-  Chip,
-  Stack,
   IconButton,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Chip,
   TextField,
-  Divider,
+  CircularProgress,
+  alpha,
   useTheme,
-  CircularProgress // 👈 добавить для загрузки
+  useMediaQuery,
+  Grid
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
-import type { Shawarma } from '../types';
-import { useShawarmaImages } from '../api/hooks';
+import type { Shawarma, Addon, SelectedAddon, AddonCategory } from '../types';
+import { useShawarmaAddons } from '../hooks/useAddons';
 
 interface ProductModalProps {
   open: boolean;
   onClose: () => void;
   product: Shawarma | null;
-  onAddToCart: (product: Shawarma, quantity: number) => void;
+  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => void;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({
   open,
   onClose,
   product,
-  onAddToCart
+  onAddToCart,
 }) => {
   const theme = useTheme();
-  const [quantity, setQuantity] = React.useState(1);
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
-  // 👇 Загружаем изображения товара
-  const { data: images, isLoading: imagesLoading } = useShawarmaImages(product?.id || 0);
+  const [quantity, setQuantity] = useState(1);
+  const [selectedAddons, setSelectedAddons] = useState<Map<number, SelectedAddon[]>>(new Map());
+  const [specialInstructions, setSpecialInstructions] = useState('');
   
-  // 👇 Находим главное изображение
-  const primaryImage = images?.find(img => img.isPrimary)?.filePath;
+  const { data: addonCategories, isLoading } = useShawarmaAddons(product?.id);
+
+  useEffect(() => {
+    if (open && product) {
+      setQuantity(1);
+      setSelectedAddons(new Map());
+      setSpecialInstructions('');
+    }
+  }, [open, product]);
 
   if (!product) return null;
 
-  const handleIncrease = () => setQuantity(prev => prev + 1);
-  const handleDecrease = () => setQuantity(prev => Math.max(1, prev - 1));
-  const handleAdd = () => {
-    onAddToCart(product, quantity);
-    onClose();
-    setQuantity(1);
+  const handleQuantityChange = (delta: number) => {
+    setQuantity(prev => Math.max(1, prev + delta));
   };
 
+  const handleAddonToggle = (addon: Addon, checked: boolean) => {
+    const newSelected = new Map(selectedAddons);
+    const categoryId = 0; // плоский список
+    const categorySelections = newSelected.get(categoryId) || [];
+
+    if (checked) {
+      newSelected.set(categoryId, [
+        ...categorySelections,
+        {
+          addonId: addon.id,
+          addonName: addon.name,
+          price: addon.price,
+          quantity: 1,
+          categoryId: 0,
+          categoryName: 'Добавки'
+        }
+      ]);
+    } else {
+      newSelected.set(categoryId, 
+        categorySelections.filter((s: SelectedAddon) => s.addonId !== addon.id));
+    }
+    
+    setSelectedAddons(newSelected);
+  };
+
+  const handleAddonQuantityChange = (addonId: number, delta: number) => {
+    const newSelected = new Map(selectedAddons);
+    const categoryId = 0;
+    const categorySelections = [...(newSelected.get(categoryId) || [])];
+    
+    const addonIndex = categorySelections.findIndex((s: SelectedAddon) => s.addonId === addonId);
+    if (addonIndex >= 0) {
+      const addon = categorySelections[addonIndex];
+      const newQuantity = Math.max(1, addon.quantity + delta);
+      
+      const allAddons = addonCategories?.flatMap(c => c.addons) || [];
+      const addonDef = allAddons.find((a: Addon) => a.id === addonId);
+      
+      if (addonDef?.maxQuantity && newQuantity > addonDef.maxQuantity) {
+        return;
+      }
+      
+      categorySelections[addonIndex] = {
+        ...addon,
+        quantity: newQuantity
+      };
+      
+      newSelected.set(categoryId, categorySelections);
+      setSelectedAddons(newSelected);
+    }
+  };
+
+  const handleAddToCart = () => {
+    // Проверка обязательных категорий
+    const missingRequired: string[] = [];
+    addonCategories?.forEach((category: AddonCategory) => {
+      if (category.isRequired) {
+        const selected = selectedAddons.get(category.id)?.length || 0;
+        if (selected < category.minSelections) {
+          missingRequired.push(category.name);
+        }
+      }
+    });
+  
+    if (missingRequired.length > 0) {
+      alert(`Пожалуйста, выберите ${missingRequired.join(', ')}`);
+      return;
+    }
+  
+    // Собираем все выбранные добавки в один массив
+    const allSelectedAddons = Array.from(selectedAddons.values()).flat();
+    
+    console.log('🛒 Отправка в корзину:', {
+      product,
+      quantity,
+      allSelectedAddons,
+      specialInstructions
+    });
+    
+    onAddToCart(product, quantity, allSelectedAddons, specialInstructions);
+    onClose();
+  };
+
+  const allAddons = addonCategories?.flatMap(c => c.addons) || [];
+  
+  const addonsTotal = Array.from(selectedAddons.values())
+    .flat()
+    .reduce((sum: number, addon: SelectedAddon) => sum + addon.price * addon.quantity, 0);
+  
+  const totalPrice = (product.price + addonsTotal) * quantity;
+
   return (
-    <Dialog
-      open={open}
+    <Dialog 
+      open={open} 
       onClose={onClose}
       maxWidth="md"
-      fullWidth
+      fullScreen={isMobile}
+      fullWidth={!isMobile}
       PaperProps={{
         sx: {
-          borderRadius: 3,
-          maxWidth: '800px'
+          borderRadius: isMobile ? 0 : 4,
+          maxHeight: isMobile ? '100%' : '90vh',
         }
       }}
     >
-      {/* Заголовок с кнопкой закрытия */}
       <DialogTitle sx={{ 
+        p: isMobile ? 2 : 3, 
         display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
-        borderBottom: `1px solid ${theme.palette.divider}`
+        alignItems: 'center', 
+        justifyContent: 'space-between',
+        borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
-        <Typography variant="h5" component="div" sx={{ fontWeight: 600 }}>
+        <Typography variant={isMobile ? "h6" : "h5"} fontWeight={700}>
           {product.name}
         </Typography>
-        <IconButton onClick={onClose} size="small">
+        <IconButton onClick={onClose}>
           <CloseIcon />
         </IconButton>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0 }}>
-        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
-          {/* Левая колонка - изображение */}
-          <Box
-            sx={{
-              width: { xs: '100%', md: '50%' },
-              height: { xs: '250px', md: '350px' },
-              bgcolor: theme.palette.mode === 'light' ? '#f5f5f5' : '#334155',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              position: 'relative',
-              overflow: 'hidden'
-            }}
-          >
-            {imagesLoading ? (
-              <CircularProgress />
-            ) : primaryImage ? (
-              <img
-                src={`http://localhost:5199${primaryImage}`}
-                alt={product.name}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover'
-                }}
-              />
-            ) : (
-              <Typography variant="h1" sx={{ fontSize: '5rem', opacity: 0.5 }}>
-                🥙
-              </Typography>
+      <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
+        {isLoading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {/* Десктоп версия - фото слева, всё остальное справа */}
+            {!isMobile && (
+              <Grid container spacing={3}>
+                {/* Фото слева */}
+                <Grid size={{ xs: 5 }}>
+                  {product.images && product.images.length > 0 ? (
+                    <Box
+                      component="img"
+                      src={`http://localhost:5199${product.images[0].filePath}`}
+                      alt={product.name}
+                      sx={{
+                        width: '100%',
+                        height: 'auto',
+                        borderRadius: 3,
+                      }}
+                    />
+                  ) : (
+                    <Box
+                      sx={{
+                        width: '100%',
+                        height: 200,
+                        bgcolor: alpha(theme.palette.primary.main, 0.05),
+                        borderRadius: 3,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                      }}
+                    >
+                      <Typography color="text.secondary">Нет фото</Typography>
+                    </Box>
+                  )}
+                </Grid>
+
+                {/* Контент справа */}
+                <Grid size={{ xs: 7 }}>
+                  {/* Цена и вес */}
+                  <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
+                    от {product.price} ₽ • 300 г
+                  </Typography>
+
+                  {/* Описание */}
+                  <Typography variant="body1" color="text.secondary" paragraph>
+                    {product.description || 'Нет описания'}
+                  </Typography>
+
+                  {/* Бейджи */}
+                  {(product.isSpicy || product.hasCheese) && (
+                    <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+                      {product.isSpicy && (
+                        <Chip label="🌶️ Острая" size="small" color="error" variant="outlined" />
+                      )}
+                      {product.hasCheese && (
+                        <Chip label="🧀 С сыром" size="small" color="warning" variant="outlined" />
+                      )}
+                    </Box>
+                  )}
+
+                  {/* Добавки */}
+                  {allAddons.length > 0 && (
+                    <>
+                      <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                        Добавки
+                      </Typography>
+                      
+                      <FormGroup>
+                        {allAddons.map((addon) => {
+                          const selectedAddon = selectedAddons
+                            .get(0)
+                            ?.find((s: SelectedAddon) => s.addonId === addon.id);
+
+                          return (
+                            <Box key={addon.id} sx={{ mb: 2 }}>
+                              <FormControlLabel
+                                control={
+                                  <Checkbox
+                                    checked={!!selectedAddon}
+                                    onChange={(e) => handleAddonToggle(addon, e.target.checked)}
+                                  />
+                                }
+                                label={
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                    <Typography>{addon.name}</Typography>
+                                    <Typography variant="body2" color="primary.main" fontWeight={600}>
+                                      +{addon.price} ₽
+                                    </Typography>
+                                  </Box>
+                                }
+                              />
+                              
+                              {/* Выбор количества */}
+                              {selectedAddon && addon.maxQuantity && addon.maxQuantity > 1 && (
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 4, mt: 1 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleAddonQuantityChange(addon.id, -1)}
+                                    disabled={selectedAddon.quantity <= 1}
+                                  >
+                                    <RemoveIcon fontSize="small" />
+                                  </IconButton>
+                                  <Typography variant="body2">
+                                    {selectedAddon.quantity}
+                                  </Typography>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleAddonQuantityChange(addon.id, 1)}
+                                    disabled={addon.maxQuantity ? selectedAddon.quantity >= addon.maxQuantity : false}
+                                  >
+                                    <AddIcon fontSize="small" />
+                                  </IconButton>
+                                  <Typography variant="caption" color="text.secondary">
+                                    макс. {addon.maxQuantity}
+                                  </Typography>
+                                </Box>
+                              )}
+                            </Box>
+                          );
+                        })}
+                      </FormGroup>
+                    </>
+                  )}
+
+                  {/* Особые пожелания */}
+                  <Box sx={{ mt: 3 }}>
+                    <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                      Особые пожелания
+                    </Typography>
+                    <TextField
+                      fullWidth
+                      multiline
+                      rows={2}
+                      placeholder="Например: без лука, добавьте побольше соуса, острее..."
+                      value={specialInstructions}
+                      onChange={(e) => setSpecialInstructions(e.target.value)}
+                      variant="outlined"
+                      size="small"
+                    />
+                  </Box>
+                </Grid>
+              </Grid>
             )}
-          </Box>
 
-          {/* Правая колонка - информация */}
-          <Box sx={{ 
-            width: { xs: '100%', md: '50%' },
-            p: 3
-          }}>
-            {/* Характеристики */}
-            <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
-              {product.isSpicy && (
-                <Chip
-                  label="Острая"
-                  size="small"
-                  sx={{
-                    bgcolor: 'primary.main',
-                    color: 'white',
-                    fontWeight: 'bold'
-                  }}
-                />
-              )}
-              {product.hasCheese && (
-                <Chip
-                  label="С сыром"
-                  size="small"
-                  sx={{
-                    bgcolor: 'secondary.main',
-                    color: theme.palette.mode === 'light' ? 'white' : 'black',
-                    fontWeight: 'bold'
-                  }}
-                />
-              )}
-              <Chip
-                label={product.category}
-                size="small"
-                variant="outlined"
-              />
-            </Stack>
+            {/* Мобильная версия */}
+            {isMobile && (
+              <Box>
+                {product.images && product.images.length > 0 && (
+                  <Box
+                    component="img"
+                    src={`http://localhost:5199${product.images[0].filePath}`}
+                    alt={product.name}
+                    sx={{
+                      width: '100%',
+                      height: 200,
+                      objectFit: 'cover',
+                      borderRadius: 3,
+                      mb: 2,
+                    }}
+                  />
+                )}
+                
+                <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
+                  от {product.price} ₽ • 300 г
+                </Typography>
 
-            {/* Описание */}
-            <Typography variant="body1" sx={{ mb: 3, lineHeight: 1.7 }}>
-              {product.description || 'Нет описания'}
-            </Typography>
+                <Typography variant="body1" color="text.secondary" paragraph>
+                  {product.description || 'Нет описания'}
+                </Typography>
 
-            <Divider sx={{ my: 2 }} />
+                {(product.isSpicy || product.hasCheese) && (
+                  <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
+                    {product.isSpicy && <Chip label="🌶️ Острая" size="small" />}
+                    {product.hasCheese && <Chip label="🧀 С сыром" size="small" />}
+                  </Box>
+                )}
 
-            {/* Цена и количество */}
-            <Box sx={{ mb: 2 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Цена:
-              </Typography>
-              <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                {product.price} ₽
-              </Typography>
-            </Box>
+                {/* Добавки для мобильных */}
+                {allAddons.length > 0 && (
+                  <>
+                    <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
+                      Добавки
+                    </Typography>
+                    
+                    <FormGroup>
+                      {allAddons.map((addon) => {
+                        const selectedAddon = selectedAddons
+                          .get(0)
+                          ?.find((s: SelectedAddon) => s.addonId === addon.id);
 
-            <Box sx={{ mb: 3 }}>
-              <Typography variant="body2" color="text.secondary" gutterBottom>
-                Количество:
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <IconButton
-                  onClick={handleDecrease}
-                  disabled={quantity <= 1}
-                  size="small"
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1
-                  }}
-                >
-                  <RemoveIcon />
-                </IconButton>
-                <TextField
-                  value={quantity}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (!isNaN(val) && val > 0) setQuantity(val);
-                  }}
-                  type="number"
-                  inputProps={{ min: 1, style: { textAlign: 'center' } }}
-                  sx={{ width: '80px' }}
-                  size="small"
-                />
-                <IconButton
-                  onClick={handleIncrease}
-                  size="small"
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1
-                  }}
-                >
-                  <AddIcon />
-                </IconButton>
+                        return (
+                          <Box key={addon.id} sx={{ mb: 2 }}>
+                            <FormControlLabel
+                              control={
+                                <Checkbox
+                                  checked={!!selectedAddon}
+                                  onChange={(e) => handleAddonToggle(addon, e.target.checked)}
+                                />
+                              }
+                              label={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                                  <Typography>{addon.name}</Typography>
+                                  <Typography variant="body2" color="primary.main" fontWeight={600}>
+                                    +{addon.price} ₽
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                            
+                            {selectedAddon && addon.maxQuantity && addon.maxQuantity > 1 && (
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 4, mt: 1 }}>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleAddonQuantityChange(addon.id, -1)}
+                                  disabled={selectedAddon.quantity <= 1}
+                                >
+                                  <RemoveIcon fontSize="small" />
+                                </IconButton>
+                                <Typography variant="body2">
+                                  {selectedAddon.quantity}
+                                </Typography>
+                                <IconButton
+                                  size="small"
+                                  onClick={() => handleAddonQuantityChange(addon.id, 1)}
+                                  disabled={addon.maxQuantity ? selectedAddon.quantity >= addon.maxQuantity : false}
+                                >
+                                  <AddIcon fontSize="small" />
+                                </IconButton>
+                              </Box>
+                            )}
+                          </Box>
+                        );
+                      })}
+                    </FormGroup>
+                  </>
+                )}
+
+                <Box sx={{ mt: 3 }}>
+                  <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                    Особые пожелания
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    multiline
+                    rows={2}
+                    placeholder="Например: без лука, добавьте побольше соуса, острее..."
+                    value={specialInstructions}
+                    onChange={(e) => setSpecialInstructions(e.target.value)}
+                    variant="outlined"
+                    size="small"
+                  />
+                </Box>
               </Box>
-            </Box>
-
-            {/* Итого */}
-            <Box sx={{ 
-              bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
-              p: 2,
-              borderRadius: 2,
-              mb: 2
-            }}>
-              <Typography variant="body2" color="text.secondary">
-                Итого:
-              </Typography>
-              <Typography variant="h5" sx={{ color: 'primary.main', fontWeight: 700 }}>
-                {product.price * quantity} ₽
-              </Typography>
-            </Box>
-          </Box>
-        </Box>
+            )}
+          </>
+        )}
       </DialogContent>
 
       <DialogActions sx={{ 
-        p: 3, 
+        p: isMobile ? 2 : 3, 
+        flexDirection: 'column', 
+        gap: 2,
         borderTop: `1px solid ${theme.palette.divider}`,
-        bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b'
       }}>
-        <Button onClick={onClose} variant="outlined">
-          Отмена
-        </Button>
-        <Button
-          onClick={handleAdd}
-          variant="contained"
-          sx={{
-            bgcolor: 'primary.main',
-            '&:hover': { bgcolor: 'primary.dark' }
-          }}
-        >
-          Добавить в корзину · {product.price * quantity} ₽
-        </Button>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'space-between', 
+          width: '100%'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Typography variant="h6">Количество:</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <IconButton onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} size="small">
+                <RemoveIcon />
+              </IconButton>
+              <Typography sx={{ minWidth: 30, textAlign: 'center' }}>{quantity}</Typography>
+              <IconButton onClick={() => handleQuantityChange(1)} size="small">
+                <AddIcon />
+              </IconButton>
+            </Box>
+          </Box>
+          
+          <Button
+            variant="contained"
+            onClick={handleAddToCart}
+            disabled={isLoading}
+            sx={{ borderRadius: 3, px: 4 }}
+          >
+            В корзину {totalPrice} ₽
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );

@@ -25,6 +25,7 @@ namespace Kumashaurma.API.Controllers
             {
                 var orders = await _context.Orders
                     .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
                     .OrderByDescending(o => o.CreatedAt)
                     .ToListAsync();
                     
@@ -44,6 +45,7 @@ namespace Kumashaurma.API.Controllers
             {
                 var order = await _context.Orders
                     .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
                     .FirstOrDefaultAsync(o => o.Id == id);
                     
                 if (order == null)
@@ -76,15 +78,32 @@ namespace Kumashaurma.API.Controllers
                     .Where(s => shawarmaIds.Contains(s.Id))
                     .ToDictionaryAsync(s => s.Id, s => s.Price);
 
+                // Получаем все добавки для проверки цен
+                var allAddonIds = request.Items
+                    .Where(i => i.SelectedAddons != null)
+                    .SelectMany(i => i.SelectedAddons!)
+                    .Select(a => a.AddonId)
+                    .Distinct()
+                    .ToList();
+
+                var addons = new Dictionary<int, Addon>();
+                if (allAddonIds.Any())
+                {
+                    addons = await _context.Addons
+                        .Include(a => a.Category)
+                        .Where(a => allAddonIds.Contains(a.Id))
+                        .ToDictionaryAsync(a => a.Id, a => a);
+                }
+
                 // Создаем заказ
                 var newOrder = new Order
                 {
                     CustomerName = request.CustomerName.Trim(),
-                    Phone = request.Phone?.Trim() ?? string.Empty,  // 👈 Исправлено
-                    Address = request.Address?.Trim() ?? string.Empty,  // 👈 Исправлено
-                    Total = 0, // Временно, пересчитаем после добавления позиций
+                    Phone = request.Phone?.Trim() ?? string.Empty,
+                    Address = request.Address?.Trim() ?? string.Empty,
+                    Total = 0,
                     Status = "Новый",
-                    Notes = null,
+                    Notes = request.Notes,
                     CreatedAt = DateTime.UtcNow,
                     CompletedAt = null
                 };
@@ -97,20 +116,51 @@ namespace Kumashaurma.API.Controllers
                 // Добавляем позиции заказа
                 foreach (var itemRequest in request.Items)
                 {
-                    // Используем цену из базы данных
-                    var price = shawarmas.GetValueOrDefault(itemRequest.ShawarmaId, 0);
+                    var basePrice = shawarmas.GetValueOrDefault(itemRequest.ShawarmaId, 0);
                     
                     var orderItem = new OrderItem
                     {
                         OrderId = newOrder.Id,
                         ShawarmaId = itemRequest.ShawarmaId,
-                        Name = itemRequest.Name?.Trim() ?? "Без названия",  // 👈 Исправлено
+                        Name = itemRequest.Name?.Trim() ?? "Без названия",
                         Quantity = itemRequest.Quantity,
-                        Price = price
+                        Price = basePrice
                     };
                     
                     await _context.OrderItems.AddAsync(orderItem);
-                    total += price * itemRequest.Quantity;
+                    await _context.SaveChangesAsync(); // Сохраняем, чтобы получить Id
+
+                    decimal addonsTotal = 0;
+                    
+                    // Добавляем выбранные добавки
+                    if (itemRequest.SelectedAddons != null && itemRequest.SelectedAddons.Any())
+                    {
+                        foreach (var selectedAddon in itemRequest.SelectedAddons)
+                        {
+                            if (addons.TryGetValue(selectedAddon.AddonId, out var addon))
+                            {
+                                var addonPrice = addon.Price * selectedAddon.Quantity;
+                                
+                                var orderItemAddon = new OrderItemAddon
+                                {
+                                    OrderItemId = orderItem.Id,
+                                    AddonId = addon.Id,
+                                    AddonName = addon.Name,
+                                    AddonCategoryId = addon.AddonCategoryId,
+                                    AddonCategoryName = addon.Category?.Name ?? "Добавки",
+                                    Price = addon.Price,
+                                    Quantity = selectedAddon.Quantity
+                                };
+                                
+                                await _context.OrderItemAddons.AddAsync(orderItemAddon);
+                                addonsTotal += addonPrice;
+                            }
+                        }
+                    }
+                    
+                    await _context.SaveChangesAsync(); // Сохраняем добавки
+                    
+                    total += (basePrice + addonsTotal) * itemRequest.Quantity;
                 }
 
                 // Обновляем общую сумму заказа
@@ -123,6 +173,7 @@ namespace Kumashaurma.API.Controllers
                 // Загружаем полный заказ с позициями для ответа
                 var createdOrder = await _context.Orders
                     .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
                     .FirstOrDefaultAsync(o => o.Id == newOrder.Id);
 
                 return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, createdOrder);
@@ -137,6 +188,30 @@ namespace Kumashaurma.API.Controllers
                 _logger.LogError(ex, "Ошибка при создании заказа");
                 return StatusCode(500, new { Message = "Внутренняя ошибка сервера" });
             }
+        }
+
+        // Обновленный DTO для запроса
+        public class CreateOrderRequest
+        {
+            public string CustomerName { get; set; } = string.Empty;
+            public string Phone { get; set; } = string.Empty;
+            public string Address { get; set; } = string.Empty;
+            public string? Notes { get; set; }
+            public List<CreateOrderItemRequest> Items { get; set; } = new();
+        }
+
+        public class CreateOrderItemRequest
+        {
+            public int ShawarmaId { get; set; }
+            public string Name { get; set; } = string.Empty;
+            public int Quantity { get; set; }
+            public List<SelectedAddonDto>? SelectedAddons { get; set; }
+        }
+
+        public class SelectedAddonDto
+        {
+            public int AddonId { get; set; }
+            public int Quantity { get; set; } = 1;
         }
 
         [HttpPut("{id}")]

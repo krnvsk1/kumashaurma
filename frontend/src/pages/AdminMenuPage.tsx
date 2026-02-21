@@ -1,13 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
   Box,
-  CircularProgress,
-  Alert,
-  Chip,
-  TextField,
-  InputAdornment,
   Button,
   Paper,
   Table,
@@ -17,385 +13,849 @@ import {
   TableHead,
   TableRow,
   IconButton,
-  Avatar,
+  Chip,
   Switch,
-  TextField as MuiTextField
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  FormControlLabel,
+  Alert,
+  Snackbar,
+  Tab,
+  Tabs,
+  Grid,
+  Card,
+  CardContent,
+  Divider,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  Collapse,
+  alpha,
+  useTheme,
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Image as ImageIcon,
-  Save as SaveIcon
+  Add as AddIcon,
+  Category as CategoryIcon,
+  Fastfood as FastfoodIcon,
+  ExpandMore as ExpandMoreIcon,
+  ExpandLess as ExpandLessIcon,
+  Link as LinkIcon
 } from '@mui/icons-material';
-import { Link, useNavigate } from 'react-router-dom';
-import { useShawarmas, useUpdateShawarmaAvailability, useUpdateShawarmaOrder, useDeleteShawarma } from '../api/hooks';
-import type { Shawarma } from '../types';
+import { useShawarmas, useDeleteShawarma, useUpdateShawarmaAvailability } from '../api/hooks';
+import { 
+  useAddonCategories, 
+  useCreateAddonCategory,
+  useUpdateAddonCategory,
+  useCreateAddon,
+  useUpdateAddon,
+  useDeleteAddon,
+  useLinkAddonToShawarma
+} from '../hooks/useAddons';
+import type { AddonCategory, Addon } from '../types';
 
-interface Category {
-  name: string;
-  count: number;
+interface TabPanelProps {
+  children?: React.ReactNode;
+  index: number;
+  value: number;
+}
+
+function TabPanel(props: TabPanelProps) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      {...other}
+    >
+      {value === index && <Box sx={{ py: 3 }}>{children}</Box>}
+    </div>
+  );
 }
 
 const AdminMenuPage: React.FC = () => {
+  const theme = useTheme();
   const navigate = useNavigate();
-  const { data: menuItems, isLoading, error } = useShawarmas();
-  const updateAvailability = useUpdateShawarmaAvailability();
-  const updateOrder = useUpdateShawarmaOrder();
-  const deleteShawarma = useDeleteShawarma();
+  const [tabValue, setTabValue] = useState(0);
+  const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   
-  const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [items, setItems] = useState<Shawarma[]>([]);
-  const [updatingId, setUpdatingId] = useState<number | null>(null);
-  const [editingOrder, setEditingOrder] = useState<{ id: number; value: string } | null>(null);
+  // Состояния для диалогов
+  const [categoryDialog, setCategoryDialog] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    category?: AddonCategory;
+  }>({ open: false, mode: 'create' });
 
-  // Синхронизируем items с menuItems
-  React.useEffect(() => {
-    if (menuItems) {
-      // Активные товары с сортировкой, затем неактивные
-      const active = menuItems
-        .filter(item => item.isAvailable)
-        .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-      
-      const inactive = menuItems
-        .filter(item => !item.isAvailable)
-        .sort((a, b) => a.name.localeCompare(b.name));
-      
-      setItems([...active, ...inactive]);
-    }
-  }, [menuItems]);
+  const [addonDialog, setAddonDialog] = useState<{
+    open: boolean;
+    mode: 'create' | 'edit';
+    categoryId?: number;
+    addon?: Addon;
+  }>({ open: false, mode: 'create' });
 
-  const categories = useMemo<Category[]>(() => {
-    if (!items) return [];
-    
-    const categoryMap = new Map<string, number>();
-    items.forEach(item => {
-      const count = categoryMap.get(item.category) || 0;
-      categoryMap.set(item.category, count + 1);
-    });
-    
-    return Array.from(categoryMap.entries())
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [items]);
+  // Новый диалог для привязки группы к товару
+  const [linkCategoryDialog, setLinkCategoryDialog] = useState<{
+    open: boolean;
+    shawarmaId?: number;
+    shawarmaName?: string;
+  }>({ open: false });
 
-  const filteredItems = useMemo(() => {
-    if (!items) return [];
-    
-    return items.filter(item => {
-      if (selectedCategory !== 'all' && item.category !== selectedCategory) return false;
-      if (searchQuery) {
-        const query = searchQuery.toLowerCase();
-        return item.name.toLowerCase().includes(query) || 
-               (item.description?.toLowerCase().includes(query) ?? false);
-      }
-      return true;
-    });
-  }, [items, selectedCategory, searchQuery]);
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
 
-  const handleAvailabilityChange = async (id: number, isAvailable: boolean) => {
-    setUpdatingId(id);
+  // Хуки для данных
+  const { data: shawarmas = [] } = useShawarmas();
+  const { data: categories = [] } = useAddonCategories();
+  
+  // Мутации
+  const deleteProduct = useDeleteShawarma();
+  const updateAvailability = useUpdateShawarmaAvailability();
+  
+  const createCategory = useCreateAddonCategory();
+  const updateCategory = useUpdateAddonCategory();
+  const createAddon = useCreateAddon();
+  const updateAddon = useUpdateAddon();
+  const deleteAddon = useDeleteAddon();
+  const linkAddon = useLinkAddonToShawarma();
+
+  const showMessage = (message: string, severity: 'success' | 'error') => {
+    setSnackbar({ open: true, message, severity });
+  };
+
+  // Обработчики для категорий
+  const handleSaveCategory = async (data: Partial<AddonCategory>) => {
     try {
-      await updateAvailability.mutateAsync({ id, isAvailable });
-      // После изменения доступности пересортируем
-      if (menuItems) {
-        const updated = menuItems.map(item => 
-          item.id === id ? { ...item, isAvailable } : item
-        );
-        const active = updated
-          .filter(item => item.isAvailable)
-          .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-        const inactive = updated
-          .filter(item => !item.isAvailable)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setItems([...active, ...inactive]);
+      if (categoryDialog.mode === 'create') {
+        await createCategory.mutateAsync(data);
+        showMessage('Категория добавок создана', 'success');
+      } else if (categoryDialog.category?.id) {
+        await updateCategory.mutateAsync({ id: categoryDialog.category.id, ...data });
+        showMessage('Категория добавок обновлена', 'success');
       }
+      setCategoryDialog({ open: false, mode: 'create' });
     } catch (error) {
-      console.error('Ошибка обновления доступности:', error);
-    } finally {
-      setUpdatingId(null);
+      showMessage('Ошибка при сохранении категории', 'error');
     }
   };
 
-  const handleOrderChange = async (id: number, newOrderStr: string) => {
-    const newOrder = parseInt(newOrderStr);
-    if (isNaN(newOrder) || newOrder < 0) return;
-
-    // Находим товар
-    const currentItem = items.find(i => i.id === id);
-    if (!currentItem || !currentItem.isAvailable) return;
-
-    // Получаем все активные товары
-    const activeItems = items.filter(i => i.isAvailable);
-    const currentIndex = activeItems.findIndex(i => i.id === id);
-    
-    // Новый индекс (0-based)
-    const newIndex = Math.min(newOrder - 1, activeItems.length - 1);
-    if (newIndex === currentIndex) return;
-
-    // Переставляем
-    const newActive = [...activeItems];
-    const [movedItem] = newActive.splice(currentIndex, 1);
-    newActive.splice(newIndex, 0, movedItem);
-
-    // Обновляем sortOrder
-    const updates = newActive.map((item, idx) => ({
-      id: item.id,
-      sortOrder: idx
-    }));
-
+  // Обработчики для добавок - с явным полем категории
+  const handleSaveAddon = async (data: Partial<Addon> & { addonCategoryId: number }) => {
     try {
-      await updateOrder.mutateAsync(updates);
+      console.log('📤 ===== НАЧАЛО ОТПРАВКИ ДОБАВКИ =====');
+      console.log('📤 Данные из формы:', data);
       
-      // Обновляем локальное состояние
-      const newActiveWithOrder = newActive.map((item, idx) => ({ ...item, sortOrder: idx }));
-      const inactive = items.filter(i => !i.isAvailable);
-      setItems([...newActiveWithOrder, ...inactive]);
-      
-    } catch (error) {
-      console.error('Ошибка обновления порядка:', error);
-    }
-    
-    setEditingOrder(null);
-  };
-
-  const startEditingOrder = (id: number, currentOrder: number | undefined) => {
-    setEditingOrder({ 
-      id, 
-      value: (currentOrder !== undefined ? currentOrder + 1 : '').toString() 
-    });
-  };
-
-  const handleDelete = async (id: number) => {
-    if (!window.confirm('Вы уверены, что хотите удалить этот товар?')) return;
-    
-    try {
-      await deleteShawarma.mutateAsync(id);
-      // Обновляем список после удаления
-      if (menuItems) {
-        const updated = menuItems.filter(item => item.id !== id);
-        const active = updated
-          .filter(item => item.isAvailable)
-          .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
-        const inactive = updated
-          .filter(item => !item.isAvailable)
-          .sort((a, b) => a.name.localeCompare(b.name));
-        setItems([...active, ...inactive]);
+      if (addonDialog.mode === 'create') {
+        // Отправляем данные с явным ID категории
+        const addonData = {
+          name: data.name!,
+          description: data.description || '',
+          price: data.price || 0,
+          addonCategoryId: data.addonCategoryId,  // Явно из формы
+          isAvailable: data.isAvailable ?? true,
+          displayOrder: 0
+        };
+        
+        console.log('📤 Данные для отправки:', JSON.stringify(addonData, null, 2));
+        
+        const result = await createAddon.mutateAsync(addonData);
+        
+        console.log('✅ Добавка создана:', result);
+        showMessage('Добавка создана', 'success');
+        setAddonDialog({ open: false, mode: 'create' });
+      } else if (addonDialog.mode === 'edit' && addonDialog.addon?.id) {
+        // Для редактирования отправляем только изменяемые поля
+        const updateData: any = {
+          id: addonDialog.addon.id
+        };
+        
+        if (data.name) updateData.name = data.name;
+        if (data.description !== undefined) updateData.description = data.description;
+        if (data.price !== undefined) updateData.price = data.price;
+        if (data.isAvailable !== undefined) updateData.isAvailable = data.isAvailable;
+        
+        await updateAddon.mutateAsync(updateData);
+        showMessage('Добавка обновлена', 'success');
+        setAddonDialog({ open: false, mode: 'create' });
       }
-    } catch (error) {
-      console.error('Ошибка удаления:', error);
+    } catch (error: any) {
+      console.error('❌ ===== ОШИБКА =====');
+      console.error('❌ Статус:', error.response?.status);
+      console.error('❌ Данные ответа:', error.response?.data);
+      
+      if (error.response?.data?.message) {
+        showMessage(error.response.data.message, 'error');
+      } else {
+        showMessage('Ошибка при сохранении добавки', 'error');
+      }
     }
   };
 
-  if (isLoading) {
-    return (
-      <Container sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
-        <CircularProgress />
-      </Container>
-    );
-  }
+  // Привязка группы добавок к товару
+  const handleLinkCategoryToShawarma = async (categoryId: number, shawarmaId: number) => {
+    try {
+      // Получаем все добавки из этой группы
+      const category = categories.find(c => c.id === categoryId);
+      
+      if (!category) return;
+      
+      // Привязываем каждую добавку из группы к товару
+      for (const addon of category.addons) {
+        await linkAddon.mutateAsync({
+          addonId: addon.id,
+          shawarmaId,
+          isDefault: false,
+          maxQuantity: 1
+        });
+      }
+      
+      showMessage(`Группа "${category.name}" привязана к товару`, 'success');
+      setLinkCategoryDialog({ open: false });
+    } catch (error) {
+      showMessage('Ошибка при привязке группы', 'error');
+    }
+  };
 
-  if (error) {
-    return (
-      <Container sx={{ py: 4 }}>
-        <Alert severity="error">Ошибка загрузки меню</Alert>
-      </Container>
-    );
-  }
+  const handleDeleteAddon = async (addonId: number) => {
+    if (window.confirm('Удалить эту добавку?')) {
+      try {
+        await deleteAddon.mutateAsync(addonId);
+        showMessage('Добавка удалена', 'success');
+      } catch (error) {
+        showMessage('Ошибка при удалении добавки', 'error');
+      }
+    }
+  };
+
+  const handleToggleCategory = (categoryId: number) => {
+    setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
+  };
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Typography variant="h4" component="h1" sx={{ fontWeight: 700 }}>
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Заголовок */}
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Typography variant="h4" component="h1" fontWeight={700}>
           Управление меню
         </Typography>
-        <Button
-          component={Link}
-          to="/admin/create"
-          variant="contained"
-          startIcon={<AddIcon />}
-          sx={{ borderRadius: 3 }}
-        >
-          Добавить товар
-        </Button>
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="contained"
+            startIcon={<FastfoodIcon />}
+            onClick={() => navigate('/admin/create')}
+          >
+            Добавить товар
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<CategoryIcon />}
+            onClick={() => setCategoryDialog({ open: true, mode: 'create' })}
+          >
+            Добавить группу добавок
+          </Button>
+        </Box>
       </Box>
 
-      <Paper sx={{ p: 2, mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder="Поиск товаров..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon />
-              </InputAdornment>
-            ),
+      {/* Табы */}
+      <Paper sx={{ borderRadius: 3, overflow: 'hidden' }}>
+        <Tabs
+          value={tabValue}
+          onChange={(_, v) => setTabValue(v)}
+          sx={{
+            borderBottom: 1,
+            borderColor: 'divider',
+            bgcolor: alpha(theme.palette.primary.main, 0.02)
           }}
-          size="small"
-        />
-      </Paper>
+        >
+          <Tab label="Товары" />
+          <Tab label="Добавки" />
+        </Tabs>
 
-      <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
-        <Chip
-          label={`Все (${items?.length || 0})`}
-          onClick={() => setSelectedCategory('all')}
-          color={selectedCategory === 'all' ? 'primary' : 'default'}
-          variant={selectedCategory === 'all' ? 'filled' : 'outlined'}
-        />
-        {categories.map((category) => (
-          <Chip
-            key={category.name}
-            label={`${category.name} (${category.count})`}
-            onClick={() => setSelectedCategory(category.name)}
-            color={selectedCategory === category.name ? 'primary' : 'default'}
-            variant={selectedCategory === category.name ? 'filled' : 'outlined'}
-          />
-        ))}
-      </Box>
-
-      <TableContainer component={Paper}>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell width={80}>Порядок</TableCell>
-              <TableCell width={60}>Фото</TableCell>
-              <TableCell>Название</TableCell>
-              <TableCell>Категория</TableCell>
-              <TableCell align="right">Цена</TableCell>
-              <TableCell align="center">Острая</TableCell>
-              <TableCell align="center">Сыр</TableCell>
-              <TableCell align="center">Доступен</TableCell>
-              <TableCell align="right">Действия</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {filteredItems.map((item) => {
-              const activeIndex = items
-                .filter(i => i.isAvailable)
-                .findIndex(i => i.id === item.id);
-              const displayOrder = item.isAvailable ? activeIndex + 1 : '—';
-              
-              return (
-                <TableRow 
-                  key={item.id} 
-                  hover
-                  sx={{
-                    opacity: item.isAvailable ? 1 : 0.6,
-                    bgcolor: item.isAvailable ? 'inherit' : 'action.hover',
-                  }}
-                >
-                  <TableCell>
-                    {item.isAvailable ? (
-                      editingOrder?.id === item.id ? (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <MuiTextField
-                            size="small"
-                            value={editingOrder.value}
-                            onChange={(e) => setEditingOrder({ 
-                              id: item.id, 
-                              value: e.target.value 
-                            })}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter') {
-                                handleOrderChange(item.id, editingOrder.value);
-                              } else if (e.key === 'Escape') {
-                                setEditingOrder(null);
-                              }
-                            }}
-                            autoFocus
-                            sx={{ width: 70 }}
-                          />
-                          <IconButton 
-                            size="small" 
-                            onClick={() => handleOrderChange(item.id, editingOrder.value)}
-                            color="primary"
-                          >
-                            <SaveIcon fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      ) : (
-                        <Box 
-                          onClick={() => startEditingOrder(item.id, activeIndex)}
-                          sx={{ 
-                            cursor: 'pointer',
-                            p: 1,
-                            borderRadius: 1,
-                            '&:hover': {
-                              bgcolor: 'action.hover',
+        {/* Панель товаров */}
+        <TabPanel value={tabValue} index={0}>
+          <TableContainer>
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell>Название</TableCell>
+                  <TableCell>Категория</TableCell>
+                  <TableCell>Цена</TableCell>
+                  <TableCell>Доступность</TableCell>
+                  <TableCell>Группы добавок</TableCell>
+                  <TableCell>Действия</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {shawarmas.map((product) => (
+                  <TableRow key={product.id}>
+                    <TableCell>
+                      <Typography fontWeight={600}>{product.name}</Typography>
+                    </TableCell>
+                    <TableCell>{product.category}</TableCell>
+                    <TableCell>{product.price} ₽</TableCell>
+                    <TableCell>
+                      <Switch
+                        checked={product.isAvailable}
+                        onChange={(e) => updateAvailability.mutate({
+                          id: product.id,
+                          isAvailable: e.target.checked
+                        })}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Привязать группу добавок">
+                        <IconButton 
+                          size="small"
+                          onClick={() => setLinkCategoryDialog({ 
+                            open: true, 
+                            shawarmaId: product.id,
+                            shawarmaName: product.name 
+                          })}
+                          color="primary"
+                        >
+                          <LinkIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell>
+                      <Tooltip title="Редактировать товар">
+                        <IconButton 
+                          size="small"
+                          onClick={() => navigate(`/admin/edit/${product.id}`)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Удалить товар">
+                        <IconButton 
+                          size="small" 
+                          color="error" 
+                          onClick={() => {
+                            if (window.confirm(`Удалить товар "${product.name}"?`)) {
+                              deleteProduct.mutate(product.id);
                             }
                           }}
                         >
-                          {displayOrder}
-                        </Box>
-                      )
-                    ) : (
-                      '—'
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </TabPanel>
+
+        {/* Панель добавок */}
+        <TabPanel value={tabValue} index={1}>
+          <Box sx={{ mb: 3, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => setCategoryDialog({ open: true, mode: 'create' })}
+            >
+              Добавить группу добавок
+            </Button>
+          </Box>
+
+          <Grid container spacing={3}>
+            {categories.map((category) => (
+              <Grid key={category.id} size={{ xs: 12 }}>
+                <Card variant="outlined" sx={{ borderRadius: 3 }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Typography variant="h6" fontWeight={600}>
+                          {category.name}
+                        </Typography>
+                        {category.isRequired && (
+                          <Chip label="Обязательно" size="small" color="primary" />
+                        )}
+                        {category.maxSelections > 0 && (
+                          <Chip 
+                            label={`Макс. ${category.maxSelections}`} 
+                            size="small" 
+                            variant="outlined" 
+                          />
+                        )}
+                      </Box>
+                      <Box>
+                        <IconButton size="small" onClick={() => handleToggleCategory(category.id)}>
+                          {expandedCategory === category.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                        </IconButton>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setCategoryDialog({ open: true, mode: 'edit', category })}
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Box>
+                    </Box>
+
+                    {category.description && (
+                      <Typography color="text.secondary" sx={{ mt: 1 }}>
+                        {category.description}
+                      </Typography>
                     )}
-                  </TableCell>
-                  <TableCell>
-                    <Avatar 
-                      src={item.images?.[0]?.filePath 
-                        ? `http://localhost:5199${item.images[0].filePath}` 
-                        : undefined
-                      }
-                      sx={{ width: 40, height: 40 }}
-                    >
-                      <ImageIcon />
-                    </Avatar>
-                  </TableCell>
-                  <TableCell>
-                    <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                      {item.name}
-                      {!item.isAvailable && (
-                        <Chip
-                          label="Деактивирован"
-                          size="small"
-                          sx={{ ml: 1, height: 20, fontSize: '0.7rem' }}
-                        />
-                      )}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                      {item.description?.substring(0, 50)}...
-                    </Typography>
-                  </TableCell>
-                  <TableCell>{item.category}</TableCell>
-                  <TableCell align="right">{item.price} ₽</TableCell>
-                  <TableCell align="center">{item.isSpicy ? '🌶️' : '-'}</TableCell>
-                  <TableCell align="center">{item.hasCheese ? '🧀' : '-'}</TableCell>
-                  <TableCell align="center">
-                    <Switch 
-                      checked={item.isAvailable}
-                      onChange={(e) => handleAvailabilityChange(item.id, e.target.checked)}
-                      disabled={updatingId === item.id}
-                      size="small"
-                    />
-                  </TableCell>
-                  <TableCell align="right">
-                    <IconButton 
-                      size="small"
-                      onClick={() => navigate(`/admin/edit/${item.id}`)}
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton 
-                      size="small"
-                      color="error"
-                      onClick={() => handleDelete(item.id)}
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </TableContainer>
+
+                    <Collapse in={expandedCategory === category.id}>
+                      <Divider sx={{ my: 2 }} />
+                      
+                      {/* Кнопка добавления добавки */}
+                      <Button
+                        startIcon={<AddIcon />}
+                        size="small"
+                        onClick={() => setAddonDialog({ 
+                          open: true, 
+                          mode: 'create', 
+                          categoryId: category.id 
+                        })}
+                        sx={{ mb: 2 }}
+                      >
+                        Добавить добавку
+                      </Button>
+
+                      {/* Список добавок */}
+                      <List>
+                        {category.addons?.map((addon) => (
+                          <ListItem
+                            key={addon.id}
+                            sx={{
+                              bgcolor: alpha(theme.palette.primary.main, 0.02),
+                              borderRadius: 2,
+                              mb: 1
+                            }}
+                          >
+                            <ListItemText
+                              primary={
+                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                  <Typography fontWeight={500}>{addon.name}</Typography>
+                                </Box>
+                              }
+                              secondary={
+                                <Box>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {addon.description}
+                                  </Typography>
+                                  <Typography variant="body2" color="primary.main" fontWeight={600}>
+                                    +{addon.price} ₽
+                                  </Typography>
+                                </Box>
+                              }
+                            />
+                            <ListItemSecondaryAction>
+                              <Tooltip title="Редактировать добавку">
+                                <IconButton 
+                                  size="small"
+                                  onClick={() => setAddonDialog({ 
+                                    open: true, 
+                                    mode: 'edit', 
+                                    addon,
+                                    categoryId: category.id 
+                                  })}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Удалить добавку">
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteAddon(addon.id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
+                            </ListItemSecondaryAction>
+                          </ListItem>
+                        ))}
+                      </List>
+                    </Collapse>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </TabPanel>
+      </Paper>
+
+      {/* Диалог для категории добавок */}
+      <CategoryDialog
+        open={categoryDialog.open}
+        onClose={() => setCategoryDialog({ open: false, mode: 'create' })}
+        category={categoryDialog.category}
+        onSave={handleSaveCategory}
+        loading={createCategory.isPending || updateCategory.isPending}
+      />
+
+      {/* Диалог для добавки */}
+      <AddonDialog
+        open={addonDialog.open}
+        onClose={() => setAddonDialog({ open: false, mode: 'create' })}
+        addon={addonDialog.addon}
+        categoryId={addonDialog.categoryId}
+        categories={categories}
+        onSave={handleSaveAddon}
+        loading={createAddon.isPending || updateAddon.isPending}
+      />
+
+      {/* Диалог для привязки группы к товару */}
+      <LinkCategoryDialog
+        open={linkCategoryDialog.open}
+        onClose={() => setLinkCategoryDialog({ open: false })}
+        shawarmaId={linkCategoryDialog.shawarmaId}
+        shawarmaName={linkCategoryDialog.shawarmaName}
+        categories={categories}
+        onLink={handleLinkCategoryToShawarma}
+        loading={linkAddon.isPending}
+      />
+
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
+  );
+};
+
+// Компонент диалога для категории
+const CategoryDialog: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  category?: AddonCategory;
+  onSave: (data: Partial<AddonCategory>) => void;
+  loading: boolean;
+}> = ({ open, onClose, category, onSave, loading }) => {
+  const [formData, setFormData] = useState<Partial<AddonCategory>>({
+    name: '',
+    description: '',
+    isRequired: false,
+    minSelections: 0,
+    maxSelections: 0
+  });
+
+  React.useEffect(() => {
+    if (category) {
+      setFormData({
+        name: category.name || '',
+        description: category.description || '',
+        isRequired: category.isRequired || false,
+        minSelections: category.minSelections || 0,
+        maxSelections: category.maxSelections || 0
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        isRequired: false,
+        minSelections: 0,
+        maxSelections: 0
+      });
+    }
+  }, [category]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave(formData);
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>
+          {category ? 'Редактировать группу' : 'Новая группа добавок'}
+        </DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Название группы"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            margin="normal"
+            required
+          />
+          <TextField
+            fullWidth
+            label="Описание"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            margin="normal"
+            multiline
+            rows={2}
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.isRequired}
+                onChange={(e) => setFormData({ ...formData, isRequired: e.target.checked })}
+              />
+            }
+            label="Обязательная категория"
+          />
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Мин. выбор"
+                value={formData.minSelections}
+                onChange={(e) => setFormData({ ...formData, minSelections: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+              />
+            </Grid>
+            <Grid size={{ xs: 6 }}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Макс. выбор"
+                value={formData.maxSelections}
+                onChange={(e) => setFormData({ ...formData, maxSelections: parseInt(e.target.value) || 0 })}
+                inputProps={{ min: 0 }}
+                helperText="0 = без ограничений"
+              />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Отмена</Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            Сохранить
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+};
+
+// Обновленный компонент диалога для добавки с выбором категории
+const AddonDialog: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  addon?: Addon;
+  categoryId?: number;
+  categories: AddonCategory[];
+  onSave: (data: Partial<Addon> & { addonCategoryId: number }) => void;
+  loading: boolean;
+}> = ({ open, onClose, addon, categoryId, categories, onSave, loading }) => {
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    price: number;
+    isAvailable: boolean;
+    addonCategoryId: number;
+  }>({
+    name: '',
+    description: '',
+    price: 0,
+    isAvailable: true,
+    addonCategoryId: categoryId || (categories[0]?.id || 0)
+  });
+
+  React.useEffect(() => {
+    if (addon) {
+      setFormData({
+        name: addon.name || '',
+        description: addon.description || '',
+        price: addon.price || 0,
+        isAvailable: addon.isAvailable ?? true,
+        addonCategoryId: addon.addonCategoryId || categoryId || (categories[0]?.id || 0)
+      });
+    } else {
+      setFormData({
+        name: '',
+        description: '',
+        price: 0,
+        isAvailable: true,
+        addonCategoryId: categoryId || (categories[0]?.id || 0)
+      });
+    }
+  }, [addon, categoryId, categories]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData.name.trim()) {
+      alert('Введите название добавки');
+      return;
+    }
+    
+    if (formData.price < 0) {
+      alert('Цена не может быть отрицательной');
+      return;
+    }
+    
+    if (!formData.addonCategoryId) {
+      alert('Выберите категорию');
+      return;
+    }
+    
+    onSave({
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      price: formData.price,
+      isAvailable: formData.isAvailable,
+      addonCategoryId: formData.addonCategoryId
+    });
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>
+          {addon ? 'Редактировать добавку' : 'Новая добавка'}
+        </DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal" required>
+            <InputLabel>Категория добавки</InputLabel>
+            <Select
+              value={formData.addonCategoryId}
+              label="Категория добавки"
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                addonCategoryId: Number(e.target.value) 
+              })}
+              disabled={!!addon}
+            >
+              {categories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <TextField
+            fullWidth
+            label="Название добавки"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            margin="normal"
+            required
+          />
+          
+          <TextField
+            fullWidth
+            label="Описание"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            margin="normal"
+            multiline
+            rows={2}
+          />
+          
+          <TextField
+            fullWidth
+            type="number"
+            label="Цена"
+            value={formData.price}
+            onChange={(e) => setFormData({ 
+              ...formData, 
+              price: parseFloat(e.target.value) || 0 
+            })}
+            margin="normal"
+            required
+            inputProps={{ min: 0, step: 0.5 }}
+          />
+          
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formData.isAvailable}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  isAvailable: e.target.checked 
+                })}
+              />
+            }
+            label="Доступно"
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Отмена</Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Сохранить'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+};
+
+// Компонент диалога для привязки группы к товару
+const LinkCategoryDialog: React.FC<{
+  open: boolean;
+  onClose: () => void;
+  shawarmaId?: number;
+  shawarmaName?: string;
+  categories: AddonCategory[];
+  onLink: (categoryId: number, shawarmaId: number) => void;
+  loading: boolean;
+}> = ({ open, onClose, shawarmaId, shawarmaName, categories, onLink, loading }) => {
+  const [selectedCategory, setSelectedCategory] = useState<number | ''>('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (shawarmaId && selectedCategory) {
+      onLink(selectedCategory as number, shawarmaId);
+      onClose();
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>
+          Привязать группу добавок к товару "{shawarmaName}"
+        </DialogTitle>
+        <DialogContent>
+          <FormControl fullWidth margin="normal">
+            <InputLabel>Выберите группу добавок</InputLabel>
+            <Select
+              value={selectedCategory}
+              label="Выберите группу добавок"
+              onChange={(e) => setSelectedCategory(e.target.value as number)}
+              required
+            >
+              {categories.map((category) => (
+                <MenuItem key={category.id} value={category.id}>
+                  {category.name} ({category.addons?.length || 0} добавок)
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Отмена</Button>
+          <Button 
+            type="submit" 
+            variant="contained" 
+            disabled={!selectedCategory || loading}
+          >
+            Привязать группу
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
   );
 };
 

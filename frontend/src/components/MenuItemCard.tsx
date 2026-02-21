@@ -1,16 +1,16 @@
 import React from 'react';
 import {
   Card,
-  CardContent,
   CardMedia,
   Typography,
   Box,
-  Button,
   Chip,
   Stack,
-  useTheme
+  IconButton,
+  useTheme,
+  alpha
 } from '@mui/material';
-import { Link } from 'react-router-dom';
+import { Add as AddIcon } from '@mui/icons-material';
 import type { Shawarma } from '../types';
 import placeholderImage from '../assets/placeholder-shawarma.svg';
 
@@ -51,6 +51,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         bgcolor: 'background.paper',
       }}
     >
+      {/* Фото наверху */}
       <Box sx={{ position: 'relative', pt: '100%' }}>
         <CardMedia
           component="img"
@@ -66,6 +67,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           }}
         />
         
+        {/* Чипсы поверх фото */}
         <Stack
           direction="row"
           spacing={0.5}
@@ -83,9 +85,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
               label="🌶️ Острая"
               size="small"
               sx={{
-                bgcolor: theme.palette.mode === 'light'
-                  ? 'rgba(239, 68, 68, 0.9)'
-                  : 'rgba(239, 68, 68, 0.8)',
+                bgcolor: alpha(theme.palette.error.main, 0.9),
                 color: 'white',
                 fontWeight: 600,
                 fontSize: '0.7rem',
@@ -100,9 +100,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
               label="🧀 С сыром"
               size="small"
               sx={{
-                bgcolor: theme.palette.mode === 'light'
-                  ? 'rgba(251, 191, 36, 0.9)'
-                  : 'rgba(251, 191, 36, 0.8)',
+                bgcolor: alpha(theme.palette.warning.main, 0.9),
                 color: theme.palette.mode === 'light' ? 'white' : 'black',
                 fontWeight: 600,
                 fontSize: '0.7rem',
@@ -120,9 +118,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
             position: 'absolute',
             top: 12,
             right: 12,
-            bgcolor: theme.palette.mode === 'light'
-              ? 'rgba(255,255,255,0.9)'
-              : 'rgba(0,0,0,0.7)',
+            bgcolor: alpha(theme.palette.background.paper, 0.9),
             color: 'text.primary',
             fontWeight: 600,
             fontSize: '0.7rem',
@@ -132,15 +128,8 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
         />
       </Box>
 
-      <CardContent
-        sx={{
-          flexGrow: 1,
-          p: 2.5,
-          display: 'flex',
-          flexDirection: 'column',
-          gap: 1,
-        }}
-      >
+      {/* Контент: название и описание */}
+      <Box sx={{ p: 2.5, pb: 1, flexGrow: 1 }}>
         <Typography
           variant="h6"
           component="div"
@@ -149,6 +138,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
             fontSize: '1.25rem',
             lineHeight: 1.3,
             color: 'text.primary',
+            mb: 0.5,
           }}
         >
           {item.name}
@@ -164,54 +154,58 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
             WebkitLineClamp: 2,
             WebkitBoxOrient: 'vertical',
             overflow: 'hidden',
-            mb: 1,
           }}
         >
           {item.description || 'Без описания'}
         </Typography>
+      </Box>
 
-        <Box
+      {/* Нижняя часть: цена слева, плюс справа */}
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          p: 2.5,
+          pt: 1,
+          borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
+        }}
+      >
+        {/* Цена слева */}
+        <Typography
+          variant="h5"
           sx={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'center',
-            mt: 'auto',
-            pt: 2,
+            color: 'primary.main',
+            fontWeight: 700,
+            fontSize: '1.5rem',
+            lineHeight: 1.2,
           }}
         >
-          <Typography
-            variant="h5"
-            sx={{
-              color: 'primary.main',
-              fontWeight: 700,
-              fontSize: '1.5rem',
-            }}
-          >
-            {item.price} ₽
-          </Typography>
+          {item.price} ₽
+        </Typography>
 
-          <Button
-            component={Link}
-            to="/order"
-            state={{ selectedItem: item }}
-            variant="contained"
-            sx={{
-              bgcolor: 'primary.main',
-              '&:hover': { 
-                bgcolor: 'primary.dark',
-              },
-              fontWeight: 600,
-              px: 3,
-              py: 1,
-              borderRadius: 3,
-              textTransform: 'none',
-              fontSize: '0.9rem',
-            }}
-          >
-            Заказать
-          </Button>
-        </Box>
-      </CardContent>
+        {/* Кнопка-плюс в кружке справа */}
+        <IconButton
+          aria-label="Добавить в корзину"
+          sx={{
+            bgcolor: 'primary.main',
+            color: 'white',
+            width: 44,
+            height: 44,
+            transition: 'all 0.2s',
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              transform: 'scale(1.05)',
+            },
+            '&:active': {
+              transform: 'scale(0.95)',
+            },
+            boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`,
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+      </Box>
     </Card>
   );
 };
