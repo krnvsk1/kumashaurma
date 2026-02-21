@@ -5,10 +5,9 @@ import {
   Typography,
   Box,
   Chip,
-  Stack,
   IconButton,
   useTheme,
-  alpha
+  alpha,
 } from '@mui/material';
 import { Add as AddIcon } from '@mui/icons-material';
 import type { Shawarma } from '../types';
@@ -20,191 +19,143 @@ interface MenuItemCardProps {
 
 const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
   const theme = useTheme();
-  
-  const imageUrl = item.images && item.images.length > 0 && item.images[0]?.filePath
+
+  const imageUrl = item.images && item.images.length > 0
     ? `http://localhost:5199${item.images[0].filePath}`
     : '';
 
-  if (!item.isAvailable) {
-    return null;
-  }
+  if (!item.isAvailable) return null;
 
   return (
     <Card
       sx={{
-        borderRadius: 4,
+        display: 'flex',
+        flexDirection: { xs: 'column', md: 'row' }, // на мобильных колонка, на десктопе ряд
+        borderRadius: { xs: 2, md: 4 }, // менее скруглённые углы на мобильных
         border: `1px solid ${theme.palette.divider}`,
         boxShadow: 'none',
         transition: 'all 0.2s ease',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: theme.palette.mode === 'light'
-            ? '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)'
-            : '0 20px 25px -5px rgba(0,0,0,0.3), 0 10px 10px -5px rgba(0,0,0,0.2)',
+            ? '0 20px 25px -5px rgba(0,0,0,0.05)'
+            : '0 20px 25px -5px rgba(0,0,0,0.3)',
           borderColor: 'primary.main',
         },
         height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        overflow: 'hidden',
         bgcolor: 'background.paper',
       }}
     >
-      {/* Фото наверху */}
-      <Box sx={{ position: 'relative', pt: '100%' }}>
+      {/* Фото */}
+      <Box
+        sx={{
+          width: { xs: '100%', md: '35%' },
+          height: { xs: 140, md: 'auto' }, // фиксированная высота на мобильных
+          position: 'relative',
+        }}
+      >
         <CardMedia
           component="img"
           image={imageUrl || placeholderImage}
           alt={item.name}
           sx={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
             height: '100%',
+            width: '100%',
             objectFit: 'cover',
+            borderTopLeftRadius: { xs: 8, md: 16 },
+            borderTopRightRadius: { xs: 8, md: 0 },
+            borderBottomLeftRadius: { xs: 0, md: 16 },
           }}
         />
-        
-        {/* Чипсы поверх фото */}
-        <Stack
-          direction="row"
-          spacing={0.5}
+        {/* Бейджи на фото */}
+        <Box
           sx={{
-            position: 'absolute',
-            top: 12,
-            left: 12,
-            zIndex: 1,
-            flexWrap: 'wrap',
+            display: 'flex',
             gap: 0.5,
+            position: 'absolute',
+            top: 8,
+            left: 8,
+            zIndex: 1,
           }}
         >
           {item.isSpicy && (
             <Chip
-              label="🌶️ Острая"
+              label="🌶️"
               size="small"
               sx={{
                 bgcolor: alpha(theme.palette.error.main, 0.9),
                 color: 'white',
-                fontWeight: 600,
                 fontSize: '0.7rem',
-                backdropFilter: 'blur(4px)',
                 border: 'none',
               }}
             />
           )}
-          
           {item.hasCheese && (
             <Chip
-              label="🧀 С сыром"
+              label="🧀"
               size="small"
               sx={{
                 bgcolor: alpha(theme.palette.warning.main, 0.9),
-                color: theme.palette.mode === 'light' ? 'white' : 'black',
-                fontWeight: 600,
+                color: 'white',
                 fontSize: '0.7rem',
-                backdropFilter: 'blur(4px)',
                 border: 'none',
               }}
             />
           )}
-        </Stack>
-
-        <Chip
-          label={item.category}
-          size="small"
-          sx={{
-            position: 'absolute',
-            top: 12,
-            right: 12,
-            bgcolor: alpha(theme.palette.background.paper, 0.9),
-            color: 'text.primary',
-            fontWeight: 600,
-            fontSize: '0.7rem',
-            backdropFilter: 'blur(4px)',
-            border: 'none',
-          }}
-        />
+        </Box>
       </Box>
 
-      {/* Контент: название и описание */}
-      <Box sx={{ p: 2.5, pb: 1, flexGrow: 1 }}>
-        <Typography
-          variant="h6"
-          component="div"
-          sx={{
-            fontWeight: 700,
-            fontSize: '1.25rem',
-            lineHeight: 1.3,
-            color: 'text.primary',
-            mb: 0.5,
-          }}
-        >
-          {item.name}
-        </Typography>
-
-        <Typography
-          variant="body2"
-          sx={{
-            fontSize: '0.875rem',
-            lineHeight: 1.6,
-            color: 'text.secondary',
-            display: '-webkit-box',
-            WebkitLineClamp: 2,
-            WebkitBoxOrient: 'vertical',
-            overflow: 'hidden',
-          }}
-        >
-          {item.description || 'Без описания'}
-        </Typography>
-      </Box>
-
-      {/* Нижняя часть: цена слева, плюс справа */}
+      {/* Контент */}
       <Box
         sx={{
+          width: { xs: '100%', md: '65%' },
+          p: 2,
           display: 'flex',
+          flexDirection: 'column',
           justifyContent: 'space-between',
-          alignItems: 'center',
-          p: 2.5,
-          pt: 1,
-          borderTop: `1px solid ${alpha(theme.palette.divider, 0.5)}`,
         }}
       >
-        {/* Цена слева */}
-        <Typography
-          variant="h5"
-          sx={{
-            color: 'primary.main',
-            fontWeight: 700,
-            fontSize: '1.5rem',
-            lineHeight: 1.2,
-          }}
-        >
-          {item.price} ₽
-        </Typography>
+        <Box>
+          <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.1rem' }, mb: 0.5 }}>
+            {item.name}
+          </Typography>
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{
+              display: '-webkit-box',
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: 'vertical',
+              overflow: 'hidden',
+              mb: 1,
+              fontSize: { xs: '0.8rem', md: '0.875rem' },
+            }}
+          >
+            {item.description || 'Без описания'}
+          </Typography>
+          {/* Размер/вес (заглушка) */}
+          <Typography variant="caption" color="text.secondary" display="block">
+            33 см / 700 г
+          </Typography>
+        </Box>
 
-        {/* Кнопка-плюс в кружке справа */}
-        <IconButton
-          aria-label="Добавить в корзину"
-          sx={{
-            bgcolor: 'primary.main',
-            color: 'white',
-            width: 44,
-            height: 44,
-            transition: 'all 0.2s',
-            '&:hover': {
-              bgcolor: 'primary.dark',
-              transform: 'scale(1.05)',
-            },
-            '&:active': {
-              transform: 'scale(0.95)',
-            },
-            boxShadow: `0 4px 10px ${alpha(theme.palette.primary.main, 0.3)}`,
-          }}
-        >
-          <AddIcon />
-        </IconButton>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
+          <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+            от {item.price} ₽
+          </Typography>
+          <IconButton
+            size="small"
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              width: { xs: 32, md: 36 },
+              height: { xs: 32, md: 36 },
+              '&:hover': { bgcolor: 'primary.dark' },
+            }}
+          >
+            <AddIcon fontSize="small" />
+          </IconButton>
+        </Box>
       </Box>
     </Card>
   );

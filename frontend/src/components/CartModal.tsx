@@ -15,7 +15,8 @@ import {
   TextField,
   Paper,
   Chip,
-  useTheme
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -34,6 +35,8 @@ interface CartModalProps {
 
 const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const items = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
@@ -44,14 +47,12 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const [deliveryType, setDeliveryType] = React.useState('Доставка');
   const [address, setAddress] = React.useState('Пионерский переулок, 1');
 
-  const MIN_ORDER = 599;
+  const MIN_ORDER = 499;
   const deliveryPrice = 0;
   const isMinOrderReached = totalPrice >= MIN_ORDER;
 
-  // Обработчик изменения количества
   const handleQuantityChange = (uniqueKey: string | undefined, delta: number) => {
     if (!uniqueKey) return;
-    
     const item = items.find(item => item.uniqueKey === uniqueKey);
     if (item) {
       const newQuantity = item.quantity + delta;
@@ -68,17 +69,19 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
       open={open}
       onClose={onClose}
       maxWidth="sm"
-      fullWidth
+      fullScreen={isMobile}
+      fullWidth={!isMobile}
       PaperProps={{
         sx: {
-          borderRadius: 4,
+          borderRadius: isMobile ? 0 : 4,
           bgcolor: 'background.paper',
-          maxHeight: '90vh',
+          maxHeight: isMobile ? '100%' : '90vh',
+          margin: isMobile ? 0 : undefined,
         }
       }}
     >
       {/* Заголовок */}
-      <DialogTitle sx={{ p: 3, pb: 1 }}>
+      <DialogTitle sx={{ p: 3, pb: 1, borderBottom: `1px solid ${theme.palette.divider}` }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h4" sx={{ fontWeight: 700 }}>
             Корзина
@@ -89,7 +92,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
         </Box>
 
         {/* Табы доставки */}
-        <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
           {['Доставка', 'Самовывоз', 'В зале', 'Food Drive'].map((type) => (
             <Chip
               key={type}
@@ -97,16 +100,13 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
               onClick={() => setDeliveryType(type)}
               variant={deliveryType === type ? 'filled' : 'outlined'}
               color={deliveryType === type ? 'primary' : 'default'}
-              sx={{
-                borderRadius: 2,
-                fontWeight: 500,
-              }}
+              sx={{ borderRadius: 2, fontWeight: 500 }}
             />
           ))}
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 3, pt: 1 }}>
+      <DialogContent sx={{ p: isMobile ? 2 : 3, pt: 1 }}>
         {/* Поиск адреса */}
         <Paper
           variant="outlined"
@@ -126,16 +126,13 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
             value={address}
             onChange={(e) => setAddress(e.target.value)}
             variant="standard"
-            InputProps={{
-              disableUnderline: true,
-            }}
+            InputProps={{ disableUnderline: true }}
           />
         </Paper>
 
         {/* Список товаров */}
         <List sx={{ mb: 2 }}>
           {items.map((item) => {
-            // Рассчитываем стоимость с добавками
             const addonsTotal = item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0;
             const itemTotal = (item.price + addonsTotal) * item.quantity;
 
@@ -169,7 +166,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
                   </Avatar>
                 </ListItemAvatar>
                 <Box sx={{ flex: 1, ml: 2 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600, fontSize: isMobile ? '1rem' : '1.25rem' }}>
                     {item.name}
                   </Typography>
                   
@@ -192,30 +189,22 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
                   )}
 
                   <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                    <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700, fontSize: isMobile ? '1rem' : '1.25rem' }}>
                       {itemTotal} ₽
                     </Typography>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <IconButton
                         size="small"
                         onClick={() => handleQuantityChange(item.uniqueKey, -1)}
-                        sx={{
-                          border: `1px solid ${theme.palette.divider}`,
-                          borderRadius: 2,
-                        }}
+                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
                       >
                         <RemoveIcon fontSize="small" />
                       </IconButton>
-                      <Typography sx={{ minWidth: 30, textAlign: 'center' }}>
-                        {item.quantity}
-                      </Typography>
+                      <Typography sx={{ minWidth: 30, textAlign: 'center' }}>{item.quantity}</Typography>
                       <IconButton
                         size="small"
                         onClick={() => handleQuantityChange(item.uniqueKey, 1)}
-                        sx={{
-                          border: `1px solid ${theme.palette.divider}`,
-                          borderRadius: 2,
-                        }}
+                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
@@ -235,9 +224,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
             mb: 2,
             borderRadius: 3,
             borderColor: promoError ? 'error.main' : theme.palette.divider,
-            bgcolor: promoError 
-              ? theme.palette.mode === 'light' ? '#fff5f5' : '#4a1f1f'
-              : 'transparent',
+            bgcolor: promoError ? (theme.palette.mode === 'light' ? '#fff5f5' : '#4a1f1f') : 'transparent',
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -246,14 +233,9 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
               fullWidth
               placeholder="Промокод ШАУРМА"
               value={promoCode}
-              onChange={(e) => {
-                setPromoCode(e.target.value);
-                setPromoError(false);
-              }}
+              onChange={(e) => { setPromoCode(e.target.value); setPromoError(false); }}
               variant="standard"
-              InputProps={{
-                disableUnderline: true,
-              }}
+              InputProps={{ disableUnderline: true }}
             />
           </Box>
           {promoError && (
@@ -297,7 +279,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
         </Paper>
       </DialogContent>
 
-      <DialogActions sx={{ p: 3, pt: 0 }}>
+      <DialogActions sx={{ p: isMobile ? 2 : 3, pt: 0 }}>
         <Button
           variant="contained"
           onClick={onCheckout}
@@ -306,7 +288,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
           sx={{
             borderRadius: 3,
             py: 2,
-            fontSize: '1.1rem',
+            fontSize: isMobile ? '1rem' : '1.1rem',
             fontWeight: 600,
           }}
         >

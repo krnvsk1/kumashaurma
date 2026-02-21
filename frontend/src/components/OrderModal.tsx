@@ -18,7 +18,9 @@ import {
   CircularProgress,
   Snackbar,
   Slide,
-  Paper
+  Paper,
+  useTheme,
+  useMediaQuery
 } from '@mui/material';
 import type { SlideProps } from '@mui/material';
 import { 
@@ -40,6 +42,9 @@ interface OrderModalProps {
 }
 
 const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
   const createOrder = useCreateOrder();
 
   const cartItems = useCartStore(state => state.items);
@@ -93,17 +98,11 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
 
     try {
       const result = await createOrder.mutateAsync(orderData);
-      
       showSnackbar(`Заказ #${result.id} создан успешно!`, 'success');
-      
       clearCart();
       setAddress('');
       setNotes('');
-      
-      setTimeout(() => {
-        onClose();
-      }, 1500);
-      
+      setTimeout(() => onClose(), 1500);
     } catch (error: any) {
       showSnackbar(error.message || 'Ошибка при создании заказа', 'error');
     }
@@ -119,13 +118,14 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
         open={open}
         onClose={onClose}
         maxWidth="sm"
-        fullWidth
+        fullScreen={isMobile}
+        fullWidth={!isMobile}
         TransitionComponent={Transition}
         PaperProps={{
           sx: {
-            borderRadius: 6,
+            borderRadius: isMobile ? 0 : 6,
             bgcolor: 'background.paper',
-            border: '1px solid #e2e8f0',
+            border: `1px solid ${theme.palette.divider}`,
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)',
           }
         }}
@@ -135,38 +135,32 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
           display: 'flex', 
           justifyContent: 'space-between', 
           alignItems: 'center',
-          borderBottom: '1px solid #e2e8f0',
-          py: 3,
-          px: 3,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          py: isMobile ? 2 : 3,
+          px: isMobile ? 2 : 3,
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <IconButton 
               onClick={onBackToCart} 
               size="small"
-              sx={{
-                border: '1px solid #e2e8f0',
-                borderRadius: 2,
-              }}
+              sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
             >
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
+            <Typography variant={isMobile ? "h6" : "h5"} sx={{ fontWeight: 700, letterSpacing: '-0.02em' }}>
               Оформление заказа
             </Typography>
           </Box>
           <IconButton 
             onClick={onClose} 
             size="small"
-            sx={{
-              border: '1px solid #e2e8f0',
-              borderRadius: 2,
-            }}
+            sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
           >
             <CloseIcon />
           </IconButton>
         </DialogTitle>
 
-        <DialogContent sx={{ p: 3 }}>
+        <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
           {/* Адрес доставки */}
           <Box sx={{ mb: 3 }}>
             <TextField
@@ -176,11 +170,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
               onChange={(e) => setAddress(e.target.value)}
               disabled={createOrder.isPending}
               placeholder="ул. Ленина, д. 1, кв. 1"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: 3,
-                }
-              }}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
             />
           </Box>
 
@@ -207,7 +197,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                       mb: 1.5,
                       p: 1.5,
                       borderRadius: 4,
-                      border: '1px solid #e2e8f0',
+                      border: `1px solid ${theme.palette.divider}`,
                       bgcolor: 'background.paper',
                     }}
                   >
@@ -221,7 +211,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                             bgcolor: '#f8fafc',
                             borderRadius: 3,
                             mr: 2,
-                            border: '1px solid #e2e8f0',
+                            border: `1px solid ${theme.palette.divider}`,
                           }}
                         >
                           {item.images?.[0]?.filePath ? (
@@ -244,12 +234,12 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                       </ListItemAvatar>
                       <ListItemText
                         primary={
-                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }} component="span">
+                          <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                             {item.name}
                           </Typography>
                         }
                         secondary={
-                          <Box component="span">
+                          <Box>
                             {/* Добавки */}
                             {item.selectedAddons && item.selectedAddons.length > 0 && (
                               <Box sx={{ mt: 0.5, mb: 0.5 }}>
@@ -268,11 +258,11 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
                             )}
                             
                             {/* Количество и цена */}
-                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }} component="span">
-                              <Typography variant="body2" color="text.secondary" component="span">
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
+                              <Typography variant="body2" color="text.secondary">
                                 {item.quantity} × {item.price} ₽
                               </Typography>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }} component="span">
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 {itemTotal} ₽
                               </Typography>
                             </Box>
@@ -303,12 +293,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             multiline
             rows={2}
             placeholder="Пожелания по доставке, звонок в домофон и т.д."
-            sx={{
-              mb: 3,
-              '& .MuiOutlinedInput-root': {
-                borderRadius: 3,
-              }
-            }}
+            sx={{ mb: 3, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
           />
 
           {/* Итого */}
@@ -317,21 +302,21 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
             sx={{
               p: 2,
               borderRadius: 4,
-              border: '1px solid #e2e8f0',
-              bgcolor: '#f8fafc',
+              border: `1px solid ${theme.palette.divider}`,
+              bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
               mb: 2,
             }}
           >
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>Итого:</Typography>
-              <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 800 }}>
+              <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 800, fontSize: isMobile ? '1.5rem' : '2rem' }}>
                 {totalAmount} ₽
               </Typography>
             </Box>
           </Paper>
 
           {/* Заглушка авторизации */}
-          <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 3, border: '1px solid #e2e8f0' }}>
+          <Box sx={{ p: 2, bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b', borderRadius: 3, border: `1px solid ${theme.palette.divider}` }}>
             <Typography variant="body2" color="text.secondary">
               🔐 В будущем здесь будут имя и телефон из профиля
             </Typography>
@@ -339,26 +324,20 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
         </DialogContent>
 
         <DialogActions sx={{ 
-          p: 3, 
-          borderTop: '1px solid #e2e8f0',
-          bgcolor: '#f8fafc',
-          borderBottomLeftRadius: 24,
-          borderBottomRightRadius: 24,
+          p: isMobile ? 2 : 3, 
+          borderTop: `1px solid ${theme.palette.divider}`,
+          bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
         }}>
           <Button
             variant="contained"
             onClick={handleSubmit}
             fullWidth
-            disabled={
-              cartItems.length === 0 || 
-              !address.trim() || 
-              createOrder.isPending
-            }
+            disabled={cartItems.length === 0 || !address.trim() || createOrder.isPending}
             startIcon={createOrder.isPending ? <CircularProgress size={20} color="inherit" /> : null}
             sx={{
               borderRadius: 3,
-              py: 1.8,
-              fontSize: '1.1rem',
+              py: isMobile ? 1.5 : 1.8,
+              fontSize: isMobile ? '1rem' : '1.1rem',
             }}
           >
             {createOrder.isPending ? 'Создание...' : 'Оформить заказ'}
@@ -375,11 +354,7 @@ const OrderModal: React.FC<OrderModalProps> = ({ open, onClose, onBackToCart }) 
         <Alert 
           onClose={handleCloseSnackbar} 
           severity={snackbar.severity}
-          sx={{ 
-            width: '100%',
-            borderRadius: 3,
-            border: '1px solid #e2e8f0',
-          }}
+          sx={{ width: '100%', borderRadius: 3 }}
         >
           {snackbar.message}
         </Alert>
