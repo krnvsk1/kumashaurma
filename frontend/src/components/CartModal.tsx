@@ -37,7 +37,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const items = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
-  const { updateQuantity} = useCartStore();
+  const { updateQuantity, removeItem } = useCartStore();
 
   const [promoCode, setPromoCode] = React.useState('');
   const [promoError, setPromoError] = React.useState(false);
@@ -47,6 +47,21 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
   const MIN_ORDER = 499;
   const deliveryPrice = 0;
   const isMinOrderReached = totalPrice >= MIN_ORDER;
+
+  // Обработчик изменения количества
+  const handleQuantityChange = (uniqueKey: string | undefined, delta: number) => {
+    if (!uniqueKey) return;
+    
+    const item = items.find(item => item.uniqueKey === uniqueKey);
+    if (item) {
+      const newQuantity = item.quantity + delta;
+      if (newQuantity < 1) {
+        removeItem(uniqueKey);
+      } else {
+        updateQuantity(uniqueKey, newQuantity);
+      }
+    }
+  };
 
   return (
     <Dialog
@@ -119,75 +134,97 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
 
         {/* Список товаров */}
         <List sx={{ mb: 2 }}>
-          {items.map((item) => (
-            <ListItem key={item.id} sx={{ px: 0, alignItems: 'flex-start' }}>
-              <ListItemAvatar>
-                <Avatar
-                  variant="rounded"
-                  sx={{
-                    width: 80,
-                    height: 80,
-                    borderRadius: 3,
-                    bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
-                    border: `1px solid ${theme.palette.divider}`,
-                  }}
-                >
-                  {item.images?.[0]?.filePath ? (
-                    <img
-                      src={`http://localhost:5199${item.images[0].filePath}`}
-                      alt={item.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover',
-                        borderRadius: 12,
-                      }}
-                    />
-                  ) : (
-                    <Typography sx={{ fontSize: '2rem' }}>🥙</Typography>
-                  )}
-                </Avatar>
-              </ListItemAvatar>
-              <Box sx={{ flex: 1, ml: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 600 }}>
-                  {item.name}
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  {item.description || 'Состав'}
-                </Typography>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
-                    {item.price} ₽
+          {items.map((item) => {
+            // Рассчитываем стоимость с добавками
+            const addonsTotal = item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0;
+            const itemTotal = (item.price + addonsTotal) * item.quantity;
+
+            return (
+              <ListItem key={item.uniqueKey} sx={{ px: 0, alignItems: 'flex-start' }}>
+                <ListItemAvatar>
+                  <Avatar
+                    variant="rounded"
+                    sx={{
+                      width: 80,
+                      height: 80,
+                      borderRadius: 3,
+                      bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
+                      border: `1px solid ${theme.palette.divider}`,
+                    }}
+                  >
+                    {item.images?.[0]?.filePath ? (
+                      <img
+                        src={`http://localhost:5199${item.images[0].filePath}`}
+                        alt={item.name}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          objectFit: 'cover',
+                          borderRadius: 12,
+                        }}
+                      />
+                    ) : (
+                      <Typography sx={{ fontSize: '2rem' }}>🥙</Typography>
+                    )}
+                  </Avatar>
+                </ListItemAvatar>
+                <Box sx={{ flex: 1, ml: 2 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                    {item.name}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <IconButton
-                      size="small"
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                      sx={{
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 2,
-                      }}
-                    >
-                      <RemoveIcon fontSize="small" />
-                    </IconButton>
-                    <Typography sx={{ minWidth: 30, textAlign: 'center' }}>
-                      {item.quantity}
+                  
+                  {/* Отображение добавок */}
+                  {item.selectedAddons && item.selectedAddons.length > 0 && (
+                    <Box sx={{ mt: 0.5, mb: 1 }}>
+                      {item.selectedAddons.map((addon, idx) => (
+                        <Typography key={idx} variant="caption" color="text.secondary" display="block">
+                          • {addon.addonName} {addon.quantity > 1 ? `×${addon.quantity}` : ''} +{addon.price * addon.quantity} ₽
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
+
+                  {/* Особые пожелания */}
+                  {item.specialInstructions && (
+                    <Typography variant="caption" color="info.main" sx={{ display: 'block', mb: 1 }}>
+                      ✏️ {item.specialInstructions}
                     </Typography>
-                    <IconButton
-                      size="small"
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                      sx={{
-                        border: `1px solid ${theme.palette.divider}`,
-                        borderRadius: 2,
-                      }}
-                    >
-                      <AddIcon fontSize="small" />
-                    </IconButton>
+                  )}
+
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <Typography variant="h6" color="primary.main" sx={{ fontWeight: 700 }}>
+                      {itemTotal} ₽
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleQuantityChange(item.uniqueKey, -1)}
+                        sx={{
+                          border: `1px solid ${theme.palette.divider}`,
+                          borderRadius: 2,
+                        }}
+                      >
+                        <RemoveIcon fontSize="small" />
+                      </IconButton>
+                      <Typography sx={{ minWidth: 30, textAlign: 'center' }}>
+                        {item.quantity}
+                      </Typography>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleQuantityChange(item.uniqueKey, 1)}
+                        sx={{
+                          border: `1px solid ${theme.palette.divider}`,
+                          borderRadius: 2,
+                        }}
+                      >
+                        <AddIcon fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
-            </ListItem>
-          ))}
+              </ListItem>
+            );
+          })}
         </List>
 
         {/* Промокод */}

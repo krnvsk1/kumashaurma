@@ -15,15 +15,12 @@ import {
   Snackbar,
   Paper,
   alpha,
-  useTheme,
-  Collapse
+  useTheme
 } from '@mui/material';
 import {
   Delete as DeleteIcon,
   Add as AddIcon,
-  Remove as RemoveIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon
+  Remove as RemoveIcon
 } from '@mui/icons-material';
 import { useCreateOrder } from '../api/hooks';
 import type { CreateOrderDto } from '../types';
@@ -35,19 +32,15 @@ const CreateOrderPage: React.FC = () => {
   
   const createOrder = useCreateOrder();
 
-  // 👇 Получаем данные из корзины
+  // Получаем данные из корзины
   const cartItems = useCartStore(state => state.items);
   const clearCart = useCartStore(state => state.clearCart);
   const removeItem = useCartStore(state => state.removeItem);
   const updateQuantity = useCartStore(state => state.updateQuantity);
-  const getItemUniqueId = useCartStore(state => state.getItemUniqueId);
   
   const totalAmount = useTotalPrice();
   const totalItems = useTotalItems();
 
-  // Состояния для раскрытия добавок
-  const [expandedAddons, setExpandedAddons] = React.useState<Set<string>>(new Set());
-  
   // Поля клиента
   const [customerName, setCustomerName] = React.useState('');
   const [phone, setPhone] = React.useState('');
@@ -64,14 +57,17 @@ const CreateOrderPage: React.FC = () => {
     setSnackbar({ open: true, message, severity });
   };
 
-  const toggleAddons = (uniqueId: string) => {
-    const newExpanded = new Set(expandedAddons);
-    if (newExpanded.has(uniqueId)) {
-      newExpanded.delete(uniqueId);
+  // Функция для обработки изменения количества
+  const handleQuantityChange = (uniqueKey: string, delta: number) => {
+    console.log('🔧 Изменение количества:', { uniqueKey, delta });
+    const item = cartItems.find(item => item.uniqueKey === uniqueKey);
+    if (item) {
+      const newQuantity = item.quantity + delta;
+      console.log('📊 Новое количество:', newQuantity);
+      updateQuantity(uniqueKey, newQuantity);
     } else {
-      newExpanded.add(uniqueId);
+      console.log('❌ Товар не найден:', uniqueKey);
     }
-    setExpandedAddons(newExpanded);
   };
 
   // Отправка заказа
@@ -89,6 +85,10 @@ const CreateOrderPage: React.FC = () => {
       showSnackbar('Корзина пуста', 'error');
       return;
     }
+
+    React.useEffect(() => {
+      console.log('🛒 Текущая корзина:', cartItems);
+    }, [cartItems]);
 
     // Подготавливаем данные
     const orderData: CreateOrderDto = {
@@ -241,14 +241,12 @@ const CreateOrderPage: React.FC = () => {
               ) : (
                 <List sx={{ p: 0 }}>
                   {cartItems.map((item) => {
-                    const uniqueId = getItemUniqueId(item);
-                    const isExpanded = expandedAddons.has(uniqueId);
                     const itemTotal = (item.price + 
                       (item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0)
                     ) * item.quantity;
                     
                     return (
-                      <React.Fragment key={uniqueId}>
+                      <React.Fragment key={item.uniqueKey}>
                         <Paper
                           variant="outlined"
                           sx={{ 
@@ -269,7 +267,7 @@ const CreateOrderPage: React.FC = () => {
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                                   <IconButton
                                     size="small"
-                                    onClick={() => updateQuantity(uniqueId, item.quantity - 1)}
+                                    onClick={() => handleQuantityChange(item.uniqueKey!, -1)}
                                     disabled={item.quantity <= 1 || createOrder.isPending}
                                   >
                                     <RemoveIcon fontSize="small" />
@@ -279,7 +277,7 @@ const CreateOrderPage: React.FC = () => {
                                   </Typography>
                                   <IconButton
                                     size="small"
-                                    onClick={() => updateQuantity(uniqueId, item.quantity + 1)}
+                                    onClick={() => handleQuantityChange(item.uniqueKey!, 1)}
                                     disabled={createOrder.isPending}
                                   >
                                     <AddIcon fontSize="small" />
@@ -298,7 +296,7 @@ const CreateOrderPage: React.FC = () => {
                               </Typography>
                               <IconButton 
                                 edge="end" 
-                                onClick={() => removeItem(uniqueId)}
+                                onClick={() => removeItem(item.uniqueKey!)}
                                 disabled={createOrder.isPending}
                                 size="small"
                                 color="error"
@@ -308,54 +306,39 @@ const CreateOrderPage: React.FC = () => {
                             </Box>
                           </Box>
 
-                          {/* Кнопка показа добавок */}
+                          {/* Отображение добавок */}
                           {item.selectedAddons && item.selectedAddons.length > 0 && (
-                            <>
-                              <Button
-                                size="small"
-                                onClick={() => toggleAddons(uniqueId)}
-                                endIcon={isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                                sx={{ mt: 1, textTransform: 'none' }}
-                              >
-                                {isExpanded ? 'Скрыть добавки' : `Показать добавки (${item.selectedAddons.length})`}
-                              </Button>
-
-                              <Collapse in={isExpanded}>
-                                <Box sx={{ mt: 2, pl: 2 }}>
-                                  {item.selectedAddons.map((addon, idx) => (
-                                    <Box 
-                                      key={idx}
-                                      sx={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        py: 0.5,
-                                        borderBottom: idx < item.selectedAddons.length - 1 ? `1px dashed ${theme.palette.divider}` : 'none'
-                                      }}
-                                    >
-                                      <Box>
-                                        <Typography variant="body2">
-                                          {addon.addonName}
-                                        </Typography>
-                                        <Typography variant="caption" color="text.secondary">
-                                          {addon.categoryName}
-                                        </Typography>
-                                      </Box>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                                        {addon.quantity > 1 && (
-                                          <Typography variant="body2" color="text.secondary">
-                                            ×{addon.quantity}
-                                          </Typography>
-                                        )}
-                                        <Typography variant="body2" color="primary.main">
-                                          +{addon.price * addon.quantity} ₽
-                                        </Typography>
-                                      </Box>
-                                    </Box>
-                                  ))}
+                            <Box sx={{ mt: 2, pl: 0 }}>
+                              <Typography variant="caption" color="text.secondary" sx={{ mb: 1, display: 'block' }}>
+                                Добавки:
+                              </Typography>
+                              {item.selectedAddons.map((addon, idx) => (
+                                <Box 
+                                  key={idx}
+                                  sx={{ 
+                                    display: 'flex', 
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    py: 0.5,
+                                    pl: 2
+                                  }}
+                                >
+                                  <Typography variant="body2">
+                                    • {addon.addonName}
+                                  </Typography>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {addon.quantity > 1 && (
+                                      <Typography variant="body2" color="text.secondary">
+                                        ×{addon.quantity}
+                                      </Typography>
+                                    )}
+                                    <Typography variant="body2" color="primary.main">
+                                      +{addon.price * addon.quantity} ₽
+                                    </Typography>
+                                  </Box>
                                 </Box>
-                              </Collapse>
-                            </>
+                              ))}
+                            </Box>
                           )}
 
                           {/* Особые пожелания */}

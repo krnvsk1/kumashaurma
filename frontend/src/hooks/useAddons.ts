@@ -57,9 +57,7 @@ export interface CreateAddonDto {
   name: string;
   description?: string | null;
   price: number;
-  category: {  // 👈 объект с id
-    id: number;
-  };
+  addonCategoryId: number;
   isAvailable?: boolean;
   displayOrder?: number;
 }

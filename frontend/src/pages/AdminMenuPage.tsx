@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Container,
   Typography,
@@ -39,7 +40,8 @@ import {
   Collapse,
   alpha,
   useTheme,
-  Tooltip
+  Tooltip,
+  CircularProgress
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -84,6 +86,7 @@ function TabPanel(props: TabPanelProps) {
 
 const AdminMenuPage: React.FC = () => {
   const theme = useTheme();
+  const navigate = useNavigate();
   const [tabValue, setTabValue] = useState(0);
   const [expandedCategory, setExpandedCategory] = useState<number | null>(null);
   
@@ -149,64 +152,57 @@ const AdminMenuPage: React.FC = () => {
     }
   };
 
-  // Обработчики для добавок - ИСПРАВЛЕНО
-  // Обработчики для добавок - ИСПРАВЛЕНО
-const handleSaveAddon = async (data: Partial<Addon>) => {
-  try {
-    console.log('📤 ===== НАЧАЛО ОТПРАВКИ ДОБАВКИ =====');
-    console.log('📤 Данные из формы:', data);
-    console.log('📤 ID группы:', addonDialog.categoryId);
-    
-    if (addonDialog.mode === 'create' && addonDialog.categoryId) {
-      // Проверяем обязательные поля
-      if (!data.name || data.name.trim() === '') {
-        showMessage('Название добавки обязательно', 'error');
-        return;
+  // Обработчики для добавок - с явным полем категории
+  const handleSaveAddon = async (data: Partial<Addon> & { addonCategoryId: number }) => {
+    try {
+      console.log('📤 ===== НАЧАЛО ОТПРАВКИ ДОБАВКИ =====');
+      console.log('📤 Данные из формы:', data);
+      
+      if (addonDialog.mode === 'create') {
+        // Отправляем данные с явным ID категории
+        const addonData = {
+          name: data.name!,
+          description: data.description || '',
+          price: data.price || 0,
+          addonCategoryId: data.addonCategoryId,  // Явно из формы
+          isAvailable: data.isAvailable ?? true,
+          displayOrder: 0
+        };
+        
+        console.log('📤 Данные для отправки:', JSON.stringify(addonData, null, 2));
+        
+        const result = await createAddon.mutateAsync(addonData);
+        
+        console.log('✅ Добавка создана:', result);
+        showMessage('Добавка создана', 'success');
+        setAddonDialog({ open: false, mode: 'create' });
+      } else if (addonDialog.mode === 'edit' && addonDialog.addon?.id) {
+        // Для редактирования отправляем только изменяемые поля
+        const updateData: any = {
+          id: addonDialog.addon.id
+        };
+        
+        if (data.name) updateData.name = data.name;
+        if (data.description !== undefined) updateData.description = data.description;
+        if (data.price !== undefined) updateData.price = data.price;
+        if (data.isAvailable !== undefined) updateData.isAvailable = data.isAvailable;
+        
+        await updateAddon.mutateAsync(updateData);
+        showMessage('Добавка обновлена', 'success');
+        setAddonDialog({ open: false, mode: 'create' });
       }
-
-      if (data.price === undefined || data.price < 0) {
-        showMessage('Цена должна быть больше 0', 'error');
-        return;
+    } catch (error: any) {
+      console.error('❌ ===== ОШИБКА =====');
+      console.error('❌ Статус:', error.response?.status);
+      console.error('❌ Данные ответа:', error.response?.data);
+      
+      if (error.response?.data?.message) {
+        showMessage(error.response.data.message, 'error');
+      } else {
+        showMessage('Ошибка при сохранении добавки', 'error');
       }
-
-      // ✅ ИСПРАВЛЕНО: отправляем объект Category с id
-      const addonData = {
-        name: data.name.trim(),
-        description: data.description?.trim() || '',
-        price: data.price,
-        category: {  // 👈 ВАЖНО: объект Category
-          id: addonDialog.categoryId
-        },
-        isAvailable: data.isAvailable ?? true,
-        displayOrder: 0
-      };
-      
-      console.log('📤 Данные для отправки:', JSON.stringify(addonData, null, 2));
-      
-      const result = await createAddon.mutateAsync(addonData);
-      
-      console.log('✅ Добавка создана:', result);
-      showMessage('Добавка создана', 'success');
-      setAddonDialog({ open: false, mode: 'create' });
     }
-  } catch (error: any) {
-    console.error('❌ ===== ОШИБКА =====');
-    console.error('❌ Статус:', error.response?.status);
-    console.error('❌ Данные ответа:', error.response?.data);
-    
-    // Показываем конкретную ошибку от сервера
-    if (error.response?.data?.errors) {
-      const messages = Object.entries(error.response.data.errors)
-        .map(([field, errors]) => `${field}: ${errors}`)
-        .join('\n');
-      showMessage(messages, 'error');
-    } else if (error.response?.data?.message) {
-      showMessage(error.response.data.message, 'error');
-    } else {
-      showMessage('Ошибка при сохранении добавки', 'error');
-    }
-  }
-};
+  };
 
   // Привязка группы добавок к товару
   const handleLinkCategoryToShawarma = async (categoryId: number, shawarmaId: number) => {
@@ -259,7 +255,7 @@ const handleSaveAddon = async (data: Partial<Addon>) => {
           <Button
             variant="contained"
             startIcon={<FastfoodIcon />}
-            // onClick={() => navigate('/admin/create')}
+            onClick={() => navigate('/admin/create')}
           >
             Добавить товар
           </Button>
@@ -335,12 +331,28 @@ const handleSaveAddon = async (data: Partial<Addon>) => {
                       </Tooltip>
                     </TableCell>
                     <TableCell>
-                      <IconButton size="small">
-                        <EditIcon />
-                      </IconButton>
-                      <IconButton size="small" color="error" onClick={() => deleteProduct.mutate(product.id)}>
-                        <DeleteIcon />
-                      </IconButton>
+                      <Tooltip title="Редактировать товар">
+                        <IconButton 
+                          size="small"
+                          onClick={() => navigate(`/admin/edit/${product.id}`)}
+                          color="primary"
+                        >
+                          <EditIcon />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Удалить товар">
+                        <IconButton 
+                          size="small" 
+                          color="error" 
+                          onClick={() => {
+                            if (window.confirm(`Удалить товар "${product.name}"?`)) {
+                              deleteProduct.mutate(product.id);
+                            }
+                          }}
+                        >
+                          <DeleteIcon />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -447,24 +459,28 @@ const handleSaveAddon = async (data: Partial<Addon>) => {
                               }
                             />
                             <ListItemSecondaryAction>
-                              <IconButton 
-                                size="small"
-                                onClick={() => setAddonDialog({ 
-                                  open: true, 
-                                  mode: 'edit', 
-                                  addon,
-                                  categoryId: category.id 
-                                })}
-                              >
-                                <EditIcon />
-                              </IconButton>
-                              <IconButton 
-                                size="small" 
-                                color="error"
-                                onClick={() => handleDeleteAddon(addon.id)}
-                              >
-                                <DeleteIcon />
-                              </IconButton>
+                              <Tooltip title="Редактировать добавку">
+                                <IconButton 
+                                  size="small"
+                                  onClick={() => setAddonDialog({ 
+                                    open: true, 
+                                    mode: 'edit', 
+                                    addon,
+                                    categoryId: category.id 
+                                  })}
+                                >
+                                  <EditIcon />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Удалить добавку">
+                                <IconButton 
+                                  size="small" 
+                                  color="error"
+                                  onClick={() => handleDeleteAddon(addon.id)}
+                                >
+                                  <DeleteIcon />
+                                </IconButton>
+                              </Tooltip>
                             </ListItemSecondaryAction>
                           </ListItem>
                         ))}
@@ -487,11 +503,13 @@ const handleSaveAddon = async (data: Partial<Addon>) => {
         loading={createCategory.isPending || updateCategory.isPending}
       />
 
-      {/* Диалог для добавки - обновленный */}
+      {/* Диалог для добавки */}
       <AddonDialog
         open={addonDialog.open}
         onClose={() => setAddonDialog({ open: false, mode: 'create' })}
         addon={addonDialog.addon}
+        categoryId={addonDialog.categoryId}
+        categories={categories}
         onSave={handleSaveAddon}
         loading={createAddon.isPending || updateAddon.isPending}
       />
@@ -629,19 +647,28 @@ const CategoryDialog: React.FC<{
   );
 };
 
-// Обновленный компонент диалога для добавки - без лишних полей
+// Обновленный компонент диалога для добавки с выбором категории
 const AddonDialog: React.FC<{
   open: boolean;
   onClose: () => void;
   addon?: Addon;
-  onSave: (data: Partial<Addon>) => void;
+  categoryId?: number;
+  categories: AddonCategory[];
+  onSave: (data: Partial<Addon> & { addonCategoryId: number }) => void;
   loading: boolean;
-}> = ({ open, onClose, addon, onSave, loading }) => {
-  const [formData, setFormData] = useState<Partial<Addon>>({
+}> = ({ open, onClose, addon, categoryId, categories, onSave, loading }) => {
+  const [formData, setFormData] = useState<{
+    name: string;
+    description: string;
+    price: number;
+    isAvailable: boolean;
+    addonCategoryId: number;
+  }>({
     name: '',
     description: '',
     price: 0,
-    isAvailable: true
+    isAvailable: true,
+    addonCategoryId: categoryId || (categories[0]?.id || 0)
   });
 
   React.useEffect(() => {
@@ -650,21 +677,45 @@ const AddonDialog: React.FC<{
         name: addon.name || '',
         description: addon.description || '',
         price: addon.price || 0,
-        isAvailable: addon.isAvailable ?? true
+        isAvailable: addon.isAvailable ?? true,
+        addonCategoryId: addon.addonCategoryId || categoryId || (categories[0]?.id || 0)
       });
     } else {
       setFormData({
         name: '',
         description: '',
         price: 0,
-        isAvailable: true
+        isAvailable: true,
+        addonCategoryId: categoryId || (categories[0]?.id || 0)
       });
     }
-  }, [addon]);
+  }, [addon, categoryId, categories]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(formData);
+    
+    if (!formData.name.trim()) {
+      alert('Введите название добавки');
+      return;
+    }
+    
+    if (formData.price < 0) {
+      alert('Цена не может быть отрицательной');
+      return;
+    }
+    
+    if (!formData.addonCategoryId) {
+      alert('Выберите категорию');
+      return;
+    }
+    
+    onSave({
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      price: formData.price,
+      isAvailable: formData.isAvailable,
+      addonCategoryId: formData.addonCategoryId
+    });
   };
 
   return (
@@ -674,6 +725,25 @@ const AddonDialog: React.FC<{
           {addon ? 'Редактировать добавку' : 'Новая добавка'}
         </DialogTitle>
         <DialogContent>
+          <FormControl fullWidth margin="normal" required>
+            <InputLabel>Категория добавки</InputLabel>
+            <Select
+              value={formData.addonCategoryId}
+              label="Категория добавки"
+              onChange={(e) => setFormData({ 
+                ...formData, 
+                addonCategoryId: Number(e.target.value) 
+              })}
+              disabled={!!addon}
+            >
+              {categories.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
           <TextField
             fullWidth
             label="Название добавки"
@@ -682,6 +752,7 @@ const AddonDialog: React.FC<{
             margin="normal"
             required
           />
+          
           <TextField
             fullWidth
             label="Описание"
@@ -691,21 +762,29 @@ const AddonDialog: React.FC<{
             multiline
             rows={2}
           />
+          
           <TextField
             fullWidth
             type="number"
             label="Цена"
             value={formData.price}
-            onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+            onChange={(e) => setFormData({ 
+              ...formData, 
+              price: parseFloat(e.target.value) || 0 
+            })}
             margin="normal"
             required
             inputProps={{ min: 0, step: 0.5 }}
           />
+          
           <FormControlLabel
             control={
               <Switch
                 checked={formData.isAvailable}
-                onChange={(e) => setFormData({ ...formData, isAvailable: e.target.checked })}
+                onChange={(e) => setFormData({ 
+                  ...formData, 
+                  isAvailable: e.target.checked 
+                })}
               />
             }
             label="Доступно"
@@ -714,7 +793,7 @@ const AddonDialog: React.FC<{
         <DialogActions>
           <Button onClick={onClose}>Отмена</Button>
           <Button type="submit" variant="contained" disabled={loading}>
-            Сохранить
+            {loading ? <CircularProgress size={24} /> : 'Сохранить'}
           </Button>
         </DialogActions>
       </form>
@@ -722,7 +801,7 @@ const AddonDialog: React.FC<{
   );
 };
 
-// Новый компонент диалога для привязки группы к товару
+// Компонент диалога для привязки группы к товару
 const LinkCategoryDialog: React.FC<{
   open: boolean;
   onClose: () => void;
@@ -738,6 +817,7 @@ const LinkCategoryDialog: React.FC<{
     e.preventDefault();
     if (shawarmaId && selectedCategory) {
       onLink(selectedCategory as number, shawarmaId);
+      onClose();
     }
   };
 

@@ -42,7 +42,7 @@ export interface Shawarma {
     quantity: number;
     selectedAddons: SelectedAddon[]; // 👈 НОВОЕ
     specialInstructions?: string; // 👈 НОВОЕ
-    uniqueId?: string;
+    uniqueKey?: string;
   }
   
   // Для обновления (все опционально, кроме id)
@@ -143,12 +143,13 @@ export interface Shawarma {
   }
 
   export interface Addon {
+    maxQuantity?: number;
     id: number;
     name: string;
     description?: string | null;
     price: number;
     isAvailable: boolean;
-    addonCategoryId?: number;  // Добавьте это поле
+    addonCategoryId: number;  // Добавьте это поле
     displayOrder?: number;
     createdAt?: string;
     updatedAt?: string;

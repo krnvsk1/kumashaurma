@@ -16,7 +16,7 @@ import { Search as SearchIcon, Add as AddIcon } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
 import { useShawarmas } from '../api/hooks';
-import type { Shawarma } from '../types';
+import type { SelectedAddon, Shawarma } from '../types';
 import ProductModal from '../components/ProductModal';
 import { useCartStore } from '../store/cartStore';
 
@@ -89,9 +89,9 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
 
   const addToCart = useCartStore(state => state.addItem);
 
-  const handleAddToCart = (product: Shawarma, quantity: number) => {
-    addToCart(product, quantity);
-    console.log('🛒 Добавлено в корзину:', { product, quantity });
+  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => {
+    console.log('📦 MenuPage: добавление в корзину', { product, quantity, selectedAddons, instructions });
+    addToCart(product, quantity, selectedAddons, instructions);
   };
 
   if (isLoading) {
