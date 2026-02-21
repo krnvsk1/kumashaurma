@@ -33,7 +33,7 @@ import {
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { useOrders, useUpdateOrderStatus } from '../api/hooks';
-import type { Order, OrderStatus } from '../types';
+import type { Order, OrderStatus, OrderItemAddon } from '../types';
 
 // Компонент для отображения статуса с цветом
 const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
@@ -223,32 +223,55 @@ const OrderCard: React.FC<{
               }}
             >
               <List dense>
-                {order.orderItems.map((item, index) => (
-                  <React.Fragment key={item.id}>
-                    <ListItem>
-                      <ListItemText
-                        primary={item.name}
-                        secondary={`${item.quantity} × ${item.price} ₽`}
-                      />
-                      <Typography variant="body2" fontWeight="500">
-                        {item.subtotal} ₽
-                      </Typography>
-                    </ListItem>
-                    {index < order.orderItems.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-                <Divider />
-                <ListItem>
-                  <ListItemText primary="Итого" />
-                  <Typography 
-                    variant="subtitle1" 
-                    fontWeight="bold" 
-                    sx={{ color: 'primary.main' }}
-                  >
-                    {order.total} ₽
-                  </Typography>
-                </ListItem>
-              </List>
+              {order.orderItems.map((item, index) => (
+                <React.Fragment key={item.id}>
+                  <ListItem>
+                    <ListItemText
+                      primary={item.name}
+                      secondary={
+                        <Box>
+                          <Typography variant="body2" color="text.secondary">
+                            {item.quantity} × {item.price} ₽
+                          </Typography>
+                          
+                          {/* Добавки под товаром */}
+                          {item.selectedAddons && item.selectedAddons.length > 0 && (
+                            <Box sx={{ mt: 0.5, ml: 1 }}>
+                              {item.selectedAddons.map((addon: OrderItemAddon, idx: number) => (
+                                <Typography 
+                                  key={idx} 
+                                  variant="caption" 
+                                  display="block" 
+                                  color="text.secondary"
+                                  sx={{ lineHeight: 1.4 }}
+                                >
+                                  • {addon.addonName} {addon.quantity > 1 ? `×${addon.quantity}` : ''} +{addon.price * addon.quantity} ₽
+                                </Typography>
+                              ))}
+                            </Box>
+                          )}
+                        </Box>
+                      }
+                    />
+                    <Typography variant="body2" fontWeight="500">
+                      {item.subtotal} ₽
+                    </Typography>
+                  </ListItem>
+                  {index < order.orderItems.length - 1 && <Divider />}
+                </React.Fragment>
+              ))}
+              <Divider />
+              <ListItem>
+                <ListItemText primary="Итого" />
+                <Typography 
+                  variant="subtitle1" 
+                  fontWeight="bold" 
+                  sx={{ color: 'primary.main' }}
+                >
+                  {order.total} ₽
+                </Typography>
+              </ListItem>
+            </List>
             </Paper>
           </Box>
         </Collapse>

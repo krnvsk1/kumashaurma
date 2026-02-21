@@ -60,6 +60,7 @@ export interface Shawarma {
     quantity: number;
     price: number;              // Цена на момент заказа
     subtotal: number;           // Вычисляемое поле Price * Quantity
+    selectedAddons?: OrderItemAddon[];
   }
   
   export interface Order {
