@@ -37,6 +37,9 @@ namespace Kumashaurma.API.Models
         
         [Column("is_available")]
         public bool IsAvailable { get; set; } = true;
+
+        [Column("is_promo")]
+        public bool IsPromo { get; set; } = false;
         
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("created_at")]

@@ -110,6 +110,7 @@ namespace Kumashaurma.API.Controllers
             shawarma.IsSpicy = updatedShawarma.IsSpicy;
             shawarma.HasCheese = updatedShawarma.HasCheese;
             shawarma.IsAvailable = updatedShawarma.IsAvailable;
+            shawarma.IsPromo = updatedShawarma.IsPromo;
             shawarma.UpdatedAt = DateTime.UtcNow;
             
             await _context.SaveChangesAsync();

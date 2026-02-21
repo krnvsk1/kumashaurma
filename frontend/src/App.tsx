@@ -136,7 +136,7 @@ function App() {
         <Router>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
             <AppBar 
-              position="static" 
+              position="sticky" 
               sx={{ 
                 bgcolor: 'background.paper',
                 color: 'text.primary',

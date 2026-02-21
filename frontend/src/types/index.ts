@@ -11,6 +11,7 @@ export interface Shawarma {
   isSpicy: boolean;
   hasCheese: boolean;
   isAvailable: boolean;
+  isPromo?: boolean;
   createdAt: string;
   updatedAt?: string | null;
   images?: ShawarmaImage[];
