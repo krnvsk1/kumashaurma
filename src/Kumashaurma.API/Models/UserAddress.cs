@@ -20,15 +20,15 @@ namespace Kumashaurma.API.Models
         [Column("address")]
         public string Address { get; set; } = string.Empty;
 
-        [MaxLength(100)]
+        [MaxLength(10)]
         [Column("entrance")]
         public string? Entrance { get; set; }
 
-        [MaxLength(20)]
+        [MaxLength(10)]
         [Column("floor")]
         public string? Floor { get; set; }
 
-        [MaxLength(20)]
+        [MaxLength(10)]
         [Column("apartment")]
         public string? Apartment { get; set; }
 

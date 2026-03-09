@@ -2,19 +2,12 @@ namespace Kumashaurma.API.Services
 {
     public interface ISmsService
     {
-        Task<SmsResult> SendVerificationCodeAsync(string phone, string code);
-    }
-
-    public class SmsResult
-    {
-        public bool Success { get; set; }
-        public string? Message { get; set; }
-        public string? ErrorCode { get; set; }
+        Task<(bool Success, string? Message)> SendVerificationCodeAsync(string phone, string code);
     }
 
     /// <summary>
-    /// Заглушка для SMS-сервиса. В development режиме код выводится в консоль.
-    /// В production нужно заменить на реальный SMS-шлюз (SMSAero, SMSC, Twilio и т.д.)
+    /// SMS service stub. In development mode, code is printed to console.
+    /// In production, replace with real SMS gateway (SMSAero, SMSC, Twilio, etc.)
     /// </summary>
     public class SmsService : ISmsService
     {
@@ -25,25 +18,20 @@ namespace Kumashaurma.API.Services
             _logger = logger;
         }
 
-        public Task<SmsResult> SendVerificationCodeAsync(string phone, string code)
+        public Task<(bool Success, string? Message)> SendVerificationCodeAsync(string phone, string code)
         {
-            // Заглушка - в development режиме выводим код в консоль/лог
             _logger.LogInformation(
-                "📱 SMS CODE для {Phone}: {Code} (действителен 3 минуты)", 
+                "SMS CODE for {Phone}: {Code} (valid for 3 minutes)",
                 phone, code);
-            
-            Console.WriteLine($"\n" +
+
+            Console.WriteLine("\n" +
                 "╔══════════════════════════════════════╗\n" +
-                $"║  📱 SMS для {phone,-20} ║\n" +
-                $"║  Код подтверждения: {code,-16} ║\n" +
-                "║  Действителен 3 минуты               ║\n" +
+                $"║  SMS for {phone,-26} ║\n" +
+                $"║  Verification code: {code,-16} ║\n" +
+                "║  Valid for 3 minutes                 ║\n" +
                 "╚══════════════════════════════════════╝\n");
 
-            return Task.FromResult(new SmsResult
-            {
-                Success = true,
-                Message = "Код успешно отправлен"
-            });
+            return Task.FromResult((true, (string?)"Code sent successfully"));
         }
     }
 }

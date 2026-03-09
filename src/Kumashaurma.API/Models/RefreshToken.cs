@@ -16,7 +16,7 @@ namespace Kumashaurma.API.Models
         public int UserId { get; set; }
 
         [Required]
-        [MaxLength(500)]
+        [MaxLength(200)]
         [Column("token")]
         public string Token { get; set; } = string.Empty;
 
@@ -30,11 +30,11 @@ namespace Kumashaurma.API.Models
         [Column("revoked_at")]
         public DateTime? RevokedAt { get; set; }
 
-        [MaxLength(200)]
+        [MaxLength(50)]
         [Column("revoked_by_ip")]
         public string? RevokedByIp { get; set; }
 
-        [MaxLength(500)]
+        [MaxLength(200)]
         [Column("replaced_by_token")]
         public string? ReplacedByToken { get; set; }
 
