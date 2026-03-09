@@ -37,4 +37,4 @@ const Header = () => {
   );
 };
 
-export default Header; // Важно: не забудьте экспорт!
+export default Header;

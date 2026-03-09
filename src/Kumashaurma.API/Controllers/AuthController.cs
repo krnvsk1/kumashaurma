@@ -1,11 +1,12 @@
 using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Kumashaurma.API.Data;
 using Kumashaurma.API.DTOs.Auth;
 using Kumashaurma.API.Models;
 using Kumashaurma.API.Services;
-using Kumashaurma.API.Data;
 
 namespace Kumashaurma.API.Controllers
 {
@@ -19,6 +20,7 @@ namespace Kumashaurma.API.Controllers
         private readonly IVerificationService _verificationService;
         private readonly ApplicationDbContext _context;
         private readonly ILogger<AuthController> _logger;
+        private readonly IConfiguration _configuration;
 
         public AuthController(
             UserManager<AppUser> userManager,
@@ -26,7 +28,8 @@ namespace Kumashaurma.API.Controllers
             ITokenService tokenService,
             IVerificationService verificationService,
             ApplicationDbContext context,
-            ILogger<AuthController> logger)
+            ILogger<AuthController> logger,
+            IConfiguration configuration)
         {
             _userManager = userManager;
             _signInManager = signInManager;
@@ -34,12 +37,15 @@ namespace Kumashaurma.API.Controllers
             _verificationService = verificationService;
             _context = context;
             _logger = logger;
+            _configuration = configuration;
         }
 
         /// <summary>
         /// Отправить SMS-код для верификации телефона
         /// </summary>
         [HttpPost("send-code")]
+        [ProducesResponseType(typeof(SendCodeResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(SendCodeResponseDto), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<SendCodeResponseDto>> SendCode([FromBody] SendCodeDto dto)
         {
             var (success, message, retryAfter) = await _verificationService.CreateAndSendCodeAsync(dto.Phone);
@@ -62,11 +68,15 @@ namespace Kumashaurma.API.Controllers
         }
 
         /// <summary>
-        /// Проверить SMS-код и получить токены (для уже зарегистрированных)
+        /// Проверить SMS-код (вход для существующих пользователей)
         /// </summary>
         [HttpPost("verify")]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<AuthResponseDto>> VerifyCode([FromBody] VerifyCodeDto dto)
         {
+            var normalizedPhone = NormalizePhone(dto.Phone);
+
             var (verifySuccess, verifyMessage) = await _verificationService.VerifyCodeAsync(dto.Phone, dto.Code);
 
             if (!verifySuccess)
@@ -78,9 +88,6 @@ namespace Kumashaurma.API.Controllers
                 });
             }
 
-            // Нормализуем телефон для поиска пользователя
-            var normalizedPhone = NormalizePhone(dto.Phone);
-
             // Ищем пользователя
             var user = await _userManager.Users
                 .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone);
@@ -91,7 +98,7 @@ namespace Kumashaurma.API.Controllers
                 return Ok(new AuthResponseDto
                 {
                     Success = true,
-                    Message = "Телефон подтверждён. Завершите регистрацию."
+                    Message = "Phone verified. Complete registration."
                 });
             }
 
@@ -114,19 +121,11 @@ namespace Kumashaurma.API.Controllers
             return Ok(new AuthResponseDto
             {
                 Success = true,
-                Message = "Успешный вход",
+                Message = "Login successful",
                 AccessToken = accessToken,
                 RefreshToken = refreshToken.Token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Phone = user.PhoneNumber ?? "",
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    PhoneVerified = user.PhoneVerified,
-                    Roles = roles
-                }
+                ExpiresAt = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+                User = MapToUserDto(user, roles)
             });
         }
 
@@ -134,6 +133,8 @@ namespace Kumashaurma.API.Controllers
         /// Регистрация нового пользователя (после верификации телефона)
         /// </summary>
         [HttpPost("register")]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status400BadRequest)]
         public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
         {
             var normalizedPhone = NormalizePhone(dto.Phone);
@@ -149,7 +150,7 @@ namespace Kumashaurma.API.Controllers
                 return BadRequest(new AuthResponseDto
                 {
                     Success = false,
-                    Message = "Сначала подтвердите номер телефона"
+                    Message = "Please verify your phone number first"
                 });
             }
 
@@ -159,7 +160,7 @@ namespace Kumashaurma.API.Controllers
                 return BadRequest(new AuthResponseDto
                 {
                     Success = false,
-                    Message = "Время подтверждения истекло. Запросите новый код"
+                    Message = "Verification expired. Request a new code"
                 });
             }
 
@@ -172,7 +173,7 @@ namespace Kumashaurma.API.Controllers
                 return BadRequest(new AuthResponseDto
                 {
                     Success = false,
-                    Message = "Пользователь с таким телефоном уже зарегистрирован"
+                    Message = "User with this phone already exists"
                 });
             }
 
@@ -209,24 +210,16 @@ namespace Kumashaurma.API.Controllers
             _context.RefreshTokens.Add(refreshToken);
             await _context.SaveChangesAsync();
 
-            _logger.LogInformation("Новый пользователь зарегистрирован: {Phone}", normalizedPhone);
+            _logger.LogInformation("New user registered: {Phone}", normalizedPhone);
 
             return Ok(new AuthResponseDto
             {
                 Success = true,
-                Message = "Регистрация успешна",
+                Message = "Registration successful",
                 AccessToken = accessToken,
                 RefreshToken = refreshToken.Token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Phone = user.PhoneNumber ?? "",
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    PhoneVerified = user.PhoneVerified,
-                    Roles = roles
-                }
+                ExpiresAt = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+                User = MapToUserDto(user, roles)
             });
         }
 
@@ -234,6 +227,8 @@ namespace Kumashaurma.API.Controllers
         /// Обновить access token по refresh token
         /// </summary>
         [HttpPost("refresh")]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(AuthResponseDto), StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenDto dto)
         {
             var storedRefreshToken = await _context.RefreshTokens
@@ -245,7 +240,7 @@ namespace Kumashaurma.API.Controllers
                 return Unauthorized(new AuthResponseDto
                 {
                     Success = false,
-                    Message = "Недействительный refresh token"
+                    Message = "Invalid refresh token"
                 });
             }
 
@@ -254,9 +249,9 @@ namespace Kumashaurma.API.Controllers
                 return Unauthorized(new AuthResponseDto
                 {
                     Success = false,
-                    Message = storedRefreshToken.IsRevoked 
-                        ? "Refresh token был отозван" 
-                        : "Refresh token истёк"
+                    Message = storedRefreshToken.IsRevoked
+                        ? "Refresh token was revoked"
+                        : "Refresh token expired"
                 });
             }
 
@@ -280,16 +275,8 @@ namespace Kumashaurma.API.Controllers
                 Success = true,
                 AccessToken = accessToken,
                 RefreshToken = newRefreshToken.Token,
-                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
-                User = new UserDto
-                {
-                    Id = user.Id,
-                    Phone = user.PhoneNumber ?? "",
-                    FirstName = user.FirstName,
-                    LastName = user.LastName,
-                    PhoneVerified = user.PhoneVerified,
-                    Roles = roles
-                }
+                ExpiresAt = DateTime.UtcNow.AddMinutes(GetTokenExpirationMinutes()),
+                User = MapToUserDto(user, roles)
             });
         }
 
@@ -297,6 +284,7 @@ namespace Kumashaurma.API.Controllers
         /// Выход (отзыв refresh token)
         /// </summary>
         [HttpPost("logout")]
+        [ProducesResponseType(StatusCodes.Status200OK)]
         public async Task<ActionResult> Logout([FromBody] RefreshTokenDto dto)
         {
             var storedRefreshToken = await _context.RefreshTokens
@@ -309,13 +297,16 @@ namespace Kumashaurma.API.Controllers
                 await _context.SaveChangesAsync();
             }
 
-            return Ok(new { message = "Вы успешно вышли из системы" });
+            return Ok(new { message = "Logged out successfully" });
         }
 
         /// <summary>
         /// Получить информацию о текущем пользователе
         /// </summary>
         [HttpGet("me")]
+        [Authorize]
+        [ProducesResponseType(typeof(UserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
         public async Task<ActionResult<UserDto>> GetCurrentUser()
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -334,15 +325,7 @@ namespace Kumashaurma.API.Controllers
 
             var roles = await _userManager.GetRolesAsync(user);
 
-            return Ok(new UserDto
-            {
-                Id = user.Id,
-                Phone = user.PhoneNumber ?? "",
-                FirstName = user.FirstName,
-                LastName = user.LastName,
-                PhoneVerified = user.PhoneVerified,
-                Roles = roles
-            });
+            return Ok(MapToUserDto(user, roles));
         }
 
         private string GetIpAddress()
@@ -350,21 +333,40 @@ namespace Kumashaurma.API.Controllers
             return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
         }
 
+        private int GetTokenExpirationMinutes()
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            return int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
+        }
+
         private static string NormalizePhone(string phone)
         {
             var digits = new string(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
-            
+
             if (digits.StartsWith("8") && digits.Length == 11)
             {
                 digits = "+7" + digits[1..];
             }
-            
+
             if (!digits.StartsWith("+"))
             {
                 digits = "+7" + digits;
             }
 
             return digits;
+        }
+
+        private static UserDto MapToUserDto(AppUser user, IList<string> roles)
+        {
+            return new UserDto
+            {
+                Id = user.Id,
+                Phone = user.PhoneNumber ?? "",
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                PhoneVerified = user.PhoneVerified,
+                Roles = roles
+            };
         }
     }
 }

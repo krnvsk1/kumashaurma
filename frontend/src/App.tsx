@@ -4,11 +4,10 @@ import {
   ThemeProvider, createTheme, CssBaseline, Badge,
   IconButton, Drawer, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Divider, useMediaQuery,
-  Menu, MenuItem
 } from '@mui/material';
 import { 
   LocalDining as RestaurantIcon, 
-  ShoppingCart, 
+  ShoppingCart,
   Schedule,
   Dashboard as DashboardIcon,
   AddCircle as AddIcon,
@@ -19,15 +18,16 @@ import {
   AddShoppingCart as AddCartIcon,
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
-  AdminPanelSettings as AdminIcon,
-  Person as PersonIcon
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useTheme } from './hooks/useTheme';
 import { useTotalItems, useTotalPrice } from './store/cartStore';
+import { useAuthStore } from './store/authStore';
 import CartModal from './components/CartModal'; 
 import OrderModal from './components/OrderModal';
+import AuthModal from './components/AuthModal';
+import ProfileMenu from './components/ProfileMenu';
 
 // Страницы
 import DashboardPage from './pages/DashboardPage';
@@ -35,8 +35,6 @@ import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
 import AdminMenuPage from './pages/AdminMenuPage';
-
-type UserRole = 'user' | 'admin';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,8 +53,11 @@ function App() {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [role, setRole] = useState<UserRole>('user');
-  const [roleMenuAnchor, setRoleMenuAnchor] = useState<null | HTMLElement>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  
+  const { isAuthenticated, hasRole } = useAuthStore();
+  const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
+  const isAdminRole = isAuthenticated && hasRole('admin');
 
   const theme = createTheme({
     palette: {
@@ -100,28 +101,22 @@ function App() {
     setMobileMenuOpen(false);
   };
 
-  const handleRoleClick = (event: React.MouseEvent<HTMLElement>) => {
-    setRoleMenuAnchor(event.currentTarget);
-  };
-
-  const handleRoleClose = (newRole?: UserRole) => {
-    if (newRole) {
-      setRole(newRole);
-    }
-    setRoleMenuAnchor(null);
-  };
-
   const getMenuItems = () => {
     const items = [
       { text: 'Меню', icon: <HomeIcon />, path: '/' },
-      { text: 'Заказы', icon: <ListAltIcon />, path: '/orders' },
+      { text: 'Мои заказы', icon: <ListAltIcon />, path: '/orders' },
       { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
     ];
   
-    if (role === 'admin') {
+    if (isAdmin) {
       items.push(
         { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
-        { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },  // 👈 здесь
+        { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },
+      );
+    }
+    
+    if (isAdminRole) {
+      items.push(
         { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' },
       );
     }
@@ -182,47 +177,8 @@ function App() {
                   </Box>
                 </Typography>
 
-                <Button
-                  onClick={handleRoleClick}
-                  startIcon={role === 'admin' ? <AdminIcon /> : <PersonIcon />}
-                  sx={{
-                    color: 'text.primary',
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 3,
-                    mr: 1,
-                    textTransform: 'none',
-                  }}
-                >
-                  {role === 'admin' ? 'Админ' : 'Покупатель'}
-                </Button>
-                <Menu
-                  anchorEl={roleMenuAnchor}
-                  open={Boolean(roleMenuAnchor)}
-                  onClose={() => handleRoleClose()}
-                  PaperProps={{
-                    sx: {
-                      borderRadius: 3,
-                      mt: 1,
-                    }
-                  }}
-                >
-                  <MenuItem 
-                    onClick={() => handleRoleClose('user')}
-                    selected={role === 'user'}
-                    sx={{ borderRadius: 2, mx: 0.5 }}
-                  >
-                    <PersonIcon sx={{ mr: 1, fontSize: 20 }} />
-                    Покупатель
-                  </MenuItem>
-                  <MenuItem 
-                    onClick={() => handleRoleClose('admin')}
-                    selected={role === 'admin'}
-                    sx={{ borderRadius: 2, mx: 0.5 }}
-                  >
-                    <AdminIcon sx={{ mr: 1, fontSize: 20 }} />
-                    Администратор
-                  </MenuItem>
-                </Menu>
+                {/* Профиль / Вход */}
+                <ProfileMenu onLoginClick={() => setAuthOpen(true)} />
                 
                 <IconButton
                   onClick={toggleTheme}
@@ -284,7 +240,7 @@ function App() {
                       </Button>
                     </Box>
 
-                    {role === 'admin' && (
+                    {isAdmin && (
                       <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
                         <Button 
                           component={Link} 
@@ -386,17 +342,23 @@ function App() {
               }}
             >
               <Routes>
-                <Route path="/" element={<MenuPage role={role} />} />
-                <Route path="/orders" element={<OrdersPage role={role} />} />
+                <Route path="/" element={<MenuPage />} />
+                <Route path="/orders" element={<OrdersPage />} />
                 
-                {role === 'admin' && (
+                {isAdmin && (
                   <>
                     <Route path="/admin/dashboard" element={<DashboardPage />} />
-                    <Route path="/admin/create" element={<CreateMenuItemPage />} />
-                    <Route path="/admin/edit/:id" element={<CreateMenuItemPage />} />
                     <Route path="/admin/menu" element={<AdminMenuPage />} />
                   </>
                 )}
+                
+                {isAdminRole && (
+                  <Route path="/admin/create" element={<CreateMenuItemPage />} />
+                )}
+                
+                <Route path="/admin/edit/:id" element={
+                  isAdminRole ? <CreateMenuItemPage /> : <Navigate to="/" replace />
+                } />
                 
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
@@ -417,6 +379,11 @@ function App() {
                 setOrderOpen(false);
                 setCartOpen(true);
               }}
+            />
+            
+            <AuthModal 
+              open={authOpen} 
+              onClose={() => setAuthOpen(false)} 
             />
             
             <Box 

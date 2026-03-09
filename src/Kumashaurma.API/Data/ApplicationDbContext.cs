@@ -42,13 +42,6 @@ namespace Kumashaurma.API.Data
             modelBuilder.Entity<IdentityRoleClaim<int>>(entity => entity.ToTable("role_claims"));
             modelBuilder.Entity<IdentityUserToken<int>>(entity => entity.ToTable("user_tokens"));
 
-            // Shawarma configuration
-            modelBuilder.Entity<Shawarma>(entity =>
-            {
-                entity.HasIndex(e => e.Name).IsUnique();
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
             // Order configuration
             modelBuilder.Entity<Order>(entity =>
             {
@@ -70,6 +63,13 @@ namespace Kumashaurma.API.Data
                     .WithMany(o => o.OrderItems)
                     .HasForeignKey(e => e.OrderId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Shawarma configuration
+            modelBuilder.Entity<Shawarma>(entity =>
+            {
+                entity.HasIndex(e => e.Name).IsUnique();
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
             // AddonCategory configuration

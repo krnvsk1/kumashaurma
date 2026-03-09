@@ -4,38 +4,38 @@ namespace Kumashaurma.API.DTOs.Auth
 {
     public class SendCodeDto
     {
-        [Required(ErrorMessage = "Номер телефона обязателен")]
-        [RegularExpression(@"^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$", 
-            ErrorMessage = "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67")]
+        [Required(ErrorMessage = "Phone number is required")]
+        [RegularExpression(@"^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$",
+            ErrorMessage = "Invalid phone format. Use: +7 (999) 123-45-67")]
         public string Phone { get; set; } = string.Empty;
     }
 
     public class VerifyCodeDto
     {
-        [Required(ErrorMessage = "Номер телефона обязателен")]
+        [Required(ErrorMessage = "Phone number is required")]
         public string Phone { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Код подтверждения обязателен")]
-        [StringLength(4, MinimumLength = 4, ErrorMessage = "Код должен содержать 4 цифры")]
+        [Required(ErrorMessage = "Verification code is required")]
+        [StringLength(4, MinimumLength = 4, ErrorMessage = "Code must be 4 digits")]
         public string Code { get; set; } = string.Empty;
     }
 
     public class RegisterDto
     {
-        [Required(ErrorMessage = "Номер телефона обязателен")]
+        [Required(ErrorMessage = "Phone number is required")]
         public string Phone { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Имя обязательно")]
-        [StringLength(100, MinimumLength = 2, ErrorMessage = "Имя должно содержать от 2 до 100 символов")]
+        [Required(ErrorMessage = "First name is required")]
+        [StringLength(100, MinimumLength = 2, ErrorMessage = "First name must be 2-100 characters")]
         public string FirstName { get; set; } = string.Empty;
 
-        [StringLength(100, ErrorMessage = "Фамилия не должна превышать 100 символов")]
+        [StringLength(100, ErrorMessage = "Last name cannot exceed 100 characters")]
         public string? LastName { get; set; }
     }
 
     public class RefreshTokenDto
     {
-        [Required(ErrorMessage = "Refresh токен обязателен")]
+        [Required(ErrorMessage = "Refresh token is required")]
         public string RefreshToken { get; set; } = string.Empty;
     }
 
@@ -63,6 +63,6 @@ namespace Kumashaurma.API.DTOs.Auth
     {
         public bool Success { get; set; }
         public string? Message { get; set; }
-        public int? RetryAfter { get; set; } // seconds until next code can be sent
+        public int? RetryAfter { get; set; }
     }
 }

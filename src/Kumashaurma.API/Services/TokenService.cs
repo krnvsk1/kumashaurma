@@ -30,8 +30,8 @@ namespace Kumashaurma.API.Services
         public string GenerateAccessToken(AppUser user, IList<string> roles)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"] 
-                ?? throw new InvalidOperationException("JWT SecretKey не настроен");
+            var secretKey = jwtSettings["SecretKey"]
+                ?? throw new InvalidOperationException("JWT SecretKey not configured");
             var issuer = jwtSettings["Issuer"] ?? "Kumashaurma";
             var audience = jwtSettings["Audience"] ?? "KumashaurmaClient";
             var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
@@ -39,19 +39,22 @@ namespace Kumashaurma.API.Services
             var claims = new List<Claim>
             {
                 new(ClaimTypes.NameIdentifier, user.Id.ToString()),
-                new(ClaimTypes.MobilePhone, user.PhoneNumber ?? ""),
+                new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new(JwtRegisteredClaimNames.PhoneNumber, user.PhoneNumber ?? ""),
                 new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+                new(JwtRegisteredClaimNames.Iat, DateTimeOffset.UtcNow.ToUnixTimeSeconds().ToString(), ClaimValueTypes.Integer64)
             };
 
             if (!string.IsNullOrEmpty(user.FirstName))
                 claims.Add(new Claim("firstName", user.FirstName));
-            
+
             if (!string.IsNullOrEmpty(user.LastName))
                 claims.Add(new Claim("lastName", user.LastName));
 
             foreach (var role in roles)
             {
                 claims.Add(new Claim(ClaimTypes.Role, role));
+                claims.Add(new Claim("role", role));
             }
 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
@@ -70,22 +73,27 @@ namespace Kumashaurma.API.Services
 
         public RefreshToken GenerateRefreshToken(int userId, string ipAddress)
         {
-            var refreshToken = new RefreshToken
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var refreshExpirationDays = int.Parse(jwtSettings["RefreshExpirationDays"] ?? "7");
+
+            using var rng = RandomNumberGenerator.Create();
+            var randomBytes = new byte[64];
+            rng.GetBytes(randomBytes);
+
+            return new RefreshToken
             {
                 UserId = userId,
-                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
-                ExpiresAt = DateTime.UtcNow.AddDays(7),
+                Token = Convert.ToBase64String(randomBytes),
+                ExpiresAt = DateTime.UtcNow.AddDays(refreshExpirationDays),
                 CreatedAt = DateTime.UtcNow
             };
-
-            return refreshToken;
         }
 
         public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
-            var secretKey = jwtSettings["SecretKey"] 
-                ?? throw new InvalidOperationException("JWT SecretKey не настроен");
+            var secretKey = jwtSettings["SecretKey"]
+                ?? throw new InvalidOperationException("JWT SecretKey not configured");
 
             var tokenValidationParameters = new TokenValidationParameters
             {
@@ -93,7 +101,7 @@ namespace Kumashaurma.API.Services
                 ValidateIssuer = false,
                 ValidateIssuerSigningKey = true,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
-                ValidateLifetime = false // Мы хотим получить claims даже из истекшего токена
+                ValidateLifetime = false
             };
 
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -101,9 +109,9 @@ namespace Kumashaurma.API.Services
             try
             {
                 var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
-                
+
                 if (securityToken is not JwtSecurityToken jwtSecurityToken ||
-                    !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, 
+                    !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256,
                         StringComparison.InvariantCultureIgnoreCase))
                 {
                     return null;

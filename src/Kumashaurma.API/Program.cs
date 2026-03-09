@@ -7,7 +7,6 @@ using Microsoft.OpenApi.Models;
 using Kumashaurma.API.Data;
 using Kumashaurma.API.Models;
 using Kumashaurma.API.Services;
-using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,8 +21,8 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+        options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
+        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -31,22 +30,22 @@ builder.Services.AddEndpointsApiExplorer();
 // Swagger с поддержкой JWT
 builder.Services.AddSwaggerGen(options =>
 {
-    options.SwaggerDoc("v1", new OpenApiInfo 
-    { 
-        Title = "Kumashaurma API", 
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Kumashaurma API",
         Version = "v1",
         Description = "API для сервиса доставки шаурмы"
     });
-    
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
+        Description = "JWT Authorization header. Enter 'Bearer' [space] and then your token",
         Name = "Authorization",
         In = ParameterLocation.Header,
         Type = SecuritySchemeType.ApiKey,
         Scheme = "Bearer"
     });
-    
+
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -64,7 +63,7 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Database
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Port=5433;Database=kumashaurma_dev;Username=devuser;Password=dev123";
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -73,17 +72,16 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // Identity
 builder.Services.AddIdentity<AppUser, IdentityRole<int>>(options =>
 {
-    // Password settings - для SMS-авторизации пароли не нужны
+    // Password settings - для SMS-авторизации пароли не обязательны
     options.Password.RequiredLength = 6;
     options.Password.RequireDigit = false;
     options.Password.RequireLowercase = false;
     options.Password.RequireUppercase = false;
     options.Password.RequireNonAlphanumeric = false;
-    
+
     // User settings
     options.User.RequireUniqueEmail = false;
-    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+ ";
-    
+
     // SignIn settings
     options.SignIn.RequireConfirmedEmail = false;
     options.SignIn.RequireConfirmedPhoneNumber = false;
@@ -93,6 +91,9 @@ builder.Services.AddIdentity<AppUser, IdentityRole<int>>(options =>
 
 // JWT Settings
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"]
+    ?? "YourSuperSecretKeyForDevelopment2024!ChangeInProduction!MakeItAtLeast64Chars!";
+
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
@@ -111,8 +112,7 @@ builder.Services.AddAuthentication(options =>
         ValidateIssuerSigningKey = true,
         ValidIssuer = jwtSettings["Issuer"] ?? "Kumashaurma",
         ValidAudience = jwtSettings["Audience"] ?? "KumashaurmaClient",
-        IssuerSigningKey = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(jwtSettings["SecretKey"] ?? "YourSuperSecretKeyForDevelopment2024!ChangeInProduction!")),
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero
     };
 });
@@ -131,7 +131,7 @@ builder.Services.AddCors(options =>
     {
         policy.WithOrigins(
             "http://localhost:3000",
-            "http://localhost:5173",  // Vite dev server
+            "http://localhost:5173",
             "https://kumashaurma-frontend.vercel.app"
         )
         .AllowAnyMethod()
@@ -145,7 +145,19 @@ builder.Services.AddCors(options =>
 var app = builder.Build();
 
 // Initialize roles
-await InitializeRolesAsync(app);
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
+
+    foreach (var role in AppRoles.AllRoles)
+    {
+        if (!await roleManager.RoleExistsAsync(role))
+        {
+            await roleManager.CreateAsync(new IdentityRole<int>(role));
+            Console.WriteLine($"Created role: {role}");
+        }
+    }
+}
 
 // CORS
 app.UseCors("AllowFrontend");
@@ -171,32 +183,15 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        Console.WriteLine("🚀 Запуск инициализации базы данных...");
+        Console.WriteLine("Database initializing...");
         DbInitializer.Initialize(dbContext);
     }
 }
 catch (Exception ex)
 {
-    Console.WriteLine($"❌ Ошибка при инициализации базы данных: {ex.Message}");
+    Console.WriteLine($"Error initializing database: {ex.Message}");
     if (ex.InnerException != null)
-        Console.WriteLine($"❌ Внутренняя ошибка: {ex.InnerException.Message}");
+        Console.WriteLine($"Inner error: {ex.InnerException.Message}");
 }
 
 app.Run();
-
-// ========== Helper Methods ==========
-
-static async Task InitializeRolesAsync(WebApplication app)
-{
-    using var scope = app.Services.CreateScope();
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
-
-    foreach (var role in AppRoles.AllRoles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole<int>(role));
-            Console.WriteLine($"✅ Создана роль: {role}");
-        }
-    }
-}
