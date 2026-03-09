@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Kumashaurma.API.Data;
@@ -17,6 +18,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpPut("reorder")]
+        [Authorize(Roles = "admin,manager")]
         public async Task<IActionResult> Reorder([FromBody] List<ReorderItem> items)
         {
             Console.WriteLine($"📥 Получен reorder запрос. Items count: {items?.Count ?? 0}");
@@ -76,6 +78,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "admin,manager")]
         public async Task<IActionResult> Create([FromBody] Shawarma shawarma)
         {
             if (string.IsNullOrEmpty(shawarma.Name))
@@ -94,6 +97,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "admin,manager")]
         public async Task<IActionResult> Update(int id, [FromBody] Shawarma updatedShawarma)
         {
             var shawarma = await _context.Shawarmas
@@ -118,6 +122,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id)
         {
             var shawarma = await _context.Shawarmas.FindAsync(id);

@@ -11,6 +11,9 @@ namespace Kumashaurma.API.Models
         [Column("id")]
         public int Id { get; set; }
         
+        [Column("user_id")]
+        public int? UserId { get; set; }
+        
         [Required]
         [MaxLength(100)]
         [Column("customer_name")]
@@ -41,6 +44,9 @@ namespace Kumashaurma.API.Models
         
         [Column("completed_at")]
         public DateTime? CompletedAt { get; set; }
+        
+        // Navigation property
+        public AppUser? User { get; set; }
         
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
