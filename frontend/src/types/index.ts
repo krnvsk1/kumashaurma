@@ -66,6 +66,7 @@ export interface Shawarma {
   
   export interface Order {
     id: number;
+    userId?: number | null;     // ID пользователя, если авторизован
     customerName: string;
     phone: string;
     address: string;

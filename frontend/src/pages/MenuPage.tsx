@@ -37,6 +37,7 @@ import { useShawarmas } from '../api/hooks';
 import type { Shawarma } from '../types';
 import ProductModal from '../components/ProductModal';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
+import { useAuthStore } from '../store/authStore';
 import CartModal from '../components/CartModal';
 import OrderModal from '../components/OrderModal';
 
@@ -46,13 +47,13 @@ interface NavCategory {
   count: number;
 }
 
-interface MenuPageProps {
-  role: 'user' | 'admin';
-}
-
-const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
+const MenuPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const { isAuthenticated, hasRole } = useAuthStore();
+  const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
+  const isAdminRole = isAuthenticated && hasRole('admin');
 
   const { data: menuItems, isLoading, error } = useShawarmas();
 
@@ -331,7 +332,7 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
                     }}
                     sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
                   />
-                  {role === 'admin' && (
+                  {isAdminRole && (
                     <Button
                       component={Link}
                       to="/admin/create"
@@ -457,7 +458,7 @@ const MenuPage: React.FC<MenuPageProps> = ({ role }) => {
                 }}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
               />
-              {role === 'admin' && (
+              {isAdminRole && (
                 <Button
                   component={Link}
                   to="/admin/create"

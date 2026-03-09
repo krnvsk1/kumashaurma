@@ -41,6 +41,7 @@ import {
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { useOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder } from '../api/hooks';
+import { useAuthStore } from '../store/authStore';
 import type { Order, OrderStatus, OrderItemAddon, UpdateOrderDto } from '../types';
 
 // Компонент для отображения статуса с цветом
@@ -179,10 +180,10 @@ const EditOrderDialog: React.FC<{
 // Компонент одной карточки заказа
 const OrderCard: React.FC<{ 
   order: Order;
-  role: 'user' | 'admin';
+  isAdmin: boolean;
   onDelete: (id: number) => void;
   onEdit: (order: Order) => void;
-}> = ({ order, role, onDelete, onEdit }) => {
+}> = ({ order, isAdmin, onDelete, onEdit }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -274,7 +275,7 @@ const OrderCard: React.FC<{
               </IconButton>
               
               {/* Кнопки админа */}
-              {role === 'admin' && (
+              {isAdmin && (
                 <>
                   <Tooltip title="Редактировать заказ">
                     <IconButton 
@@ -395,13 +396,12 @@ const OrderCard: React.FC<{
   );
 };
 
-interface OrdersPageProps {
-  role: 'user' | 'admin';
-}
-
 // Основной компонент страницы
-const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
+const OrdersPage: React.FC = () => {
   const theme = useTheme();
+  const { isAuthenticated, hasRole, user } = useAuthStore();
+  const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager') || hasRole('courier'));
+  
   const { data: orders = [], isLoading, error, refetch } = useOrders();
   
   // Мутации
@@ -451,14 +451,14 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
     }
   };
 
-  // Фильтрация заказов (позже здесь будет фильтр по пользователю для покупателя)
+  // Фильтрация заказов
   const filteredOrders = React.useMemo(() => {
     let filtered = orders;
     
-    // Для покупателя показываем только его заказы (заглушка)
-    if (role === 'user') {
-      // TODO: фильтровать по реальному пользователю
-      filtered = orders.filter(order => order.customerName === 'Гость');
+    // Для обычного пользователя показываем только его заказы
+    // (фильтрация на клиенте по userId, если сервер вернул все заказы)
+    if (!isAdmin && user) {
+      filtered = orders.filter(order => order.userId === user.id);
     }
     
     return filtered.filter(order => {
@@ -468,7 +468,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
       if (searchPhone && !order.phone.includes(searchPhone)) return false;
       return true;
     });
-  }, [orders, statusFilter, searchId, searchName, searchPhone, role]);
+  }, [orders, statusFilter, searchId, searchName, searchPhone, isAdmin, user]);
 
   const stats = React.useMemo(() => {
     const total = orders.reduce((sum, order) => sum + order.total, 0);
@@ -506,7 +506,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1">
-          {role === 'admin' ? 'Все заказы' : 'Мои заказы'}
+          {isAdmin ? 'Все заказы' : 'Мои заказы'}
         </Typography>
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
@@ -518,7 +518,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
             Обновить
           </Button>
           {/* Кнопка нового заказа — только для покупателя */}
-          {role === 'user' && (
+          {!isAdmin && (
             <Button
               variant="contained"
               component={Link}
@@ -534,77 +534,81 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
         </Box>
       </Box>
 
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Grid container spacing={2} alignItems="center">
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              label="Поиск по номеру"
-              placeholder="Например: 123"
-              value={searchId}
-              onChange={(e) => setSearchId(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <NumbersIcon />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
+      {/* Фильтры - только для админов */}
+      {isAdmin && (
+        <Paper sx={{ p: 3, mb: 3 }}>
+          <Grid container spacing={2} alignItems="center">
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Поиск по номеру"
+                placeholder="Например: 123"
+                value={searchId}
+                onChange={(e) => setSearchId(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <NumbersIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Поиск по имени"
+                placeholder="Имя клиента"
+                value={searchName}
+                onChange={(e) => setSearchName(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <TextField
+                fullWidth
+                variant="outlined"
+                label="Поиск по телефону"
+                placeholder="+7..."
+                value={searchPhone}
+                onChange={(e) => setSearchPhone(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PhoneIcon />
+                    </InputAdornment>
+                  ),
+                }}
+                size="small"
+              />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+              <Button
+                fullWidth
+                variant="outlined"
+                onClick={handleClearSearch}
+                disabled={!isSearchActive}
+                sx={{ height: '40px' }}
+              >
+                Сбросить фильтры
+              </Button>
+            </Grid>
           </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              label="Поиск по имени"
-              placeholder="Имя клиента"
-              value={searchName}
-              onChange={(e) => setSearchName(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonIcon />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <TextField
-              fullWidth
-              variant="outlined"
-              label="Поиск по телефону"
-              placeholder="+7..."
-              value={searchPhone}
-              onChange={(e) => setSearchPhone(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PhoneIcon />
-                  </InputAdornment>
-                ),
-              }}
-              size="small"
-            />
-          </Grid>
-          <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-            <Button
-              fullWidth
-              variant="outlined"
-              onClick={handleClearSearch}
-              disabled={!isSearchActive}
-              sx={{ height: '40px' }}
-            >
-              Сбросить фильтры
-            </Button>
-          </Grid>
-        </Grid>
-      </Paper>
+        </Paper>
+      )}
 
-      {!isLoading && orders.length > 0 && role === 'admin' && (
+      {/* Статистика - только для админов */}
+      {!isLoading && orders.length > 0 && isAdmin && (
         <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
           <Paper sx={{ p: 2, minWidth: 120 }}>
             <Typography variant="body2" color="text.secondary">Всего заказов</Typography>
@@ -637,6 +641,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
         </Box>
       )}
 
+      {/* Фильтр по статусам */}
       {!isLoading && filteredOrders.length > 0 && (
         <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
@@ -680,7 +685,7 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
             <OrderCard 
               key={order.id} 
               order={order} 
-              role={role}
+              isAdmin={isAdmin}
               onDelete={handleDeleteOrder}
               onEdit={handleEditOrder}
             />
@@ -692,9 +697,11 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
             ? 'Ничего не найдено по заданным критериям' 
             : statusFilter !== 'all' 
               ? `Нет заказов со статусом "${statusFilter}"`
-              : role === 'admin' 
+              : isAdmin 
                 ? 'Заказов пока нет.' 
-                : 'У вас пока нет заказов'}
+                : isAuthenticated 
+                  ? 'У вас пока нет заказов. Оформите свой первый заказ!'
+                  : 'Войдите в аккаунт, чтобы видеть свои заказы'}
         </Alert>
       )}
 
