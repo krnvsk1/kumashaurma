@@ -58,6 +58,7 @@ import {
   useAddonCategories, 
   useCreateAddonCategory,
   useUpdateAddonCategory,
+  useDeleteAddonCategory,
   useCreateAddon,
   useUpdateAddon,
   useDeleteAddon,
@@ -127,6 +128,7 @@ const AdminMenuPage: React.FC = () => {
   
   const createCategory = useCreateAddonCategory();
   const updateCategory = useUpdateAddonCategory();
+  const deleteCategory = useDeleteAddonCategory();
   const createAddon = useCreateAddon();
   const updateAddon = useUpdateAddon();
   const deleteAddon = useDeleteAddon();
@@ -149,6 +151,18 @@ const AdminMenuPage: React.FC = () => {
       setCategoryDialog({ open: false, mode: 'create' });
     } catch (error) {
       showMessage('Ошибка при сохранении категории', 'error');
+    }
+  };
+
+  // Удаление категории добавок
+  const handleDeleteCategory = async (categoryId: number, categoryName: string) => {
+    if (window.confirm(`Удалить категорию "${categoryName}"? Все добавки в этой категории станут недоступны.`)) {
+      try {
+        await deleteCategory.mutateAsync(categoryId);
+        showMessage('Категория удалена', 'success');
+      } catch (error) {
+        showMessage('Ошибка при удалении категории', 'error');
+      }
     }
   };
 
@@ -398,12 +412,23 @@ const AdminMenuPage: React.FC = () => {
                         <IconButton size="small" onClick={() => handleToggleCategory(category.id)}>
                           {expandedCategory === category.id ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                         </IconButton>
-                        <IconButton 
-                          size="small" 
-                          onClick={() => setCategoryDialog({ open: true, mode: 'edit', category })}
-                        >
-                          <EditIcon />
-                        </IconButton>
+                        <Tooltip title="Редактировать категорию">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setCategoryDialog({ open: true, mode: 'edit', category })}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Удалить категорию">
+                          <IconButton 
+                            size="small" 
+                            color="error"
+                            onClick={() => handleDeleteCategory(category.id, category.name)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
                       </Box>
                     </Box>
 

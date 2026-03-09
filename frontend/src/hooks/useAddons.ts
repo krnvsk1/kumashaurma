@@ -52,6 +52,17 @@ export const useUpdateAddonCategory = () => {
   });
 };
 
+// Удаление категории добавок (soft delete)
+export const useDeleteAddonCategory = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: number) => apiClient.delete(`/addons/categories/${id}`).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['addon-categories'] });
+    },
+  });
+};
+
 // Добавьте этот интерфейс
 export interface CreateAddonDto {
   name: string;

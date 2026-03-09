@@ -20,7 +20,13 @@ import {
   Paper,
   TextField,
   InputAdornment,
-  useTheme
+  useTheme,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Tooltip
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
@@ -29,11 +35,13 @@ import {
   Refresh as RefreshIcon,
   Person as PersonIcon,
   Phone as PhoneIcon,
-  Numbers as NumbersIcon
+  Numbers as NumbersIcon,
+  Delete as DeleteIcon,
+  Edit as EditIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { useOrders, useUpdateOrderStatus } from '../api/hooks';
-import type { Order, OrderStatus, OrderItemAddon } from '../types';
+import { useOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder } from '../api/hooks';
+import type { Order, OrderStatus, OrderItemAddon, UpdateOrderDto } from '../types';
 
 // Компонент для отображения статуса с цветом
 const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
@@ -83,11 +91,98 @@ const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
   );
 };
 
+// Диалог редактирования заказа
+const EditOrderDialog: React.FC<{
+  open: boolean;
+  order: Order | null;
+  onClose: () => void;
+  onSave: (id: number, data: UpdateOrderDto) => void;
+  loading: boolean;
+}> = ({ open, order, onClose, onSave, loading }) => {
+  const [formData, setFormData] = React.useState<UpdateOrderDto>({
+    customerName: '',
+    phone: '',
+    address: '',
+    notes: '',
+    status: 'Новый'
+  });
+
+  React.useEffect(() => {
+    if (order) {
+      setFormData({
+        customerName: order.customerName,
+        phone: order.phone,
+        address: order.address,
+        notes: order.notes,
+        status: order.status
+      });
+    }
+  }, [order]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (order) {
+      onSave(order.id, formData);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <form onSubmit={handleSubmit}>
+        <DialogTitle>Редактировать заказ #{order?.id}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            label="Имя клиента"
+            value={formData.customerName}
+            onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+            margin="normal"
+            required
+          />
+          <TextField
+            fullWidth
+            label="Телефон"
+            value={formData.phone}
+            onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+            margin="normal"
+            required
+          />
+          <TextField
+            fullWidth
+            label="Адрес"
+            value={formData.address}
+            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+            margin="normal"
+            placeholder="Оставьте пустым для самовывоза"
+          />
+          <TextField
+            fullWidth
+            label="Примечание"
+            value={formData.notes || ''}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            margin="normal"
+            multiline
+            rows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={onClose}>Отмена</Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? <CircularProgress size={24} /> : 'Сохранить'}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+};
+
 // Компонент одной карточки заказа
 const OrderCard: React.FC<{ 
   order: Order;
   role: 'user' | 'admin';
-}> = ({ order, role }) => {
+  onDelete: (id: number) => void;
+  onEdit: (order: Order) => void;
+}> = ({ order, role, onDelete, onEdit }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -178,9 +273,29 @@ const OrderCard: React.FC<{
                 {expanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
               </IconButton>
               
-              {/* Меню изменения статуса — только для админа */}
+              {/* Кнопки админа */}
               {role === 'admin' && (
                 <>
+                  <Tooltip title="Редактировать заказ">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => onEdit(order)}
+                      color="primary"
+                    >
+                      <EditIcon />
+                    </IconButton>
+                  </Tooltip>
+                  
+                  <Tooltip title="Удалить заказ">
+                    <IconButton 
+                      size="small" 
+                      onClick={() => onDelete(order.id)}
+                      color="error"
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+                  </Tooltip>
+
                   <IconButton 
                     size="small" 
                     onClick={(e) => setAnchorEl(e.currentTarget)}
@@ -288,11 +403,53 @@ interface OrdersPageProps {
 const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
   const theme = useTheme();
   const { data: orders = [], isLoading, error, refetch } = useOrders();
+  
+  // Мутации
+  const deleteOrder = useDeleteOrder();
+  const updateOrder = useUpdateOrder();
+  
+  // Состояния для диалогов
+  const [editDialog, setEditDialog] = React.useState<{
+    open: boolean;
+    order: Order | null;
+  }>({ open: false, order: null });
+  
+  const [snackbar, setSnackbar] = React.useState({
+    open: false,
+    message: '',
+    severity: 'success' as 'success' | 'error'
+  });
 
   const [statusFilter, setStatusFilter] = React.useState<OrderStatus | 'all'>('all');
   const [searchId, setSearchId] = React.useState('');
   const [searchName, setSearchName] = React.useState('');
   const [searchPhone, setSearchPhone] = React.useState('');
+
+  // Обработчики
+  const handleDeleteOrder = async (id: number) => {
+    if (window.confirm(`Удалить заказ #${id}? Это действие нельзя отменить.`)) {
+      try {
+        await deleteOrder.mutateAsync(id);
+        setSnackbar({ open: true, message: 'Заказ удалён', severity: 'success' });
+      } catch (error) {
+        setSnackbar({ open: true, message: 'Ошибка при удалении заказа', severity: 'error' });
+      }
+    }
+  };
+
+  const handleEditOrder = (order: Order) => {
+    setEditDialog({ open: true, order });
+  };
+
+  const handleSaveEdit = async (id: number, data: UpdateOrderDto) => {
+    try {
+      await updateOrder.mutateAsync({ id, data });
+      setSnackbar({ open: true, message: 'Заказ обновлён', severity: 'success' });
+      setEditDialog({ open: false, order: null });
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Ошибка при обновлении заказа', severity: 'error' });
+    }
+  };
 
   // Фильтрация заказов (позже здесь будет фильтр по пользователю для покупателя)
   const filteredOrders = React.useMemo(() => {
@@ -524,6 +681,8 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
               key={order.id} 
               order={order} 
               role={role}
+              onDelete={handleDeleteOrder}
+              onEdit={handleEditOrder}
             />
           ))}
         </Box>
@@ -546,6 +705,26 @@ const OrdersPage: React.FC<OrdersPageProps> = ({ role }) => {
           </Typography>
         </Box>
       )}
+
+      {/* Диалог редактирования */}
+      <EditOrderDialog
+        open={editDialog.open}
+        order={editDialog.order}
+        onClose={() => setEditDialog({ open: false, order: null })}
+        onSave={handleSaveEdit}
+        loading={updateOrder.isPending}
+      />
+
+      {/* Уведомления */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={4000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+      >
+        <Alert severity={snackbar.severity} sx={{ width: '100%' }}>
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
