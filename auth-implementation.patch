@@ -1,0 +1,4307 @@
+diff --git a/src/Kumashaurma.API/Controllers/AddonsController.cs b/src/Kumashaurma.API/Controllers/AddonsController.cs
+index 21ab54f..5544090 100644
+--- a/src/Kumashaurma.API/Controllers/AddonsController.cs
++++ b/src/Kumashaurma.API/Controllers/AddonsController.cs
+@@ -1,3 +1,4 @@
++using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+ using Kumashaurma.API.Data;
+@@ -63,6 +64,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // POST: api/addons/categories
+         [HttpPost("categories")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> CreateCategory([FromBody] AddonCategory category)
+         {
+             try
+@@ -90,6 +92,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // PUT: api/addons/categories/{id}
+         [HttpPut("categories/{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> UpdateCategory(int id, [FromBody] AddonCategory updatedCategory)
+         {
+             try
+@@ -122,6 +125,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // DELETE: api/addons/categories/{id}
+         [HttpDelete("categories/{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> DeleteCategory(int id)
+         {
+             try
+@@ -232,6 +236,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPost]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> CreateAddon([FromBody] CreateAddonDto dto)
+         {
+             try
+@@ -270,6 +275,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // PUT: api/addons/{id}
+         [HttpPut("{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> UpdateAddon(int id, [FromBody] Addon updatedAddon)
+         {
+             try
+@@ -300,6 +306,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // DELETE: api/addons/{id}
+         [HttpDelete("{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> DeleteAddon(int id)
+         {
+             try
+@@ -326,6 +333,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // POST: api/addons/link-to-shawarma
+         [HttpPost("link-to-shawarma")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> LinkAddonToShawarma([FromBody] LinkAddonRequest request)
+         {
+             try
+@@ -370,6 +378,7 @@ namespace Kumashaurma.API.Controllers
+ 
+         // DELETE: api/addons/unlink-from-shawarma
+         [HttpDelete("unlink-from-shawarma")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> UnlinkAddonFromShawarma(int shawarmaId, int addonId)
+         {
+             try
+diff --git a/src/Kumashaurma.API/Controllers/AuthController.cs b/src/Kumashaurma.API/Controllers/AuthController.cs
+new file mode 100644
+index 0000000..e670b44
+--- /dev/null
++++ b/src/Kumashaurma.API/Controllers/AuthController.cs
+@@ -0,0 +1,369 @@
++using System.Security.Claims;
++using Microsoft.AspNetCore.Identity;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.EntityFrameworkCore;
++using Kumashaurma.API.DTOs.Auth;
++using Kumashaurma.API.Models;
++using Kumashaurma.API.Services;
++
++namespace Kumashaurma.API.Controllers
++{
++    [ApiController]
++    [Route("api/[controller]")]
++    public class AuthController : ControllerBase
++    {
++        private readonly UserManager<AppUser> _userManager;
++        private readonly SignInManager<AppUser> _signInManager;
++        private readonly ITokenService _tokenService;
++        private readonly IVerificationService _verificationService;
++        private readonly ApplicationDbContext _context;
++        private readonly ILogger<AuthController> _logger;
++
++        public AuthController(
++            UserManager<AppUser> userManager,
++            SignInManager<AppUser> signInManager,
++            ITokenService tokenService,
++            IVerificationService verificationService,
++            ApplicationDbContext context,
++            ILogger<AuthController> logger)
++        {
++            _userManager = userManager;
++            _signInManager = signInManager;
++            _tokenService = tokenService;
++            _verificationService = verificationService;
++            _context = context;
++            _logger = logger;
++        }
++
++        /// <summary>
++        /// Отправить SMS-код для верификации телефона
++        /// </summary>
++        [HttpPost("send-code")]
++        public async Task<ActionResult<SendCodeResponseDto>> SendCode([FromBody] SendCodeDto dto)
++        {
++            var (success, message, retryAfter) = await _verificationService.CreateAndSendCodeAsync(dto.Phone);
++
++            if (!success)
++            {
++                return BadRequest(new SendCodeResponseDto
++                {
++                    Success = false,
++                    Message = message,
++                    RetryAfter = retryAfter
++                });
++            }
++
++            return Ok(new SendCodeResponseDto
++            {
++                Success = true,
++                Message = message
++            });
++        }
++
++        /// <summary>
++        /// Проверить SMS-код и получить токены (для уже зарегистрированных)
++        /// </summary>
++        [HttpPost("verify")]
++        public async Task<ActionResult<AuthResponseDto>> VerifyCode([FromBody] VerifyCodeDto dto)
++        {
++            var (verifySuccess, verifyMessage) = await _verificationService.VerifyCodeAsync(dto.Phone, dto.Code);
++
++            if (!verifySuccess)
++            {
++                return BadRequest(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = verifyMessage
++                });
++            }
++
++            // Нормализуем телефон для поиска пользователя
++            var normalizedPhone = NormalizePhone(dto.Phone);
++
++            // Ищем пользователя
++            var user = await _userManager.Users
++                .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone);
++
++            if (user == null)
++            {
++                // Пользователь не найден - нужно зарегистрироваться
++                return Ok(new AuthResponseDto
++                {
++                    Success = true,
++                    Message = "Телефон подтверждён. Завершите регистрацию."
++                });
++            }
++
++            // Обновляем статус верификации
++            if (!user.PhoneVerified)
++            {
++                user.PhoneVerified = true;
++                user.UpdatedAt = DateTime.UtcNow;
++                await _userManager.UpdateAsync(user);
++            }
++
++            // Генерируем токены
++            var roles = await _userManager.GetRolesAsync(user);
++            var accessToken = _tokenService.GenerateAccessToken(user, roles);
++            var refreshToken = _tokenService.GenerateRefreshToken(user.Id, GetIpAddress());
++
++            _context.RefreshTokens.Add(refreshToken);
++            await _context.SaveChangesAsync();
++
++            return Ok(new AuthResponseDto
++            {
++                Success = true,
++                Message = "Успешный вход",
++                AccessToken = accessToken,
++                RefreshToken = refreshToken.Token,
++                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
++                User = new UserDto
++                {
++                    Id = user.Id,
++                    Phone = user.PhoneNumber ?? "",
++                    FirstName = user.FirstName,
++                    LastName = user.LastName,
++                    PhoneVerified = user.PhoneVerified,
++                    Roles = roles
++                }
++            });
++        }
++
++        /// <summary>
++        /// Регистрация нового пользователя (после верификации телефона)
++        /// </summary>
++        [HttpPost("register")]
++        public async Task<ActionResult<AuthResponseDto>> Register([FromBody] RegisterDto dto)
++        {
++            var normalizedPhone = NormalizePhone(dto.Phone);
++
++            // Проверяем, что телефон был верифицирован
++            var verificationCode = await _context.SmsVerificationCodes
++                .Where(c => c.Phone == normalizedPhone && c.VerifiedAt != null)
++                .OrderByDescending(c => c.VerifiedAt)
++                .FirstOrDefaultAsync();
++
++            if (verificationCode == null)
++            {
++                return BadRequest(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = "Сначала подтвердите номер телефона"
++                });
++            }
++
++            // Проверяем, что верификация была недавно (в течение 10 минут)
++            if ((DateTime.UtcNow - verificationCode.VerifiedAt!.Value).TotalMinutes > 10)
++            {
++                return BadRequest(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = "Время подтверждения истекло. Запросите новый код"
++                });
++            }
++
++            // Проверяем, не зарегистрирован ли уже пользователь
++            var existingUser = await _userManager.Users
++                .FirstOrDefaultAsync(u => u.PhoneNumber == normalizedPhone);
++
++            if (existingUser != null)
++            {
++                return BadRequest(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = "Пользователь с таким телефоном уже зарегистрирован"
++                });
++            }
++
++            // Создаём пользователя
++            var user = new AppUser
++            {
++                UserName = normalizedPhone,
++                PhoneNumber = normalizedPhone,
++                FirstName = dto.FirstName,
++                LastName = dto.LastName,
++                PhoneVerified = true,
++                CreatedAt = DateTime.UtcNow
++            };
++
++            var result = await _userManager.CreateAsync(user);
++
++            if (!result.Succeeded)
++            {
++                return BadRequest(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = string.Join(", ", result.Errors.Select(e => e.Description))
++                });
++            }
++
++            // Добавляем роль пользователя
++            await _userManager.AddToRoleAsync(user, AppRoles.User);
++
++            // Генерируем токены
++            var roles = await _userManager.GetRolesAsync(user);
++            var accessToken = _tokenService.GenerateAccessToken(user, roles);
++            var refreshToken = _tokenService.GenerateRefreshToken(user.Id, GetIpAddress());
++
++            _context.RefreshTokens.Add(refreshToken);
++            await _context.SaveChangesAsync();
++
++            _logger.LogInformation("Новый пользователь зарегистрирован: {Phone}", normalizedPhone);
++
++            return Ok(new AuthResponseDto
++            {
++                Success = true,
++                Message = "Регистрация успешна",
++                AccessToken = accessToken,
++                RefreshToken = refreshToken.Token,
++                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
++                User = new UserDto
++                {
++                    Id = user.Id,
++                    Phone = user.PhoneNumber ?? "",
++                    FirstName = user.FirstName,
++                    LastName = user.LastName,
++                    PhoneVerified = user.PhoneVerified,
++                    Roles = roles
++                }
++            });
++        }
++
++        /// <summary>
++        /// Обновить access token по refresh token
++        /// </summary>
++        [HttpPost("refresh")]
++        public async Task<ActionResult<AuthResponseDto>> RefreshToken([FromBody] RefreshTokenDto dto)
++        {
++            var storedRefreshToken = await _context.RefreshTokens
++                .Include(rt => rt.User)
++                .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
++
++            if (storedRefreshToken == null)
++            {
++                return Unauthorized(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = "Недействительный refresh token"
++                });
++            }
++
++            if (!storedRefreshToken.IsActive)
++            {
++                return Unauthorized(new AuthResponseDto
++                {
++                    Success = false,
++                    Message = storedRefreshToken.IsRevoked 
++                        ? "Refresh token был отозван" 
++                        : "Refresh token истёк"
++                });
++            }
++
++            var user = storedRefreshToken.User;
++
++            // Отзываем старый refresh token
++            storedRefreshToken.RevokedAt = DateTime.UtcNow;
++            storedRefreshToken.RevokedByIp = GetIpAddress();
++
++            // Генерируем новые токены
++            var roles = await _userManager.GetRolesAsync(user);
++            var accessToken = _tokenService.GenerateAccessToken(user, roles);
++            var newRefreshToken = _tokenService.GenerateRefreshToken(user.Id, GetIpAddress());
++
++            storedRefreshToken.ReplacedByToken = newRefreshToken.Token;
++            _context.RefreshTokens.Add(newRefreshToken);
++            await _context.SaveChangesAsync();
++
++            return Ok(new AuthResponseDto
++            {
++                Success = true,
++                AccessToken = accessToken,
++                RefreshToken = newRefreshToken.Token,
++                ExpiresAt = DateTime.UtcNow.AddMinutes(60),
++                User = new UserDto
++                {
++                    Id = user.Id,
++                    Phone = user.PhoneNumber ?? "",
++                    FirstName = user.FirstName,
++                    LastName = user.LastName,
++                    PhoneVerified = user.PhoneVerified,
++                    Roles = roles
++                }
++            });
++        }
++
++        /// <summary>
++        /// Выход (отзыв refresh token)
++        /// </summary>
++        [HttpPost("logout")]
++        public async Task<ActionResult> Logout([FromBody] RefreshTokenDto dto)
++        {
++            var storedRefreshToken = await _context.RefreshTokens
++                .FirstOrDefaultAsync(rt => rt.Token == dto.RefreshToken);
++
++            if (storedRefreshToken != null)
++            {
++                storedRefreshToken.RevokedAt = DateTime.UtcNow;
++                storedRefreshToken.RevokedByIp = GetIpAddress();
++                await _context.SaveChangesAsync();
++            }
++
++            return Ok(new { message = "Вы успешно вышли из системы" });
++        }
++
++        /// <summary>
++        /// Получить информацию о текущем пользователе
++        /// </summary>
++        [HttpGet("me")]
++        public async Task<ActionResult<UserDto>> GetCurrentUser()
++        {
++            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++
++            if (string.IsNullOrEmpty(userId))
++            {
++                return Unauthorized();
++            }
++
++            var user = await _userManager.FindByIdAsync(userId);
++
++            if (user == null)
++            {
++                return NotFound();
++            }
++
++            var roles = await _userManager.GetRolesAsync(user);
++
++            return Ok(new UserDto
++            {
++                Id = user.Id,
++                Phone = user.PhoneNumber ?? "",
++                FirstName = user.FirstName,
++                LastName = user.LastName,
++                PhoneVerified = user.PhoneVerified,
++                Roles = roles
++            });
++        }
++
++        private string GetIpAddress()
++        {
++            return HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
++        }
++
++        private static string NormalizePhone(string phone)
++        {
++            var digits = new string(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
++            
++            if (digits.StartsWith("8") && digits.Length == 11)
++            {
++                digits = "+7" + digits[1..];
++            }
++            
++            if (!digits.StartsWith("+"))
++            {
++                digits = "+7" + digits;
++            }
++
++            return digits;
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Controllers/ImageController.cs b/src/Kumashaurma.API/Controllers/ImageController.cs
+index 8ee4e4e..35ad42d 100644
+--- a/src/Kumashaurma.API/Controllers/ImageController.cs
++++ b/src/Kumashaurma.API/Controllers/ImageController.cs
+@@ -1,3 +1,4 @@
++using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+ using Kumashaurma.API.Data;
+@@ -24,6 +25,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPost("upload/{shawarmaId}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> UploadImage(int shawarmaId, IFormFile file)
+         {
+             try
+@@ -106,6 +108,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpDelete("{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> DeleteImage(int id)
+         {
+             try
+diff --git a/src/Kumashaurma.API/Controllers/OrdersController.cs b/src/Kumashaurma.API/Controllers/OrdersController.cs
+index a05ce94..df67d62 100644
+--- a/src/Kumashaurma.API/Controllers/OrdersController.cs
++++ b/src/Kumashaurma.API/Controllers/OrdersController.cs
+@@ -1,3 +1,5 @@
++using System.Security.Claims;
++using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+ using Kumashaurma.API.Data;
+@@ -19,6 +21,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpGet]
++        [Authorize(Roles = "admin,manager,courier")]
+         public async Task<IActionResult> GetAll()
+         {
+             try
+@@ -38,6 +41,34 @@ namespace Kumashaurma.API.Controllers
+             }
+         }
+ 
++        [HttpGet("my")]
++        [Authorize]
++        public async Task<IActionResult> GetMyOrders()
++        {
++            try
++            {
++                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
++                {
++                    return Unauthorized(new { Message = "Пользователь не авторизован" });
++                }
++
++                var orders = await _context.Orders
++                    .Where(o => o.UserId == userId)
++                    .Include(o => o.OrderItems)
++                        .ThenInclude(oi => oi.SelectedAddons)
++                    .OrderByDescending(o => o.CreatedAt)
++                    .ToListAsync();
++                    
++                return Ok(orders);
++            }
++            catch (Exception ex)
++            {
++                _logger.LogError(ex, "Ошибка при получении заказов пользователя");
++                return StatusCode(500, new { Message = "Ошибка сервера при получении заказов" });
++            }
++        }
++
+         [HttpGet("{id}")]
+         public async Task<IActionResult> GetById(int id)
+         {
+@@ -95,9 +126,18 @@ namespace Kumashaurma.API.Controllers
+                         .ToDictionaryAsync(a => a.Id, a => a);
+                 }
+ 
++                // Получаем UserId если пользователь авторизован
++                int? userId = null;
++                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++                if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var parsedUserId))
++                {
++                    userId = parsedUserId;
++                }
++
+                 // Создаем заказ
+                 var newOrder = new Order
+                 {
++                    UserId = userId,
+                     CustomerName = request.CustomerName.Trim(),
+                     Phone = request.Phone?.Trim() ?? string.Empty,
+                     Address = request.Address?.Trim() ?? string.Empty,
+@@ -215,6 +255,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPut("{id}")]
++        [Authorize(Roles = "admin,manager,courier")]
+         public async Task<IActionResult> Update(int id, [FromBody] UpdateOrderRequest request)
+         {
+             try
+@@ -256,6 +297,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpDelete("{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> Delete(int id)
+         {
+             try
+@@ -286,6 +328,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpGet("stats")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> GetStats()
+         {
+             try
+@@ -313,6 +356,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPatch("{id}/status")]
++        [Authorize(Roles = "admin,manager,courier")]
+         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderRequest request)
+         {
+             try
+diff --git a/src/Kumashaurma.API/Controllers/ShawarmaController.cs b/src/Kumashaurma.API/Controllers/ShawarmaController.cs
+index 9f88d6a..ff6d7b4 100644
+--- a/src/Kumashaurma.API/Controllers/ShawarmaController.cs
++++ b/src/Kumashaurma.API/Controllers/ShawarmaController.cs
+@@ -1,3 +1,4 @@
++using Microsoft.AspNetCore.Authorization;
+ using Microsoft.AspNetCore.Mvc;
+ using Microsoft.EntityFrameworkCore;
+ using Kumashaurma.API.Data;
+@@ -17,6 +18,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPut("reorder")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> Reorder([FromBody] List<ReorderItem> items)
+         {
+             Console.WriteLine($"📥 Получен reorder запрос. Items count: {items?.Count ?? 0}");
+@@ -76,6 +78,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPost]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> Create([FromBody] Shawarma shawarma)
+         {
+             if (string.IsNullOrEmpty(shawarma.Name))
+@@ -94,6 +97,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpPut("{id}")]
++        [Authorize(Roles = "admin,manager")]
+         public async Task<IActionResult> Update(int id, [FromBody] Shawarma updatedShawarma)
+         {
+             var shawarma = await _context.Shawarmas
+@@ -118,6 +122,7 @@ namespace Kumashaurma.API.Controllers
+         }
+ 
+         [HttpDelete("{id}")]
++        [Authorize(Roles = "admin")]
+         public async Task<IActionResult> Delete(int id)
+         {
+             var shawarma = await _context.Shawarmas.FindAsync(id);
+diff --git a/src/Kumashaurma.API/Controllers/UsersController.cs b/src/Kumashaurma.API/Controllers/UsersController.cs
+new file mode 100644
+index 0000000..e7f6162
+--- /dev/null
++++ b/src/Kumashaurma.API/Controllers/UsersController.cs
+@@ -0,0 +1,369 @@
++using System.Security.Claims;
++using Microsoft.AspNetCore.Authorization;
++using Microsoft.AspNetCore.Identity;
++using Microsoft.AspNetCore.Mvc;
++using Microsoft.EntityFrameworkCore;
++using Kumashaurma.API.Models;
++
++namespace Kumashaurma.API.Controllers
++{
++    [ApiController]
++    [Route("api/[controller]")]
++    [Authorize]
++    public class UsersController : ControllerBase
++    {
++        private readonly UserManager<AppUser> _userManager;
++        private readonly ApplicationDbContext _context;
++
++        public UsersController(UserManager<AppUser> userManager, ApplicationDbContext context)
++        {
++            _userManager = userManager;
++            _context = context;
++        }
++
++        /// <summary>
++        /// Получить список всех пользователей (только для admin/manager)
++        /// </summary>
++        [HttpGet]
++        [Authorize(Roles = "admin,manager")]
++        public async Task<ActionResult<IEnumerable<UserListDto>>> GetUsers(
++            [FromQuery] string? role = null,
++            [FromQuery] int page = 1,
++            [FromQuery] int pageSize = 20)
++        {
++            var query = _userManager.Users.AsQueryable();
++
++            if (!string.IsNullOrEmpty(role))
++            {
++                var userIdsInRole = await _context.UserRoles
++                    .Where(ur => _context.Roles.Any(r => r.Id == ur.RoleId && r.Name == role))
++                    .Select(ur => ur.UserId)
++                    .ToListAsync();
++
++                query = query.Where(u => userIdsInRole.Contains(u.Id));
++            }
++
++            var total = await query.CountAsync();
++            var users = await query
++                .OrderByDescending(u => u.CreatedAt)
++                .Skip((page - 1) * pageSize)
++                .Take(pageSize)
++                .ToListAsync();
++
++            var result = new List<UserListDto>();
++
++            foreach (var user in users)
++            {
++                var roles = await _userManager.GetRolesAsync(user);
++                result.Add(new UserListDto
++                {
++                    Id = user.Id,
++                    Phone = user.PhoneNumber ?? "",
++                    FirstName = user.FirstName,
++                    LastName = user.LastName,
++                    PhoneVerified = user.PhoneVerified,
++                    Roles = roles.ToList(),
++                    CreatedAt = user.CreatedAt
++                });
++            }
++
++            Response.Headers.Append("X-Total-Count", total.ToString());
++            return Ok(result);
++        }
++
++        /// <summary>
++        /// Получить пользователя по ID
++        /// </summary>
++        [HttpGet("{id}")]
++        [Authorize(Roles = "admin,manager")]
++        public async Task<ActionResult<UserDetailDto>> GetUser(int id)
++        {
++            var user = await _userManager.FindByIdAsync(id.ToString());
++
++            if (user == null)
++            {
++                return NotFound();
++            }
++
++            var roles = await _userManager.GetRolesAsync(user);
++            var addresses = await _context.UserAddresses
++                .Where(a => a.UserId == id)
++                .ToListAsync();
++
++            return Ok(new UserDetailDto
++            {
++                Id = user.Id,
++                Phone = user.PhoneNumber ?? "",
++                FirstName = user.FirstName,
++                LastName = user.LastName,
++                PhoneVerified = user.PhoneVerified,
++                Roles = roles.ToList(),
++                CreatedAt = user.CreatedAt,
++                Addresses = addresses.Select(a => new UserAddressDto
++                {
++                    Id = a.Id,
++                    Address = a.Address,
++                    Entrance = a.Entrance,
++                    Floor = a.Floor,
++                    Apartment = a.Apartment,
++                    Comment = a.Comment,
++                    IsDefault = a.IsDefault
++                }).ToList()
++            });
++        }
++
++        /// <summary>
++        /// Назначить роль пользователю (только для admin)
++        /// </summary>
++        [HttpPost("{id}/roles")]
++        [Authorize(Roles = "admin")]
++        public async Task<ActionResult> AssignRole(int id, [FromBody] AssignRoleDto dto)
++        {
++            var user = await _userManager.FindByIdAsync(id.ToString());
++
++            if (user == null)
++            {
++                return NotFound(new { message = "Пользователь не найден" });
++            }
++
++            if (!AppRoles.AllRoles.Contains(dto.Role))
++            {
++                return BadRequest(new { message = $"Недопустимая роль. Допустимые роли: {string.Join(", ", AppRoles.AllRoles)}" });
++            }
++
++            var result = await _userManager.AddToRoleAsync(user, dto.Role);
++
++            if (!result.Succeeded)
++            {
++                return BadRequest(new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
++            }
++
++            return Ok(new { message = $"Роль '{dto.Role}' успешно назначена" });
++        }
++
++        /// <summary>
++        /// Удалить роль у пользователя (только для admin)
++        /// </summary>
++        [HttpDelete("{id}/roles/{role}")]
++        [Authorize(Roles = "admin")]
++        public async Task<ActionResult> RemoveRole(int id, string role)
++        {
++            var user = await _userManager.FindByIdAsync(id.ToString());
++
++            if (user == null)
++            {
++                return NotFound(new { message = "Пользователь не найден" });
++            }
++
++            var result = await _userManager.RemoveFromRoleAsync(user, role);
++
++            if (!result.Succeeded)
++            {
++                return BadRequest(new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
++            }
++
++            return Ok(new { message = $"Роль '{role}' успешно удалена" });
++        }
++
++        /// <summary>
++        /// Обновить профиль текущего пользователя
++        /// </summary>
++        [HttpPut("me")]
++        public async Task<ActionResult> UpdateProfile([FromBody] UpdateProfileDto dto)
++        {
++            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++
++            if (string.IsNullOrEmpty(userId))
++            {
++                return Unauthorized();
++            }
++
++            var user = await _userManager.FindByIdAsync(userId);
++
++            if (user == null)
++            {
++                return NotFound();
++            }
++
++            user.FirstName = dto.FirstName;
++            user.LastName = dto.LastName;
++            user.UpdatedAt = DateTime.UtcNow;
++
++            var result = await _userManager.UpdateAsync(user);
++
++            if (!result.Succeeded)
++            {
++                return BadRequest(new { message = string.Join(", ", result.Errors.Select(e => e.Description)) });
++            }
++
++            return Ok(new { message = "Профиль обновлён" });
++        }
++
++        /// <summary>
++        /// Добавить адрес текущему пользователю
++        /// </summary>
++        [HttpPost("me/addresses")]
++        public async Task<ActionResult<UserAddressDto>> AddAddress([FromBody] CreateUserAddressDto dto)
++        {
++            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++
++            if (string.IsNullOrEmpty(userId))
++            {
++                return Unauthorized();
++            }
++
++            var user = await _userManager.FindByIdAsync(userId);
++
++            if (user == null)
++            {
++                return NotFound();
++            }
++
++            var address = new UserAddress
++            {
++                UserId = int.Parse(userId),
++                Address = dto.Address,
++                Entrance = dto.Entrance,
++                Floor = dto.Floor,
++                Apartment = dto.Apartment,
++                Comment = dto.Comment,
++                IsDefault = dto.IsDefault,
++                CreatedAt = DateTime.UtcNow
++            };
++
++            // Если это адрес по умолчанию, сбросим флаг у остальных
++            if (address.IsDefault)
++            {
++                var existingAddresses = await _context.UserAddresses
++                    .Where(a => a.UserId == int.Parse(userId) && a.IsDefault)
++                    .ToListAsync();
++
++                foreach (var a in existingAddresses)
++                {
++                    a.IsDefault = false;
++                }
++            }
++
++            _context.UserAddresses.Add(address);
++            await _context.SaveChangesAsync();
++
++            return Ok(new UserAddressDto
++            {
++                Id = address.Id,
++                Address = address.Address,
++                Entrance = address.Entrance,
++                Floor = address.Floor,
++                Apartment = address.Apartment,
++                Comment = address.Comment,
++                IsDefault = address.IsDefault
++            });
++        }
++
++        /// <summary>
++        /// Получить адреса текущего пользователя
++        /// </summary>
++        [HttpGet("me/addresses")]
++        public async Task<ActionResult<IEnumerable<UserAddressDto>>> GetMyAddresses()
++        {
++            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++
++            if (string.IsNullOrEmpty(userId))
++            {
++                return Unauthorized();
++            }
++
++            var addresses = await _context.UserAddresses
++                .Where(a => a.UserId == int.Parse(userId))
++                .OrderByDescending(a => a.IsDefault)
++                .ThenByDescending(a => a.CreatedAt)
++                .ToListAsync();
++
++            return Ok(addresses.Select(a => new UserAddressDto
++            {
++                Id = a.Id,
++                Address = a.Address,
++                Entrance = a.Entrance,
++                Floor = a.Floor,
++                Apartment = a.Apartment,
++                Comment = a.Comment,
++                IsDefault = a.IsDefault
++            }));
++        }
++
++        /// <summary>
++        /// Удалить адрес
++        /// </summary>
++        [HttpDelete("me/addresses/{id}")]
++        public async Task<ActionResult> DeleteAddress(int id)
++        {
++            var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
++
++            if (string.IsNullOrEmpty(userId))
++            {
++                return Unauthorized();
++            }
++
++            var address = await _context.UserAddresses
++                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == int.Parse(userId));
++
++            if (address == null)
++            {
++                return NotFound();
++            }
++
++            _context.UserAddresses.Remove(address);
++            await _context.SaveChangesAsync();
++
++            return NoContent();
++        }
++    }
++
++    // DTOs
++    public class UserListDto
++    {
++        public int Id { get; set; }
++        public string Phone { get; set; } = string.Empty;
++        public string? FirstName { get; set; }
++        public string? LastName { get; set; }
++        public bool PhoneVerified { get; set; }
++        public List<string> Roles { get; set; } = new();
++        public DateTime CreatedAt { get; set; }
++    }
++
++    public class UserDetailDto : UserListDto
++    {
++        public List<UserAddressDto> Addresses { get; set; } = new();
++    }
++
++    public class UserAddressDto
++    {
++        public int Id { get; set; }
++        public string Address { get; set; } = string.Empty;
++        public string? Entrance { get; set; }
++        public string? Floor { get; set; }
++        public string? Apartment { get; set; }
++        public string? Comment { get; set; }
++        public bool IsDefault { get; set; }
++    }
++
++    public class AssignRoleDto
++    {
++        public string Role { get; set; } = string.Empty;
++    }
++
++    public class UpdateProfileDto
++    {
++        public string? FirstName { get; set; }
++        public string? LastName { get; set; }
++    }
++
++    public class CreateUserAddressDto
++    {
++        public string Address { get; set; } = string.Empty;
++        public string? Entrance { get; set; }
++        public string? Floor { get; set; }
++        public string? Apartment { get; set; }
++        public string? Comment { get; set; }
++        public bool IsDefault { get; set; } = false;
++    }
++}
+diff --git a/src/Kumashaurma.API/DTOs/Auth/AuthDtos.cs b/src/Kumashaurma.API/DTOs/Auth/AuthDtos.cs
+new file mode 100644
+index 0000000..9d226e6
+--- /dev/null
++++ b/src/Kumashaurma.API/DTOs/Auth/AuthDtos.cs
+@@ -0,0 +1,68 @@
++using System.ComponentModel.DataAnnotations;
++
++namespace Kumashaurma.API.DTOs.Auth
++{
++    public class SendCodeDto
++    {
++        [Required(ErrorMessage = "Номер телефона обязателен")]
++        [RegularExpression(@"^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$", 
++            ErrorMessage = "Неверный формат телефона. Используйте формат: +7 (999) 123-45-67")]
++        public string Phone { get; set; } = string.Empty;
++    }
++
++    public class VerifyCodeDto
++    {
++        [Required(ErrorMessage = "Номер телефона обязателен")]
++        public string Phone { get; set; } = string.Empty;
++
++        [Required(ErrorMessage = "Код подтверждения обязателен")]
++        [StringLength(4, MinimumLength = 4, ErrorMessage = "Код должен содержать 4 цифры")]
++        public string Code { get; set; } = string.Empty;
++    }
++
++    public class RegisterDto
++    {
++        [Required(ErrorMessage = "Номер телефона обязателен")]
++        public string Phone { get; set; } = string.Empty;
++
++        [Required(ErrorMessage = "Имя обязательно")]
++        [StringLength(100, MinimumLength = 2, ErrorMessage = "Имя должно содержать от 2 до 100 символов")]
++        public string FirstName { get; set; } = string.Empty;
++
++        [StringLength(100, ErrorMessage = "Фамилия не должна превышать 100 символов")]
++        public string? LastName { get; set; }
++    }
++
++    public class RefreshTokenDto
++    {
++        [Required(ErrorMessage = "Refresh токен обязателен")]
++        public string RefreshToken { get; set; } = string.Empty;
++    }
++
++    public class AuthResponseDto
++    {
++        public bool Success { get; set; }
++        public string? Message { get; set; }
++        public string? AccessToken { get; set; }
++        public string? RefreshToken { get; set; }
++        public DateTime? ExpiresAt { get; set; }
++        public UserDto? User { get; set; }
++    }
++
++    public class UserDto
++    {
++        public int Id { get; set; }
++        public string Phone { get; set; } = string.Empty;
++        public string? FirstName { get; set; }
++        public string? LastName { get; set; }
++        public bool PhoneVerified { get; set; }
++        public IList<string> Roles { get; set; } = new List<string>();
++    }
++
++    public class SendCodeResponseDto
++    {
++        public bool Success { get; set; }
++        public string? Message { get; set; }
++        public int? RetryAfter { get; set; } // seconds until next code can be sent
++    }
++}
+diff --git a/src/Kumashaurma.API/Data/ApplicationDbContext.cs b/src/Kumashaurma.API/Data/ApplicationDbContext.cs
+index 39e9ff8..052ee67 100644
+--- a/src/Kumashaurma.API/Data/ApplicationDbContext.cs
++++ b/src/Kumashaurma.API/Data/ApplicationDbContext.cs
+@@ -1,30 +1,74 @@
++using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore;
+ using Kumashaurma.API.Models;
++using Microsoft.AspNetCore.Identity;
+ 
+ namespace Kumashaurma.API.Data
+ {
+-    public class ApplicationDbContext : DbContext
++    public class ApplicationDbContext : IdentityDbContext<AppUser, IdentityRole<int>, int>
+     {
+         public ApplicationDbContext(DbContextOptions<ApplicationDbContext> options)
+             : base(options)
+         {
+         }
+         
++        // Shawarma & Orders
+         public DbSet<Shawarma> Shawarmas { get; set; }
+         public DbSet<Order> Orders { get; set; }
+         public DbSet<OrderItem> OrderItems { get; set; }
+         public DbSet<ShawarmaImage> ShawarmaImages { get; set; }
+         
+-        // НОВЫЕ DbSet
++        // Addons
+         public DbSet<AddonCategory> AddonCategories { get; set; }
+         public DbSet<Addon> Addons { get; set; }
+         public DbSet<ShawarmaAddon> ShawarmaAddons { get; set; }
+         public DbSet<OrderItemAddon> OrderItemAddons { get; set; }
+         
++        // Auth
++        public DbSet<UserAddress> UserAddresses { get; set; }
++        public DbSet<SmsVerificationCode> SmsVerificationCodes { get; set; }
++        public DbSet<RefreshToken> RefreshTokens { get; set; }
++        
+         protected override void OnModelCreating(ModelBuilder modelBuilder)
+         {
+             base.OnModelCreating(modelBuilder);
+             
++            // Настройка таблиц Identity с нужными именами
++            modelBuilder.Entity<AppUser>(entity =>
++            {
++                entity.ToTable("users");
++            });
++            
++            modelBuilder.Entity<IdentityRole<int>>(entity =>
++            {
++                entity.ToTable("roles");
++            });
++            
++            modelBuilder.Entity<IdentityUserRole<int>>(entity =>
++            {
++                entity.ToTable("user_roles");
++            });
++            
++            modelBuilder.Entity<IdentityUserClaim<int>>(entity =>
++            {
++                entity.ToTable("user_claims");
++            });
++            
++            modelBuilder.Entity<IdentityUserLogin<int>>(entity =>
++            {
++                entity.ToTable("user_logins");
++            });
++            
++            modelBuilder.Entity<IdentityRoleClaim<int>>(entity =>
++            {
++                entity.ToTable("role_claims");
++            });
++            
++            modelBuilder.Entity<IdentityUserToken<int>>(entity =>
++            {
++                entity.ToTable("user_tokens");
++            });
++            
+             // Shawarma configuration
+             modelBuilder.Entity<Shawarma>(entity =>
+             {
+@@ -37,7 +81,14 @@ namespace Kumashaurma.API.Data
+             {
+                 entity.HasIndex(e => e.CreatedAt);
+                 entity.HasIndex(e => e.Status);
++                entity.HasIndex(e => e.UserId);
+                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
++                
++                // Связь с пользователем
++                entity.HasOne(e => e.User)
++                    .WithMany(u => u.Orders)
++                    .HasForeignKey(e => e.UserId)
++                    .OnDelete(DeleteBehavior.SetNull);
+             });
+             
+             // OrderItem configuration
+@@ -49,14 +100,14 @@ namespace Kumashaurma.API.Data
+                     .OnDelete(DeleteBehavior.Cascade);
+             });
+             
+-            // НОВОЕ: AddonCategory configuration
++            // AddonCategory configuration
+             modelBuilder.Entity<AddonCategory>(entity =>
+             {
+                 entity.HasIndex(e => e.Name);
+                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+             });
+             
+-            // НОВОЕ: Addon configuration
++            // Addon configuration
+             modelBuilder.Entity<Addon>(entity =>
+             {
+                 entity.HasIndex(e => e.Name);
+@@ -68,7 +119,7 @@ namespace Kumashaurma.API.Data
+                     .OnDelete(DeleteBehavior.Restrict);
+             });
+             
+-            // НОВОЕ: ShawarmaAddon configuration (многие-ко-многим)
++            // ShawarmaAddon configuration (многие-ко-многим)
+             modelBuilder.Entity<ShawarmaAddon>(entity =>
+             {
+                 entity.HasIndex(e => new { e.ShawarmaId, e.AddonId }).IsUnique();
+@@ -84,7 +135,7 @@ namespace Kumashaurma.API.Data
+                     .OnDelete(DeleteBehavior.Cascade);
+             });
+             
+-            // НОВОЕ: OrderItemAddon configuration
++            // OrderItemAddon configuration
+             modelBuilder.Entity<OrderItemAddon>(entity =>
+             {
+                 entity.HasOne(e => e.OrderItem)
+@@ -92,6 +143,35 @@ namespace Kumashaurma.API.Data
+                     .HasForeignKey(e => e.OrderItemId)
+                     .OnDelete(DeleteBehavior.Cascade);
+             });
++            
++            // UserAddress configuration
++            modelBuilder.Entity<UserAddress>(entity =>
++            {
++                entity.HasIndex(e => e.UserId);
++                entity.HasOne(e => e.User)
++                    .WithMany(u => u.Addresses)
++                    .HasForeignKey(e => e.UserId)
++                    .OnDelete(DeleteBehavior.Cascade);
++            });
++            
++            // SmsVerificationCode configuration
++            modelBuilder.Entity<SmsVerificationCode>(entity =>
++            {
++                entity.HasIndex(e => e.Phone);
++                entity.HasIndex(e => e.ExpiresAt);
++            });
++            
++            // RefreshToken configuration
++            modelBuilder.Entity<RefreshToken>(entity =>
++            {
++                entity.HasIndex(e => e.Token);
++                entity.HasIndex(e => e.UserId);
++                
++                entity.HasOne(e => e.User)
++                    .WithMany()
++                    .HasForeignKey(e => e.UserId)
++                    .OnDelete(DeleteBehavior.Cascade);
++            });
+         }
+     }
+-}
+\ No newline at end of file
++}
+diff --git a/src/Kumashaurma.API/Kumashaurma.API.csproj b/src/Kumashaurma.API/Kumashaurma.API.csproj
+index aad4552..763cde2 100644
+--- a/src/Kumashaurma.API/Kumashaurma.API.csproj
++++ b/src/Kumashaurma.API/Kumashaurma.API.csproj
+@@ -15,6 +15,9 @@
+       <PrivateAssets>all</PrivateAssets>
+       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+     </PackageReference>
++    <!-- Identity & JWT -->
++    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.0" />
++    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.0" />
+   </ItemGroup>
+ 
+   <ItemGroup>
+diff --git a/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.Designer.cs b/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.Designer.cs
+new file mode 100644
+index 0000000..176af36
+--- /dev/null
++++ b/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.Designer.cs
+@@ -0,0 +1,909 @@
++// <auto-generated />
++using System;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.EntityFrameworkCore.Infrastructure;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++using Kumashaurma.API.Data;
++
++#nullable disable
++
++namespace Kumashaurma.API.Migrations
++{
++    [DbContext(typeof(ApplicationDbContext))]
++    [Migration("20260301_AddIdentityAndAuth")]
++    partial class AddIdentityAndAuth
++    {
++        /// <inheritdoc />
++        protected override void BuildTargetModel(ModelBuilder modelBuilder)
++        {
++#pragma warning disable 612, 618
++            modelBuilder
++                .HasAnnotation("ProductVersion", "9.0.0")
++                .HasAnnotation("Relational:MaxIdentifierLength", 63);
++
++            NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Addon", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("AddonCategoryId")
++                        .HasColumnType("integer")
++                        .HasColumnName("addon_category_id");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at")
++                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("name");
++
++                    b.Property<decimal>("Price")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
++                        .HasColumnName("price");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("AddonCategoryId");
++
++                    b.HasIndex("Name");
++
++                    b.ToTable("addons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.AddonCategory", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at")
++                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("name");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Name");
++
++                    b.ToTable("addon_categories");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.AppUser", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("Id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("AccessFailedCount")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("text");
++
++                    b.Property<string>("Email")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<bool>("EmailConfirmed")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("FirstName")
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("first_name");
++
++                    b.Property<string>("LastName")
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("last_name");
++
++                    b.Property<bool>("LockoutEnabled")
++                        .HasColumnType("boolean");
++
++                    b.Property<DateTimeOffset?>("LockoutEnd")
++                        .HasColumnType("timestamp with time zone");
++
++                    b.Property<string>("NormalizedEmail")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("NormalizedUserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("PasswordHash")
++                        .HasColumnType("text");
++
++                    b.Property<string>("PhoneNumber")
++                        .HasColumnType("text");
++
++                    b.Property<bool>("PhoneNumberConfirmed")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("SecurityStamp")
++                        .HasColumnType("text");
++
++                    b.Property<bool>("TwoFactorEnabled")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("UserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
++
++                    b.Property<DateTime?>("UpdatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("updated_at");
++
++                    b.Property<bool>("PhoneVerified")
++                        .HasColumnType("boolean")
++                        .HasColumnName("phone_verified");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedEmail")
++                        .HasDatabaseName("EmailIndex");
++
++                    b.HasIndex("NormalizedUserName")
++                        .IsUnique()
++                        .HasDatabaseName("UserNameIndex");
++
++                    b.ToTable("users", (string)null);
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Address")
++                        .IsRequired()
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("address");
++
++                    b.Property<DateTime?>("CompletedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("completed_at");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at")
++                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
++
++                    b.Property<string>("CustomerName")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("customer_name");
++
++                    b.Property<string>("Notes")
++                        .HasColumnType("text")
++                        .HasColumnName("notes");
++
++                    b.Property<string>("Phone")
++                        .IsRequired()
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("phone");
++
++                    b.Property<string>("Status")
++                        .IsRequired()
++                        .HasMaxLength(50)
++                        .HasColumnType("character varying(50)")
++                        .HasColumnName("status");
++
++                    b.Property<decimal>("Total")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
++                        .HasColumnName("total");
++
++                    b.Property<int?>("UserId")
++                        .HasColumnType("integer")
++                        .HasColumnName("user_id");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("CreatedAt");
++
++                    b.HasIndex("Status");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("orders");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.OrderItem", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("OrderId")
++                        .HasColumnType("integer")
++                        .HasColumnName("order_id");
++
++                    b.Property<decimal>("Price")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
++                        .HasColumnName("price");
++
++                    b.Property<int>("Quantity")
++                        .HasColumnType("integer")
++                        .HasColumnName("quantity");
++
++                    b.Property<int>("ShawarmaId")
++                        .HasColumnType("integer")
++                        .HasColumnName("shawarma_id");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("OrderId");
++
++                    b.HasIndex("ShawarmaId");
++
++                    b.ToTable("order_items");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.OrderItemAddon", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("AddonId")
++                        .HasColumnType("integer")
++                        .HasColumnName("addon_id");
++
++                    b.Property<int>("OrderItemId")
++                        .HasColumnType("integer")
++                        .HasColumnName("order_item_id");
++
++                    b.Property<decimal>("Price")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
++                        .HasColumnName("price");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("AddonId");
++
++                    b.HasIndex("OrderItemId");
++
++                    b.ToTable("order_item_addons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
++
++                    b.Property<DateTime>("ExpiresAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("expires_at");
++
++                    b.Property<string>("ReplacedByToken")
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("replaced_by_token");
++
++                    b.Property<DateTime?>("RevokedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("revoked_at");
++
++                    b.Property<string>("RevokedByIp")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("revoked_by_ip");
++
++                    b.Property<string>("Token")
++                        .IsRequired()
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("token");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer")
++                        .HasColumnName("user_id");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Token");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("refresh_tokens");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Shawarma", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<DateTime>("CreatedAt")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at")
++                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
++
++                    b.Property<string>("Description")
++                        .HasMaxLength(1000)
++                        .HasColumnType("character varying(1000)")
++                        .HasColumnName("description");
++
++                    b.Property<bool>("IsAvailable")
++                        .HasColumnType("boolean")
++                        .HasColumnName("is_available");
++
++                    b.Property<bool>("IsPromo")
++                        .HasColumnType("boolean")
++                        .HasColumnName("is_promo");
++
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("name");
++
++                    b.Property<decimal>("Price")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
++                        .HasColumnName("price");
++
++                    b.Property<int>("SortOrder")
++                        .HasColumnType("integer")
++                        .HasColumnName("sort_order");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Name")
++                        .IsUnique();
++
++                    b.ToTable("shawarmas");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaAddon", b =>
++                {
++                    b.Property<int>("ShawarmaId")
++                        .HasColumnType("integer")
++                        .HasColumnName("shawarma_id");
++
++                    b.Property<int>("AddonId")
++                        .HasColumnType("integer")
++                        .HasColumnName("addon_id");
++
++                    b.HasKey("ShawarmaId", "AddonId");
++
++                    b.HasIndex("AddonId");
++
++                    b.ToTable("shawarma_addons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaImage", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Alt")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("alt");
++
++                    b.Property<bool>("IsMain")
++                        .HasColumnType("boolean")
++                        .HasColumnName("is_main");
++
++                    b.Property<int>("ShawarmaId")
++                        .HasColumnType("integer")
++                        .HasColumnName("shawarma_id");
++
++                    b.Property<string>("Url")
++                        .IsRequired()
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("url");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("ShawarmaId");
++
++                    b.ToTable("shawarma_images");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.SmsVerificationCode", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<int>("Attempts")
++                        .HasColumnType("integer")
++                        .HasColumnName("attempts");
++
++                    b.Property<DateTime?>("BlockedUntil")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("blocked_until");
++
++                    b.Property<string>("Code")
++                        .IsRequired()
++                        .HasMaxLength(4)
++                        .HasColumnType("character varying(4)")
++                        .HasColumnName("code");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
++
++                    b.Property<DateTime>("ExpiresAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("expires_at");
++
++                    b.Property<string>("Phone")
++                        .IsRequired()
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("phone");
++
++                    b.Property<DateTime?>("VerifiedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("verified_at");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("ExpiresAt");
++
++                    b.HasIndex("Phone");
++
++                    b.ToTable("sms_verification_codes");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.UserAddress", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Address")
++                        .IsRequired()
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("address");
++
++                    b.Property<string>("Apartment")
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("apartment");
++
++                    b.Property<string>("Comment")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("comment");
++
++                    b.Property<string>("Entrance")
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("entrance");
++
++                    b.Property<string>("Floor")
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("floor");
++
++                    b.Property<bool>("IsDefault")
++                        .HasColumnType("boolean")
++                        .HasColumnName("is_default");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer")
++                        .HasColumnName("user_id");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("user_addresses");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("text");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("NormalizedName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedName")
++                        .IsUnique()
++                        .HasDatabaseName("RoleNameIndex");
++
++                    b.ToTable("roles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("text");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("text");
++
++                    b.Property<int>("RoleId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("role_claims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("text");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("text");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("user_claims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
++                {
++                    b.Property<string>("LoginProvider")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("ProviderKey")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("ProviderDisplayName")
++                        .HasColumnType("text");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("LoginProvider", "ProviderKey");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("user_logins", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
++                {
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.Property<int>("RoleId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("UserId", "RoleId");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("user_roles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
++                {
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("LoginProvider")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("Value")
++                        .HasColumnType("text");
++
++                    b.HasKey("UserId", "LoginProvider", "Name");
++
++                    b.ToTable("user_tokens", (string)null);
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Addon", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AddonCategory", "Category")
++                        .WithMany("Addons")
++                        .HasForeignKey("AddonCategoryId")
++                        .OnDelete(DeleteBehavior.Restrict)
++                        .IsRequired();
++
++                    b.Navigation("Category");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany("Orders")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.SetNull);
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.OrderItem", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.Order", "Order")
++                        .WithMany("OrderItems")
++                        .HasForeignKey("OrderId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
++                        .WithMany()
++                        .HasForeignKey("ShawarmaId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Order");
++
++                    b.Navigation("Shawarma");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.OrderItemAddon", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.Addon", "Addon")
++                        .WithMany()
++                        .HasForeignKey("AddonId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Kumashaurma.API.Models.OrderItem", "OrderItem")
++                        .WithMany("SelectedAddons")
++                        .HasForeignKey("OrderItemId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Addon");
++
++                    b.Navigation("OrderItem");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaAddon", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.Addon", "Addon")
++                        .WithMany("Shawarmas")
++                        .HasForeignKey("AddonId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
++                        .WithMany("Addons")
++                        .HasForeignKey("ShawarmaId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Addon");
++
++                    b.Navigation("Shawarma");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaImage", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
++                        .WithMany("Images")
++                        .HasForeignKey("ShawarmaId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("Shawarma");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.UserAddress", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany("Addresses")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Addon", b =>
++                {
++                    b.Navigation("Shawarmas");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.AddonCategory", b =>
++                {
++                    b.Navigation("Addons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.AppUser", b =>
++                {
++                    b.Navigation("Addresses");
++
++                    b.Navigation("Orders");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
++                {
++                    b.Navigation("OrderItems");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.OrderItem", b =>
++                {
++                    b.Navigation("SelectedAddons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Shawarma", b =>
++                {
++                    b.Navigation("Addons");
++
++                    b.Navigation("Images");
++                });
++#pragma warning restore 612, 618
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.cs b/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.cs
+new file mode 100644
+index 0000000..8e19ced
+--- /dev/null
++++ b/src/Kumashaurma.API/Migrations/20260301_AddIdentityAndAuth.cs
+@@ -0,0 +1,401 @@
++using System;
++using Microsoft.EntityFrameworkCore.Migrations;
++using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++
++#nullable disable
++
++namespace Kumashaurma.API.Migrations
++{
++    /// <inheritdoc />
++    public partial class AddIdentityAndAuth : Migration
++    {
++        /// <inheritdoc />
++        protected override void Up(MigrationBuilder migrationBuilder)
++        {
++            // Создаём таблицу roles
++            migrationBuilder.CreateTable(
++                name: "roles",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    Name = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    NormalizedName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_roles", x => x.Id);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "RoleNameIndex",
++                table: "roles",
++                column: "NormalizedName",
++                unique: true);
++
++            // Создаём таблицу users
++            migrationBuilder.CreateTable(
++                name: "users",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    first_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
++                    last_name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
++                    phone_verified = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
++                    updated_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
++                    UserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    NormalizedUserName = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    Email = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    NormalizedEmail = table.Column<string>(type: "character varying(256)", maxLength: 256, nullable: true),
++                    EmailConfirmed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    PasswordHash = table.Column<string>(type: "text", nullable: true),
++                    SecurityStamp = table.Column<string>(type: "text", nullable: true),
++                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true),
++                    PhoneNumber = table.Column<string>(type: "text", nullable: true),
++                    PhoneNumberConfirmed = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    TwoFactorEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    LockoutEnd = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
++                    LockoutEnabled = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    AccessFailedCount = table.Column<int>(type: "integer", nullable: false, defaultValue: 0)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_users", x => x.Id);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_users_Email",
++                table: "users",
++                column: "Email");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_users_NormalizedEmail",
++                table: "users",
++                column: "NormalizedEmail");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_users_NormalizedUserName",
++                table: "users",
++                column: "NormalizedUserName",
++                unique: true);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_users_UserName",
++                table: "users",
++                column: "UserName",
++                unique: true);
++
++            // Создаём таблицу user_roles
++            migrationBuilder.CreateTable(
++                name: "user_roles",
++                columns: table => new
++                {
++                    UserId = table.Column<int>(type: "integer", nullable: false),
++                    RoleId = table.Column<int>(type: "integer", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_user_roles", x => new { x.UserId, x.RoleId });
++                    table.ForeignKey(
++                        name: "FK_user_roles_roles_RoleId",
++                        column: x => x.RoleId,
++                        principalTable: "roles",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                    table.ForeignKey(
++                        name: "FK_user_roles_users_UserId",
++                        column: x => x.UserId,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_user_roles_RoleId",
++                table: "user_roles",
++                column: "RoleId");
++
++            // Создаём таблицу user_claims
++            migrationBuilder.CreateTable(
++                name: "user_claims",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    UserId = table.Column<int>(type: "integer", nullable: false),
++                    ClaimType = table.Column<string>(type: "text", nullable: true),
++                    ClaimValue = table.Column<string>(type: "text", nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_user_claims", x => x.Id);
++                    table.ForeignKey(
++                        name: "FK_user_claims_users_UserId",
++                        column: x => x.UserId,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_user_claims_UserId",
++                table: "user_claims",
++                column: "UserId");
++
++            // Создаём таблицу user_logins
++            migrationBuilder.CreateTable(
++                name: "user_logins",
++                columns: table => new
++                {
++                    LoginProvider = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
++                    ProviderKey = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
++                    ProviderDisplayName = table.Column<string>(type: "text", nullable: true),
++                    UserId = table.Column<int>(type: "integer", nullable: false)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_user_logins", x => new { x.LoginProvider, x.ProviderKey });
++                    table.ForeignKey(
++                        name: "FK_user_logins_users_UserId",
++                        column: x => x.UserId,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_user_logins_UserId",
++                table: "user_logins",
++                column: "UserId");
++
++            // Создаём таблицу role_claims
++            migrationBuilder.CreateTable(
++                name: "role_claims",
++                columns: table => new
++                {
++                    Id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    RoleId = table.Column<int>(type: "integer", nullable: false),
++                    ClaimType = table.Column<string>(type: "text", nullable: true),
++                    ClaimValue = table.Column<string>(type: "text", nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_role_claims", x => x.Id);
++                    table.ForeignKey(
++                        name: "FK_role_claims_roles_RoleId",
++                        column: x => x.RoleId,
++                        principalTable: "roles",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_role_claims_RoleId",
++                table: "role_claims",
++                column: "RoleId");
++
++            // Создаём таблицу user_tokens
++            migrationBuilder.CreateTable(
++                name: "user_tokens",
++                columns: table => new
++                {
++                    UserId = table.Column<int>(type: "integer", nullable: false),
++                    LoginProvider = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
++                    Name = table.Column<string>(type: "character varying(128)", maxLength: 128, nullable: false),
++                    Value = table.Column<string>(type: "text", nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_user_tokens", x => new { x.UserId, x.LoginProvider, x.Name });
++                    table.ForeignKey(
++                        name: "FK_user_tokens_users_UserId",
++                        column: x => x.UserId,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            // Создаём таблицу user_addresses
++            migrationBuilder.CreateTable(
++                name: "user_addresses",
++                columns: table => new
++                {
++                    id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    user_id = table.Column<int>(type: "integer", nullable: false),
++                    address = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
++                    entrance = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
++                    floor = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
++                    apartment = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: true),
++                    comment = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
++                    is_default = table.Column<bool>(type: "boolean", nullable: false, defaultValue: false),
++                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_user_addresses", x => x.id);
++                    table.ForeignKey(
++                        name: "FK_user_addresses_users_user_id",
++                        column: x => x.user_id,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_user_addresses_user_id",
++                table: "user_addresses",
++                column: "user_id");
++
++            // Создаём таблицу sms_verification_codes
++            migrationBuilder.CreateTable(
++                name: "sms_verification_codes",
++                columns: table => new
++                {
++                    id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    phone = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
++                    code = table.Column<string>(type: "character varying(4)", maxLength: 4, nullable: false),
++                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
++                    verified_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
++                    attempts = table.Column<int>(type: "integer", nullable: false, defaultValue: 0),
++                    blocked_until = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
++                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP")
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_sms_verification_codes", x => x.id);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_sms_verification_codes_phone",
++                table: "sms_verification_codes",
++                column: "phone");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_sms_verification_codes_expires_at",
++                table: "sms_verification_codes",
++                column: "expires_at");
++
++            // Создаём таблицу refresh_tokens
++            migrationBuilder.CreateTable(
++                name: "refresh_tokens",
++                columns: table => new
++                {
++                    id = table.Column<int>(type: "integer", nullable: false)
++                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
++                    user_id = table.Column<int>(type: "integer", nullable: false),
++                    token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: false),
++                    expires_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
++                    created_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: false, defaultValueSql: "CURRENT_TIMESTAMP"),
++                    revoked_at = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
++                    revoked_by_ip = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: true),
++                    replaced_by_token = table.Column<string>(type: "character varying(500)", maxLength: 500, nullable: true)
++                },
++                constraints: table =>
++                {
++                    table.PrimaryKey("PK_refresh_tokens", x => x.id);
++                    table.ForeignKey(
++                        name: "FK_refresh_tokens_users_user_id",
++                        column: x => x.user_id,
++                        principalTable: "users",
++                        principalColumn: "Id",
++                        onDelete: ReferentialAction.Cascade);
++                });
++
++            migrationBuilder.CreateIndex(
++                name: "IX_refresh_tokens_token",
++                table: "refresh_tokens",
++                column: "token");
++
++            migrationBuilder.CreateIndex(
++                name: "IX_refresh_tokens_user_id",
++                table: "refresh_tokens",
++                column: "user_id");
++
++            // Добавляем колонку user_id в orders
++            migrationBuilder.AddColumn<int>(
++                name: "user_id",
++                table: "orders",
++                type: "integer",
++                nullable: true);
++
++            migrationBuilder.CreateIndex(
++                name: "IX_orders_user_id",
++                table: "orders",
++                column: "user_id");
++
++            migrationBuilder.AddForeignKey(
++                name: "FK_orders_users_user_id",
++                table: "orders",
++                column: "user_id",
++                principalTable: "users",
++                principalColumn: "Id",
++                onDelete: ReferentialAction.SetNull);
++
++            // Добавляем начальные роли
++            migrationBuilder.InsertData(
++                table: "roles",
++                columns: new[] { "Name", "NormalizedName" },
++                values: new object[,]
++                {
++                    { "user", "USER" },
++                    { "admin", "ADMIN" },
++                    { "manager", "MANAGER" },
++                    { "courier", "COURIER" }
++                });
++        }
++
++        /// <inheritdoc />
++        protected override void Down(MigrationBuilder migrationBuilder)
++        {
++            // Удаляем внешний ключ и колонку user_id из orders
++            migrationBuilder.DropForeignKey(
++                name: "FK_orders_users_user_id",
++                table: "orders");
++
++            migrationBuilder.DropIndex(
++                name: "IX_orders_user_id",
++                table: "orders");
++
++            migrationBuilder.DropColumn(
++                name: "user_id",
++                table: "orders");
++
++            // Удаляем все таблицы в обратном порядке
++            migrationBuilder.DropTable(
++                name: "refresh_tokens");
++
++            migrationBuilder.DropTable(
++                name: "sms_verification_codes");
++
++            migrationBuilder.DropTable(
++                name: "user_addresses");
++
++            migrationBuilder.DropTable(
++                name: "user_tokens");
++
++            migrationBuilder.DropTable(
++                name: "user_logins");
++
++            migrationBuilder.DropTable(
++                name: "user_claims");
++
++            migrationBuilder.DropTable(
++                name: "role_claims");
++
++            migrationBuilder.DropTable(
++                name: "user_roles");
++
++            migrationBuilder.DropTable(
++                name: "users");
++
++            migrationBuilder.DropTable(
++                name: "roles");
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Migrations/ApplicationDbContextModelSnapshot.cs b/src/Kumashaurma.API/Migrations/ApplicationDbContextModelSnapshot.cs
+index ee3a8bd..726c6bf 100644
+--- a/src/Kumashaurma.API/Migrations/ApplicationDbContextModelSnapshot.cs
++++ b/src/Kumashaurma.API/Migrations/ApplicationDbContextModelSnapshot.cs
+@@ -1,10 +1,10 @@
+-﻿// <auto-generated />
++// <auto-generated />
+ using System;
+-using Kumashaurma.API.Data;
+ using Microsoft.EntityFrameworkCore;
+ using Microsoft.EntityFrameworkCore.Infrastructure;
+ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
++using Kumashaurma.API.Data;
+ 
+ #nullable disable
+ 
+@@ -41,19 +41,6 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnName("created_at")
+                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+ 
+-                    b.Property<string>("Description")
+-                        .HasMaxLength(500)
+-                        .HasColumnType("character varying(500)")
+-                        .HasColumnName("description");
+-
+-                    b.Property<int>("DisplayOrder")
+-                        .HasColumnType("integer")
+-                        .HasColumnName("display_order");
+-
+-                    b.Property<bool>("IsAvailable")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("is_available");
+-
+                     b.Property<string>("Name")
+                         .IsRequired()
+                         .HasMaxLength(100)
+@@ -61,13 +48,10 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnName("name");
+ 
+                     b.Property<decimal>("Price")
+-                        .HasColumnType("decimal(10,2)")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
+                         .HasColumnName("price");
+ 
+-                    b.Property<DateTime?>("UpdatedAt")
+-                        .HasColumnType("timestamp with time zone")
+-                        .HasColumnName("updated_at");
+-
+                     b.HasKey("Id");
+ 
+                     b.HasIndex("AddonCategoryId");
+@@ -92,46 +76,107 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnName("created_at")
+                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+ 
+-                    b.Property<string>("Description")
+-                        .HasMaxLength(500)
+-                        .HasColumnType("character varying(500)")
+-                        .HasColumnName("description");
++                    b.Property<string>("Name")
++                        .IsRequired()
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("name");
+ 
+-                    b.Property<int>("DisplayOrder")
+-                        .HasColumnType("integer")
+-                        .HasColumnName("display_order");
++                    b.HasKey("Id");
+ 
+-                    b.Property<bool>("IsActive")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("is_active");
++                    b.HasIndex("Name");
+ 
+-                    b.Property<bool>("IsRequired")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("is_required");
++                    b.ToTable("addon_categories");
++                });
+ 
+-                    b.Property<int>("MaxSelections")
++            modelBuilder.Entity("Kumashaurma.API.Models.AppUser", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
+                         .HasColumnType("integer")
+-                        .HasColumnName("max_selections");
++                        .HasColumnName("Id");
+ 
+-                    b.Property<int>("MinSelections")
+-                        .HasColumnType("integer")
+-                        .HasColumnName("min_selections");
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
+-                    b.Property<string>("Name")
+-                        .IsRequired()
++                    b.Property<int>("AccessFailedCount")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("text");
++
++                    b.Property<string>("Email")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<bool>("EmailConfirmed")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("FirstName")
+                         .HasMaxLength(100)
+                         .HasColumnType("character varying(100)")
+-                        .HasColumnName("name");
++                        .HasColumnName("first_name");
++
++                    b.Property<string>("LastName")
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("last_name");
++
++                    b.Property<bool>("LockoutEnabled")
++                        .HasColumnType("boolean");
++
++                    b.Property<DateTimeOffset?>("LockoutEnd")
++                        .HasColumnType("timestamp with time zone");
++
++                    b.Property<string>("NormalizedEmail")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("NormalizedUserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("PasswordHash")
++                        .HasColumnType("text");
++
++                    b.Property<string>("PhoneNumber")
++                        .HasColumnType("text");
++
++                    b.Property<bool>("PhoneNumberConfirmed")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("SecurityStamp")
++                        .HasColumnType("text");
++
++                    b.Property<bool>("TwoFactorEnabled")
++                        .HasColumnType("boolean");
++
++                    b.Property<string>("UserName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
+ 
+                     b.Property<DateTime?>("UpdatedAt")
+                         .HasColumnType("timestamp with time zone")
+                         .HasColumnName("updated_at");
+ 
++                    b.Property<bool>("PhoneVerified")
++                        .HasColumnType("boolean")
++                        .HasColumnName("phone_verified");
++
+                     b.HasKey("Id");
+ 
+-                    b.HasIndex("Name");
++                    b.HasIndex("NormalizedEmail")
++                        .HasDatabaseName("EmailIndex");
+ 
+-                    b.ToTable("addon_categories");
++                    b.HasIndex("NormalizedUserName")
++                        .IsUnique()
++                        .HasDatabaseName("UserNameIndex");
++
++                    b.ToTable("users", (string)null);
+                 });
+ 
+             modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
+@@ -182,15 +227,22 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnName("status");
+ 
+                     b.Property<decimal>("Total")
+-                        .HasColumnType("decimal(10,2)")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
+                         .HasColumnName("total");
+ 
++                    b.Property<int?>("UserId")
++                        .HasColumnType("integer")
++                        .HasColumnName("user_id");
++
+                     b.HasKey("Id");
+ 
+                     b.HasIndex("CreatedAt");
+ 
+                     b.HasIndex("Status");
+ 
++                    b.HasIndex("UserId");
++
+                     b.ToTable("orders");
+                 });
+ 
+@@ -203,18 +255,13 @@ namespace Kumashaurma.API.Migrations
+ 
+                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
+-                    b.Property<string>("Name")
+-                        .IsRequired()
+-                        .HasMaxLength(100)
+-                        .HasColumnType("character varying(100)")
+-                        .HasColumnName("name");
+-
+                     b.Property<int>("OrderId")
+                         .HasColumnType("integer")
+                         .HasColumnName("order_id");
+ 
+                     b.Property<decimal>("Price")
+-                        .HasColumnType("decimal(10,2)")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
+                         .HasColumnName("price");
+ 
+                     b.Property<int>("Quantity")
+@@ -229,6 +276,8 @@ namespace Kumashaurma.API.Migrations
+ 
+                     b.HasIndex("OrderId");
+ 
++                    b.HasIndex("ShawarmaId");
++
+                     b.ToTable("order_items");
+                 });
+ 
+@@ -241,46 +290,29 @@ namespace Kumashaurma.API.Migrations
+ 
+                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
+-                    b.Property<int>("AddonCategoryId")
+-                        .HasColumnType("integer")
+-                        .HasColumnName("addon_category_id");
+-
+-                    b.Property<string>("AddonCategoryName")
+-                        .IsRequired()
+-                        .HasMaxLength(100)
+-                        .HasColumnType("character varying(100)")
+-                        .HasColumnName("addon_category_name");
+-
+                     b.Property<int>("AddonId")
+                         .HasColumnType("integer")
+                         .HasColumnName("addon_id");
+ 
+-                    b.Property<string>("AddonName")
+-                        .IsRequired()
+-                        .HasMaxLength(100)
+-                        .HasColumnType("character varying(100)")
+-                        .HasColumnName("addon_name");
+-
+                     b.Property<int>("OrderItemId")
+                         .HasColumnType("integer")
+                         .HasColumnName("order_item_id");
+ 
+                     b.Property<decimal>("Price")
+-                        .HasColumnType("decimal(10,2)")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
+                         .HasColumnName("price");
+ 
+-                    b.Property<int>("Quantity")
+-                        .HasColumnType("integer")
+-                        .HasColumnName("quantity");
+-
+                     b.HasKey("Id");
+ 
++                    b.HasIndex("AddonId");
++
+                     b.HasIndex("OrderItemId");
+ 
+                     b.ToTable("order_item_addons");
+                 });
+ 
+-            modelBuilder.Entity("Kumashaurma.API.Models.Shawarma", b =>
++            modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
+                 {
+                     b.Property<int>("Id")
+                         .ValueGeneratedOnAdd()
+@@ -289,11 +321,55 @@ namespace Kumashaurma.API.Migrations
+ 
+                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
+-                    b.Property<string>("Category")
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
++
++                    b.Property<DateTime>("ExpiresAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("expires_at");
++
++                    b.Property<string>("ReplacedByToken")
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("replaced_by_token");
++
++                    b.Property<DateTime?>("RevokedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("revoked_at");
++
++                    b.Property<string>("RevokedByIp")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("revoked_by_ip");
++
++                    b.Property<string>("Token")
+                         .IsRequired()
+-                        .HasMaxLength(50)
+-                        .HasColumnType("character varying(50)")
+-                        .HasColumnName("category");
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("token");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer")
++                        .HasColumnName("user_id");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("Token");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("refresh_tokens");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.Shawarma", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
+                     b.Property<DateTime>("CreatedAt")
+                         .ValueGeneratedOnAdd()
+@@ -302,15 +378,10 @@ namespace Kumashaurma.API.Migrations
+                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+ 
+                     b.Property<string>("Description")
+-                        .IsRequired()
+-                        .HasMaxLength(500)
+-                        .HasColumnType("character varying(500)")
++                        .HasMaxLength(1000)
++                        .HasColumnType("character varying(1000)")
+                         .HasColumnName("description");
+ 
+-                    b.Property<bool>("HasCheese")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("has_cheese");
+-
+                     b.Property<bool>("IsAvailable")
+                         .HasColumnType("boolean")
+                         .HasColumnName("is_available");
+@@ -319,10 +390,6 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnType("boolean")
+                         .HasColumnName("is_promo");
+ 
+-                    b.Property<bool>("IsSpicy")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("is_spicy");
+-
+                     b.Property<string>("Name")
+                         .IsRequired()
+                         .HasMaxLength(100)
+@@ -330,17 +397,14 @@ namespace Kumashaurma.API.Migrations
+                         .HasColumnName("name");
+ 
+                     b.Property<decimal>("Price")
+-                        .HasColumnType("decimal(10,2)")
++                        .HasPrecision(10, 2)
++                        .HasColumnType("numeric(10,2)")
+                         .HasColumnName("price");
+ 
+                     b.Property<int>("SortOrder")
+                         .HasColumnType("integer")
+                         .HasColumnName("sort_order");
+ 
+-                    b.Property<DateTime?>("UpdatedAt")
+-                        .HasColumnType("timestamp with time zone")
+-                        .HasColumnName("updated_at");
+-
+                     b.HasKey("Id");
+ 
+                     b.HasIndex("Name")
+@@ -351,44 +415,57 @@ namespace Kumashaurma.API.Migrations
+ 
+             modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaAddon", b =>
+                 {
+-                    b.Property<int>("Id")
+-                        .ValueGeneratedOnAdd()
++                    b.Property<int>("ShawarmaId")
+                         .HasColumnType("integer")
+-                        .HasColumnName("id");
+-
+-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++                        .HasColumnName("shawarma_id");
+ 
+                     b.Property<int>("AddonId")
+                         .HasColumnType("integer")
+                         .HasColumnName("addon_id");
+ 
+-                    b.Property<decimal?>("CustomPrice")
+-                        .HasColumnType("decimal(10,2)")
+-                        .HasColumnName("custom_price");
++                    b.HasKey("ShawarmaId", "AddonId");
+ 
+-                    b.Property<bool>("IsDefault")
+-                        .HasColumnType("boolean")
+-                        .HasColumnName("is_default");
++                    b.HasIndex("AddonId");
+ 
+-                    b.Property<int>("MaxQuantity")
++                    b.ToTable("shawarma_addons");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaImage", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
+                         .HasColumnType("integer")
+-                        .HasColumnName("max_quantity");
++                        .HasColumnName("id");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Alt")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("alt");
++
++                    b.Property<bool>("IsMain")
++                        .HasColumnType("boolean")
++                        .HasColumnName("is_main");
+ 
+                     b.Property<int>("ShawarmaId")
+                         .HasColumnType("integer")
+                         .HasColumnName("shawarma_id");
+ 
+-                    b.HasKey("Id");
++                    b.Property<string>("Url")
++                        .IsRequired()
++                        .HasMaxLength(500)
++                        .HasColumnType("character varying(500)")
++                        .HasColumnName("url");
+ 
+-                    b.HasIndex("AddonId");
++                    b.HasKey("Id");
+ 
+-                    b.HasIndex("ShawarmaId", "AddonId")
+-                        .IsUnique();
++                    b.HasIndex("ShawarmaId");
+ 
+-                    b.ToTable("shawarma_addons");
++                    b.ToTable("shawarma_images");
+                 });
+ 
+-            modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaImage", b =>
++            modelBuilder.Entity("Kumashaurma.API.Models.SmsVerificationCode", b =>
+                 {
+                     b.Property<int>("Id")
+                         .ValueGeneratedOnAdd()
+@@ -397,33 +474,235 @@ namespace Kumashaurma.API.Migrations
+ 
+                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+ 
++                    b.Property<int>("Attempts")
++                        .HasColumnType("integer")
++                        .HasColumnName("attempts");
++
++                    b.Property<DateTime?>("BlockedUntil")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("blocked_until");
++
++                    b.Property<string>("Code")
++                        .IsRequired()
++                        .HasMaxLength(4)
++                        .HasColumnType("character varying(4)")
++                        .HasColumnName("code");
++
+                     b.Property<DateTime>("CreatedAt")
+                         .HasColumnType("timestamp with time zone")
+                         .HasColumnName("created_at");
+ 
+-                    b.Property<string>("FileName")
++                    b.Property<DateTime>("ExpiresAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("expires_at");
++
++                    b.Property<string>("Phone")
+                         .IsRequired()
+-                        .HasColumnType("text")
+-                        .HasColumnName("file_name");
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("phone");
++
++                    b.Property<DateTime?>("VerifiedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("verified_at");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("ExpiresAt");
++
++                    b.HasIndex("Phone");
++
++                    b.ToTable("sms_verification_codes");
++                });
++
++            modelBuilder.Entity("Kumashaurma.API.Models.UserAddress", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer")
++                        .HasColumnName("id");
+ 
+-                    b.Property<string>("FilePath")
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("Address")
+                         .IsRequired()
+-                        .HasColumnType("text")
+-                        .HasColumnName("file_path");
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("address");
++
++                    b.Property<string>("Apartment")
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("apartment");
++
++                    b.Property<string>("Comment")
++                        .HasMaxLength(200)
++                        .HasColumnType("character varying(200)")
++                        .HasColumnName("comment");
++
++                    b.Property<string>("Entrance")
++                        .HasMaxLength(100)
++                        .HasColumnType("character varying(100)")
++                        .HasColumnName("entrance");
++
++                    b.Property<string>("Floor")
++                        .HasMaxLength(20)
++                        .HasColumnType("character varying(20)")
++                        .HasColumnName("floor");
+ 
+-                    b.Property<bool>("IsPrimary")
++                    b.Property<bool>("IsDefault")
+                         .HasColumnType("boolean")
+-                        .HasColumnName("is_primary");
++                        .HasColumnName("is_default");
+ 
+-                    b.Property<int>("ShawarmaId")
++                    b.Property<int>("UserId")
+                         .HasColumnType("integer")
+-                        .HasColumnName("shawarma_id");
++                        .HasColumnName("user_id");
++
++                    b.Property<DateTime>("CreatedAt")
++                        .HasColumnType("timestamp with time zone")
++                        .HasColumnName("created_at");
+ 
+                     b.HasKey("Id");
+ 
+-                    b.HasIndex("ShawarmaId");
++                    b.HasIndex("UserId");
+ 
+-                    b.ToTable("shawarma_images");
++                    b.ToTable("user_addresses");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ConcurrencyStamp")
++                        .IsConcurrencyToken()
++                        .HasColumnType("text");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.Property<string>("NormalizedName")
++                        .HasMaxLength(256)
++                        .HasColumnType("character varying(256)");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("NormalizedName")
++                        .IsUnique()
++                        .HasDatabaseName("RoleNameIndex");
++
++                    b.ToTable("roles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("text");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("text");
++
++                    b.Property<int>("RoleId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("role_claims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
++                {
++                    b.Property<int>("Id")
++                        .ValueGeneratedOnAdd()
++                        .HasColumnType("integer");
++
++                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
++
++                    b.Property<string>("ClaimType")
++                        .HasColumnType("text");
++
++                    b.Property<string>("ClaimValue")
++                        .HasColumnType("text");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("Id");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("user_claims", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
++                {
++                    b.Property<string>("LoginProvider")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("ProviderKey")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("ProviderDisplayName")
++                        .HasColumnType("text");
++
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("LoginProvider", "ProviderKey");
++
++                    b.HasIndex("UserId");
++
++                    b.ToTable("user_logins", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
++                {
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.Property<int>("RoleId")
++                        .HasColumnType("integer");
++
++                    b.HasKey("UserId", "RoleId");
++
++                    b.HasIndex("RoleId");
++
++                    b.ToTable("user_roles", (string)null);
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
++                {
++                    b.Property<int>("UserId")
++                        .HasColumnType("integer");
++
++                    b.Property<string>("LoginProvider")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("Name")
++                        .HasMaxLength(128)
++                        .HasColumnType("character varying(128)");
++
++                    b.Property<string>("Value")
++                        .HasColumnType("text");
++
++                    b.HasKey("UserId", "LoginProvider", "Name");
++
++                    b.ToTable("user_tokens", (string)null);
+                 });
+ 
+             modelBuilder.Entity("Kumashaurma.API.Models.Addon", b =>
+@@ -437,6 +716,16 @@ namespace Kumashaurma.API.Migrations
+                     b.Navigation("Category");
+                 });
+ 
++            modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany("Orders")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.SetNull);
++
++                    b.Navigation("User");
++                });
++
+             modelBuilder.Entity("Kumashaurma.API.Models.OrderItem", b =>
+                 {
+                     b.HasOne("Kumashaurma.API.Models.Order", "Order")
+@@ -445,20 +734,47 @@ namespace Kumashaurma.API.Migrations
+                         .OnDelete(DeleteBehavior.Cascade)
+                         .IsRequired();
+ 
++                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
++                        .WithMany()
++                        .HasForeignKey("ShawarmaId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
+                     b.Navigation("Order");
++
++                    b.Navigation("Shawarma");
+                 });
+ 
+             modelBuilder.Entity("Kumashaurma.API.Models.OrderItemAddon", b =>
+                 {
++                    b.HasOne("Kumashaurma.API.Models.Addon", "Addon")
++                        .WithMany()
++                        .HasForeignKey("AddonId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
+                     b.HasOne("Kumashaurma.API.Models.OrderItem", "OrderItem")
+                         .WithMany("SelectedAddons")
+                         .HasForeignKey("OrderItemId")
+                         .OnDelete(DeleteBehavior.Cascade)
+                         .IsRequired();
+ 
++                    b.Navigation("Addon");
++
+                     b.Navigation("OrderItem");
+                 });
+ 
++            modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
+             modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaAddon", b =>
+                 {
+                     b.HasOne("Kumashaurma.API.Models.Addon", "Addon")
+@@ -489,6 +805,68 @@ namespace Kumashaurma.API.Migrations
+                     b.Navigation("Shawarma");
+                 });
+ 
++            modelBuilder.Entity("Kumashaurma.API.Models.UserAddress", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
++                        .WithMany("Addresses")
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.Navigation("User");
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<int>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserClaim<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserLogin<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserRole<int>", b =>
++                {
++                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<int>", null)
++                        .WithMany()
++                        .HasForeignKey("RoleId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
++            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUserToken<int>", b =>
++                {
++                    b.HasOne("Kumashaurma.API.Models.AppUser", null)
++                        .WithMany()
++                        .HasForeignKey("UserId")
++                        .OnDelete(DeleteBehavior.Cascade)
++                        .IsRequired();
++                });
++
+             modelBuilder.Entity("Kumashaurma.API.Models.Addon", b =>
+                 {
+                     b.Navigation("Shawarmas");
+@@ -499,6 +877,13 @@ namespace Kumashaurma.API.Migrations
+                     b.Navigation("Addons");
+                 });
+ 
++            modelBuilder.Entity("Kumashaurma.API.Models.AppUser", b =>
++                {
++                    b.Navigation("Addresses");
++
++                    b.Navigation("Orders");
++                });
++
+             modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
+                 {
+                     b.Navigation("OrderItems");
+diff --git a/src/Kumashaurma.API/Models/AppRoles.cs b/src/Kumashaurma.API/Models/AppRoles.cs
+new file mode 100644
+index 0000000..78e718e
+--- /dev/null
++++ b/src/Kumashaurma.API/Models/AppRoles.cs
+@@ -0,0 +1,12 @@
++namespace Kumashaurma.API.Models
++{
++    public static class AppRoles
++    {
++        public const string User = "user";
++        public const string Admin = "admin";
++        public const string Manager = "manager";
++        public const string Courier = "courier";
++
++        public static readonly string[] AllRoles = { User, Admin, Manager, Courier };
++    }
++}
+diff --git a/src/Kumashaurma.API/Models/AppUser.cs b/src/Kumashaurma.API/Models/AppUser.cs
+new file mode 100644
+index 0000000..3252aec
+--- /dev/null
++++ b/src/Kumashaurma.API/Models/AppUser.cs
+@@ -0,0 +1,33 @@
++using System.ComponentModel.DataAnnotations;
++using System.ComponentModel.DataAnnotations.Schema;
++using Microsoft.AspNetCore.Identity;
++
++namespace Kumashaurma.API.Models
++{
++    [Table("users")]
++    public class AppUser : IdentityUser<int>
++    {
++        [PersonalData]
++        [MaxLength(100)]
++        [Column("first_name")]
++        public string? FirstName { get; set; }
++
++        [PersonalData]
++        [MaxLength(100)]
++        [Column("last_name")]
++        public string? LastName { get; set; }
++
++        [Column("phone_verified")]
++        public bool PhoneVerified { get; set; } = false;
++
++        [Column("created_at")]
++        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
++
++        [Column("updated_at")]
++        public DateTime? UpdatedAt { get; set; }
++
++        // Navigation properties
++        public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
++        public ICollection<Order> Orders { get; set; } = new List<Order>();
++    }
++}
+diff --git a/src/Kumashaurma.API/Models/Order.cs b/src/Kumashaurma.API/Models/Order.cs
+index 4bf044e..caaa548 100644
+--- a/src/Kumashaurma.API/Models/Order.cs
++++ b/src/Kumashaurma.API/Models/Order.cs
+@@ -11,6 +11,9 @@ namespace Kumashaurma.API.Models
+         [Column("id")]
+         public int Id { get; set; }
+         
++        [Column("user_id")]
++        public int? UserId { get; set; }
++        
+         [Required]
+         [MaxLength(100)]
+         [Column("customer_name")]
+@@ -42,6 +45,9 @@ namespace Kumashaurma.API.Models
+         [Column("completed_at")]
+         public DateTime? CompletedAt { get; set; }
+         
++        // Navigation property
++        public AppUser? User { get; set; }
++        
+         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
+     }
+ }
+diff --git a/src/Kumashaurma.API/Models/RefreshToken.cs b/src/Kumashaurma.API/Models/RefreshToken.cs
+new file mode 100644
+index 0000000..b78db95
+--- /dev/null
++++ b/src/Kumashaurma.API/Models/RefreshToken.cs
+@@ -0,0 +1,48 @@
++using System.ComponentModel.DataAnnotations;
++using System.ComponentModel.DataAnnotations.Schema;
++
++namespace Kumashaurma.API.Models
++{
++    [Table("refresh_tokens")]
++    public class RefreshToken
++    {
++        [Key]
++        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
++        [Column("id")]
++        public int Id { get; set; }
++
++        [Required]
++        [Column("user_id")]
++        public int UserId { get; set; }
++
++        [Required]
++        [MaxLength(500)]
++        [Column("token")]
++        public string Token { get; set; } = string.Empty;
++
++        [Required]
++        [Column("expires_at")]
++        public DateTime ExpiresAt { get; set; }
++
++        [Column("created_at")]
++        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
++
++        [Column("revoked_at")]
++        public DateTime? RevokedAt { get; set; }
++
++        [MaxLength(200)]
++        [Column("revoked_by_ip")]
++        public string? RevokedByIp { get; set; }
++
++        [MaxLength(500)]
++        [Column("replaced_by_token")]
++        public string? ReplacedByToken { get; set; }
++
++        // Navigation property
++        public AppUser User { get; set; } = null!;
++
++        public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
++        public bool IsRevoked => RevokedAt != null;
++        public bool IsActive => !IsRevoked && !IsExpired;
++    }
++}
+diff --git a/src/Kumashaurma.API/Models/SmsVerificationCode.cs b/src/Kumashaurma.API/Models/SmsVerificationCode.cs
+new file mode 100644
+index 0000000..e0f35d8
+--- /dev/null
++++ b/src/Kumashaurma.API/Models/SmsVerificationCode.cs
+@@ -0,0 +1,44 @@
++using System.ComponentModel.DataAnnotations;
++using System.ComponentModel.DataAnnotations.Schema;
++
++namespace Kumashaurma.API.Models
++{
++    [Table("sms_verification_codes")]
++    public class SmsVerificationCode
++    {
++        [Key]
++        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
++        [Column("id")]
++        public int Id { get; set; }
++
++        [Required]
++        [MaxLength(20)]
++        [Column("phone")]
++        public string Phone { get; set; } = string.Empty;
++
++        [Required]
++        [MaxLength(4)]
++        [Column("code")]
++        public string Code { get; set; } = string.Empty;
++
++        [Required]
++        [Column("expires_at")]
++        public DateTime ExpiresAt { get; set; }
++
++        [Column("verified_at")]
++        public DateTime? VerifiedAt { get; set; }
++
++        [Column("attempts")]
++        public int Attempts { get; set; } = 0;
++
++        [Column("blocked_until")]
++        public DateTime? BlockedUntil { get; set; }
++
++        [Column("created_at")]
++        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
++
++        public bool IsExpired => DateTime.UtcNow > ExpiresAt;
++        public bool IsBlocked => BlockedUntil.HasValue && DateTime.UtcNow < BlockedUntil.Value;
++        public bool IsVerified => VerifiedAt.HasValue;
++    }
++}
+diff --git a/src/Kumashaurma.API/Models/UserAddress.cs b/src/Kumashaurma.API/Models/UserAddress.cs
+new file mode 100644
+index 0000000..e7b29eb
+--- /dev/null
++++ b/src/Kumashaurma.API/Models/UserAddress.cs
+@@ -0,0 +1,48 @@
++using System.ComponentModel.DataAnnotations;
++using System.ComponentModel.DataAnnotations.Schema;
++
++namespace Kumashaurma.API.Models
++{
++    [Table("user_addresses")]
++    public class UserAddress
++    {
++        [Key]
++        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
++        [Column("id")]
++        public int Id { get; set; }
++
++        [Required]
++        [Column("user_id")]
++        public int UserId { get; set; }
++
++        [Required]
++        [MaxLength(200)]
++        [Column("address")]
++        public string Address { get; set; } = string.Empty;
++
++        [MaxLength(100)]
++        [Column("entrance")]
++        public string? Entrance { get; set; }
++
++        [MaxLength(20)]
++        [Column("floor")]
++        public string? Floor { get; set; }
++
++        [MaxLength(20)]
++        [Column("apartment")]
++        public string? Apartment { get; set; }
++
++        [MaxLength(200)]
++        [Column("comment")]
++        public string? Comment { get; set; }
++
++        [Column("is_default")]
++        public bool IsDefault { get; set; } = false;
++
++        [Column("created_at")]
++        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
++
++        // Navigation property
++        public AppUser User { get; set; } = null!;
++    }
++}
+diff --git a/src/Kumashaurma.API/Program.cs b/src/Kumashaurma.API/Program.cs
+index 1aa2096..559f586 100644
+--- a/src/Kumashaurma.API/Program.cs
++++ b/src/Kumashaurma.API/Program.cs
+@@ -1,6 +1,12 @@
+-using System;
++using System.Text;
++using Microsoft.AspNetCore.Authentication.JwtBearer;
++using Microsoft.AspNetCore.Identity;
+ using Microsoft.EntityFrameworkCore;
++using Microsoft.IdentityModel.Tokens;
++using Microsoft.OpenApi.Models;
+ using Kumashaurma.API.Data;
++using Kumashaurma.API.Models;
++using Kumashaurma.API.Services;
+ using System.Text.Json.Serialization;
+ 
+ var builder = WebApplication.CreateBuilder(args);
+@@ -11,48 +17,152 @@ if (!builder.Environment.IsDevelopment())
+     builder.WebHost.UseUrls($"http://*:{port}");
+ }
+ 
++// ========== Services ==========
++
+ builder.Services.AddControllers()
+     .AddJsonOptions(options =>
+     {
+         options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
+     });
++
+ builder.Services.AddEndpointsApiExplorer();
+-builder.Services.AddSwaggerGen();
+ 
++// Swagger с поддержкой JWT
++builder.Services.AddSwaggerGen(options =>
++{
++    options.SwaggerDoc("v1", new OpenApiInfo 
++    { 
++        Title = "Kumashaurma API", 
++        Version = "v1",
++        Description = "API для сервиса доставки шаурмы"
++    });
++    
++    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
++    {
++        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token",
++        Name = "Authorization",
++        In = ParameterLocation.Header,
++        Type = SecuritySchemeType.ApiKey,
++        Scheme = "Bearer"
++    });
++    
++    options.AddSecurityRequirement(new OpenApiSecurityRequirement
++    {
++        {
++            new OpenApiSecurityScheme
++            {
++                Reference = new OpenApiReference
++                {
++                    Type = ReferenceType.SecurityScheme,
++                    Id = "Bearer"
++                }
++            },
++            Array.Empty<string>()
++        }
++    });
++});
++
++// Database
+ var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") 
+     ?? "Host=localhost;Port=5433;Database=kumashaurma_dev;Username=devuser;Password=dev123";
+ 
+ builder.Services.AddDbContext<ApplicationDbContext>(options =>
+     options.UseNpgsql(connectionString));
+ 
+-// 👇 УПРОЩЁННЫЙ CORS
++// Identity
++builder.Services.AddIdentity<AppUser, IdentityRole<int>>(options =>
++{
++    // Password settings - для SMS-авторизации пароли не нужны
++    options.Password.RequiredLength = 6;
++    options.Password.RequireDigit = false;
++    options.Password.RequireLowercase = false;
++    options.Password.RequireUppercase = false;
++    options.Password.RequireNonAlphanumeric = false;
++    
++    // User settings
++    options.User.RequireUniqueEmail = false;
++    options.User.AllowedUserNameCharacters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-+ ";
++    
++    // SignIn settings
++    options.SignIn.RequireConfirmedEmail = false;
++    options.SignIn.RequireConfirmedPhoneNumber = false;
++})
++.AddEntityFrameworkStores<ApplicationDbContext>()
++.AddDefaultTokenProviders();
++
++// JWT Settings
++var jwtSettings = builder.Configuration.GetSection("JwtSettings");
++builder.Services.AddAuthentication(options =>
++{
++    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
++    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
++    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
++})
++.AddJwtBearer(options =>
++{
++    options.SaveToken = true;
++    options.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
++    options.TokenValidationParameters = new TokenValidationParameters
++    {
++        ValidateIssuer = true,
++        ValidateAudience = true,
++        ValidateLifetime = true,
++        ValidateIssuerSigningKey = true,
++        ValidIssuer = jwtSettings["Issuer"] ?? "Kumashaurma",
++        ValidAudience = jwtSettings["Audience"] ?? "KumashaurmaClient",
++        IssuerSigningKey = new SymmetricSecurityKey(
++            Encoding.UTF8.GetBytes(jwtSettings["SecretKey"] ?? "YourSuperSecretKeyForDevelopment2024!ChangeInProduction!")),
++        ClockSkew = TimeSpan.Zero
++    };
++});
++
++builder.Services.AddAuthorization();
++
++// Custom Services
++builder.Services.AddScoped<ISmsService, SmsService>();
++builder.Services.AddScoped<ITokenService, TokenService>();
++builder.Services.AddScoped<IVerificationService, VerificationService>();
++
++// CORS
+ builder.Services.AddCors(options =>
+ {
+     options.AddPolicy("AllowFrontend", policy =>
+     {
+         policy.WithOrigins(
+-            "http://localhost:3000",  // для разработки
+-            "https://kumashaurma-frontend.vercel.app"  // домен фронтенда (заменишь позже)
++            "http://localhost:3000",
++            "http://localhost:5173",  // Vite dev server
++            "https://kumashaurma-frontend.vercel.app"
+         )
+         .AllowAnyMethod()
+         .AllowAnyHeader()
+-        .AllowCredentials();  // если используешь куки/авторизацию
++        .AllowCredentials();
+     });
+ });
++
++// ========== App ==========
++
+ var app = builder.Build();
+ 
+-// 👇 ВАЖНО: порядок!
++// Initialize roles
++await InitializeRolesAsync(app);
++
++// CORS
+ app.UseCors("AllowFrontend");
+-app.UseStaticFiles(); 
+ 
++// Swagger
+ if (app.Environment.IsDevelopment())
+ {
+     app.UseSwagger();
+     app.UseSwaggerUI();
+ }
+ 
++app.UseStaticFiles();
++
++// Authentication & Authorization
++app.UseAuthentication();
+ app.UseAuthorization();
++
+ app.MapControllers();
+ 
+ // Seed database
+@@ -72,4 +182,21 @@ catch (Exception ex)
+         Console.WriteLine($"❌ Внутренняя ошибка: {ex.InnerException.Message}");
+ }
+ 
+-app.Run();
+\ No newline at end of file
++app.Run();
++
++// ========== Helper Methods ==========
++
++static async Task InitializeRolesAsync(WebApplication app)
++{
++    using var scope = app.Services.CreateScope();
++    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
++
++    foreach (var role in AppRoles.AllRoles)
++    {
++        if (!await roleManager.RoleExistsAsync(role))
++        {
++            await roleManager.CreateAsync(new IdentityRole<int>(role));
++            Console.WriteLine($"✅ Создана роль: {role}");
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Services/SmsService.cs b/src/Kumashaurma.API/Services/SmsService.cs
+new file mode 100644
+index 0000000..66e084c
+--- /dev/null
++++ b/src/Kumashaurma.API/Services/SmsService.cs
+@@ -0,0 +1,49 @@
++namespace Kumashaurma.API.Services
++{
++    public interface ISmsService
++    {
++        Task<SmsResult> SendVerificationCodeAsync(string phone, string code);
++    }
++
++    public class SmsResult
++    {
++        public bool Success { get; set; }
++        public string? Message { get; set; }
++        public string? ErrorCode { get; set; }
++    }
++
++    /// <summary>
++    /// Заглушка для SMS-сервиса. В development режиме код выводится в консоль.
++    /// В production нужно заменить на реальный SMS-шлюз (SMSAero, SMSC, Twilio и т.д.)
++    /// </summary>
++    public class SmsService : ISmsService
++    {
++        private readonly ILogger<SmsService> _logger;
++
++        public SmsService(ILogger<SmsService> logger)
++        {
++            _logger = logger;
++        }
++
++        public Task<SmsResult> SendVerificationCodeAsync(string phone, string code)
++        {
++            // Заглушка - в development режиме выводим код в консоль/лог
++            _logger.LogInformation(
++                "📱 SMS CODE для {Phone}: {Code} (действителен 3 минуты)", 
++                phone, code);
++            
++            Console.WriteLine($"\n" +
++                "╔══════════════════════════════════════╗\n" +
++                $"║  📱 SMS для {phone,-20} ║\n" +
++                $"║  Код подтверждения: {code,-16} ║\n" +
++                "║  Действителен 3 минуты               ║\n" +
++                "╚══════════════════════════════════════╝\n");
++
++            return Task.FromResult(new SmsResult
++            {
++                Success = true,
++                Message = "Код успешно отправлен"
++            });
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Services/TokenService.cs b/src/Kumashaurma.API/Services/TokenService.cs
+new file mode 100644
+index 0000000..ec40bd5
+--- /dev/null
++++ b/src/Kumashaurma.API/Services/TokenService.cs
+@@ -0,0 +1,120 @@
++using System.IdentityModel.Tokens.Jwt;
++using System.Security.Claims;
++using System.Security.Cryptography;
++using System.Text;
++using Microsoft.EntityFrameworkCore;
++using Microsoft.IdentityModel.Tokens;
++using Kumashaurma.API.Data;
++using Kumashaurma.API.Models;
++
++namespace Kumashaurma.API.Services
++{
++    public interface ITokenService
++    {
++        string GenerateAccessToken(AppUser user, IList<string> roles);
++        RefreshToken GenerateRefreshToken(int userId, string ipAddress);
++        ClaimsPrincipal? GetPrincipalFromExpiredToken(string token);
++    }
++
++    public class TokenService : ITokenService
++    {
++        private readonly IConfiguration _configuration;
++        private readonly ApplicationDbContext _context;
++
++        public TokenService(IConfiguration configuration, ApplicationDbContext context)
++        {
++            _configuration = configuration;
++            _context = context;
++        }
++
++        public string GenerateAccessToken(AppUser user, IList<string> roles)
++        {
++            var jwtSettings = _configuration.GetSection("JwtSettings");
++            var secretKey = jwtSettings["SecretKey"] 
++                ?? throw new InvalidOperationException("JWT SecretKey не настроен");
++            var issuer = jwtSettings["Issuer"] ?? "Kumashaurma";
++            var audience = jwtSettings["Audience"] ?? "KumashaurmaClient";
++            var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
++
++            var claims = new List<Claim>
++            {
++                new(ClaimTypes.NameIdentifier, user.Id.ToString()),
++                new(ClaimTypes.MobilePhone, user.PhoneNumber ?? ""),
++                new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
++            };
++
++            if (!string.IsNullOrEmpty(user.FirstName))
++                claims.Add(new Claim("firstName", user.FirstName));
++            
++            if (!string.IsNullOrEmpty(user.LastName))
++                claims.Add(new Claim("lastName", user.LastName));
++
++            foreach (var role in roles)
++            {
++                claims.Add(new Claim(ClaimTypes.Role, role));
++            }
++
++            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
++            var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
++
++            var token = new JwtSecurityToken(
++                issuer: issuer,
++                audience: audience,
++                claims: claims,
++                expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
++                signingCredentials: credentials
++            );
++
++            return new JwtSecurityTokenHandler().WriteToken(token);
++        }
++
++        public RefreshToken GenerateRefreshToken(int userId, string ipAddress)
++        {
++            var refreshToken = new RefreshToken
++            {
++                UserId = userId,
++                Token = Convert.ToBase64String(RandomNumberGenerator.GetBytes(64)),
++                ExpiresAt = DateTime.UtcNow.AddDays(7),
++                CreatedAt = DateTime.UtcNow
++            };
++
++            return refreshToken;
++        }
++
++        public ClaimsPrincipal? GetPrincipalFromExpiredToken(string token)
++        {
++            var jwtSettings = _configuration.GetSection("JwtSettings");
++            var secretKey = jwtSettings["SecretKey"] 
++                ?? throw new InvalidOperationException("JWT SecretKey не настроен");
++
++            var tokenValidationParameters = new TokenValidationParameters
++            {
++                ValidateAudience = false,
++                ValidateIssuer = false,
++                ValidateIssuerSigningKey = true,
++                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
++                ValidateLifetime = false // Мы хотим получить claims даже из истекшего токена
++            };
++
++            var tokenHandler = new JwtSecurityTokenHandler();
++
++            try
++            {
++                var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
++                
++                if (securityToken is not JwtSecurityToken jwtSecurityToken ||
++                    !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, 
++                        StringComparison.InvariantCultureIgnoreCase))
++                {
++                    return null;
++                }
++
++                return principal;
++            }
++            catch
++            {
++                return null;
++            }
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/Services/VerificationService.cs b/src/Kumashaurma.API/Services/VerificationService.cs
+new file mode 100644
+index 0000000..6b53742
+--- /dev/null
++++ b/src/Kumashaurma.API/Services/VerificationService.cs
+@@ -0,0 +1,196 @@
++using Microsoft.EntityFrameworkCore;
++using Kumashaurma.API.Data;
++using Kumashaurma.API.Models;
++
++namespace Kumashaurma.API.Services
++{
++    public interface IVerificationService
++    {
++        Task<(bool Success, string Message, int? RetryAfter)> CreateAndSendCodeAsync(string phone);
++        Task<(bool Success, string Message)> VerifyCodeAsync(string phone, string code);
++        Task CleanupExpiredCodesAsync();
++    }
++
++    public class VerificationService : IVerificationService
++    {
++        private readonly ApplicationDbContext _context;
++        private readonly ISmsService _smsService;
++        private readonly ILogger<VerificationService> _logger;
++
++        private const int CodeLength = 4;
++        private const int CodeLifetimeMinutes = 3;
++        private const int MaxAttempts = 3;
++        private const int BlockDurationMinutes = 5;
++        private const int ResendCooldownSeconds = 60;
++
++        public VerificationService(
++            ApplicationDbContext context, 
++            ISmsService smsService,
++            ILogger<VerificationService> logger)
++        {
++            _context = context;
++            _smsService = smsService;
++            _logger = logger;
++        }
++
++        public async Task<(bool Success, string Message, int? RetryAfter)> CreateAndSendCodeAsync(string phone)
++        {
++            // Нормализуем телефон (убираем все кроме цифр и плюса)
++            var normalizedPhone = NormalizePhone(phone);
++
++            // Проверяем, есть ли активный код
++            var existingCode = await _context.SmsVerificationCodes
++                .Where(c => c.Phone == normalizedPhone)
++                .OrderByDescending(c => c.CreatedAt)
++                .FirstOrDefaultAsync();
++
++            if (existingCode != null)
++            {
++                // Проверяем блокировку
++                if (existingCode.IsBlocked)
++                {
++                    var remainingBlock = existingCode.BlockedUntil!.Value - DateTime.UtcNow;
++                    return (false, 
++                        $"Превышено количество попыток. Попробуйте через {(int)remainingBlock.TotalMinutes + 1} мин", 
++                        (int)remainingBlock.TotalSeconds);
++                }
++
++                // Проверяем cooldown для повторной отправки
++                var timeSinceCreation = DateTime.UtcNow - existingCode.CreatedAt;
++                if (timeSinceCreation.TotalSeconds < ResendCooldownSeconds)
++                {
++                    var retryAfter = ResendCooldownSeconds - (int)timeSinceCreation.TotalSeconds;
++                    return (false, 
++                        $"Подождите {retryAfter} сек перед повторной отправкой", 
++                        retryAfter);
++                }
++
++                // Удаляем старый код
++                _context.SmsVerificationCodes.Remove(existingCode);
++            }
++
++            // Генерируем новый код
++            var code = GenerateCode();
++            var verificationCode = new SmsVerificationCode
++            {
++                Phone = normalizedPhone,
++                Code = code,
++                ExpiresAt = DateTime.UtcNow.AddMinutes(CodeLifetimeMinutes),
++                CreatedAt = DateTime.UtcNow
++            };
++
++            _context.SmsVerificationCodes.Add(verificationCode);
++            await _context.SaveChangesAsync();
++
++            // Отправляем SMS
++            var smsResult = await _smsService.SendVerificationCodeAsync(normalizedPhone, code);
++
++            if (!smsResult.Success)
++            {
++                return (false, smsResult.Message ?? "Ошибка отправки SMS", null);
++            }
++
++            return (true, "Код подтверждения отправлен", null);
++        }
++
++        public async Task<(bool Success, string Message)> VerifyCodeAsync(string phone, string code)
++        {
++            var normalizedPhone = NormalizePhone(phone);
++
++            var verificationCode = await _context.SmsVerificationCodes
++                .Where(c => c.Phone == normalizedPhone)
++                .OrderByDescending(c => c.CreatedAt)
++                .FirstOrDefaultAsync();
++
++            if (verificationCode == null)
++            {
++                return (false, "Код не найден. Запросите новый код");
++            }
++
++            // Проверяем блокировку
++            if (verificationCode.IsBlocked)
++            {
++                return (false, "Превышено количество попыток. Запросите новый код");
++            }
++
++            // Проверяем, не истёк ли код
++            if (verificationCode.IsExpired)
++            {
++                return (false, "Код истёк. Запросите новый код");
++            }
++
++            // Проверяем, не был ли код уже использован
++            if (verificationCode.IsVerified)
++            {
++                return (false, "Код уже был использован");
++            }
++
++            // Увеличиваем счётчик попыток
++            verificationCode.Attempts++;
++
++            // Проверяем код
++            if (verificationCode.Code != code)
++            {
++                // Проверяем, не превысил ли пользователь лимит попыток
++                if (verificationCode.Attempts >= MaxAttempts)
++                {
++                    verificationCode.BlockedUntil = DateTime.UtcNow.AddMinutes(BlockDurationMinutes);
++                    await _context.SaveChangesAsync();
++                    return (false, 
++                        $"Превышено количество попыток. Попробуйте через {BlockDurationMinutes} мин");
++                }
++
++                await _context.SaveChangesAsync();
++                var remainingAttempts = MaxAttempts - verificationCode.Attempts;
++                return (false, 
++                    $"Неверный код. Осталось попыток: {remainingAttempts}");
++            }
++
++            // Код верный - помечаем как проверенный
++            verificationCode.VerifiedAt = DateTime.UtcNow;
++            await _context.SaveChangesAsync();
++
++            return (true, "Код подтверждён");
++        }
++
++        public async Task CleanupExpiredCodesAsync()
++        {
++            var expiredCodes = await _context.SmsVerificationCodes
++                .Where(c => c.ExpiresAt < DateTime.UtcNow || c.BlockedUntil < DateTime.UtcNow)
++                .ToListAsync();
++
++            if (expiredCodes.Any())
++            {
++                _context.SmsVerificationCodes.RemoveRange(expiredCodes);
++                await _context.SaveChangesAsync();
++                _logger.LogInformation("Удалено {Count} истекших кодов верификации", expiredCodes.Count);
++            }
++        }
++
++        private static string NormalizePhone(string phone)
++        {
++            // Убираем всё кроме цифр и плюса
++            var digits = new string(phone.Where(c => char.IsDigit(c) || c == '+').ToArray());
++            
++            // Если начинается с 8, заменяем на +7
++            if (digits.StartsWith("8") && digits.Length == 11)
++            {
++                digits = "+7" + digits[1..];
++            }
++            
++            // Если не начинается с +, добавляем +7
++            if (!digits.StartsWith("+"))
++            {
++                digits = "+7" + digits;
++            }
++
++            return digits;
++        }
++
++        private static string GenerateCode()
++        {
++            var random = new Random();
++            return random.Next(0, 10000).ToString("D4");
++        }
++    }
++}
+diff --git a/src/Kumashaurma.API/appsettings.Production.json b/src/Kumashaurma.API/appsettings.Production.json
+index ee97bde..aca3a79 100644
+--- a/src/Kumashaurma.API/appsettings.Production.json
++++ b/src/Kumashaurma.API/appsettings.Production.json
+@@ -1,5 +1,12 @@
+ {
+-    "ConnectionStrings": {
+-      "DefaultConnection": "Host={HOST};Port=5432;Database={DB_NAME};Username={USER};Password={PASSWORD}"
+-    }
+-  }
+\ No newline at end of file
++  "ConnectionStrings": {
++    "DefaultConnection": "Host={HOST};Port=5432;Database={DB_NAME};Username={USER};Password={PASSWORD}"
++  },
++  "JwtSettings": {
++    "SecretKey": "${JWT_SECRET_KEY}",
++    "Issuer": "Kumashaurma",
++    "Audience": "KumashaurmaClient",
++    "ExpirationMinutes": 60,
++    "RefreshTokenExpirationDays": 7
++  }
++}
+diff --git a/src/Kumashaurma.API/appsettings.json b/src/Kumashaurma.API/appsettings.json
+index f0f4e4f..da64818 100644
+--- a/src/Kumashaurma.API/appsettings.json
++++ b/src/Kumashaurma.API/appsettings.json
+@@ -8,5 +8,12 @@
+   "AllowedHosts": "*",
+   "ConnectionStrings": {
+     "DefaultConnection": "Host=localhost;Port=5433;Database=kumashaurma_dev;Username=devuser;Password=dev123"
++  },
++  "JwtSettings": {
++    "SecretKey": "YourSuperSecretKeyForDevelopment2024!ChangeInProduction!MakeItAtLeast64Chars!",
++    "Issuer": "Kumashaurma",
++    "Audience": "KumashaurmaClient",
++    "ExpirationMinutes": 60,
++    "RefreshTokenExpirationDays": 7
+   }
+ }

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Kumashaurma.API.Data;
@@ -19,6 +21,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpGet]
+        [Authorize(Roles = "admin,manager,courier")]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -34,6 +37,34 @@ namespace Kumashaurma.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Ошибка при получении заказов");
+                return StatusCode(500, new { Message = "Ошибка сервера при получении заказов" });
+            }
+        }
+
+        [HttpGet("my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyOrders()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out var userId))
+                {
+                    return Unauthorized(new { Message = "Пользователь не авторизован" });
+                }
+
+                var orders = await _context.Orders
+                    .Where(o => o.UserId == userId)
+                    .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
+                    .OrderByDescending(o => o.CreatedAt)
+                    .ToListAsync();
+                    
+                return Ok(orders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при получении заказов пользователя");
                 return StatusCode(500, new { Message = "Ошибка сервера при получении заказов" });
             }
         }
@@ -95,9 +126,18 @@ namespace Kumashaurma.API.Controllers
                         .ToDictionaryAsync(a => a.Id, a => a);
                 }
 
+                // Получаем UserId если пользователь авторизован
+                int? userId = null;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (!string.IsNullOrEmpty(userIdClaim) && int.TryParse(userIdClaim, out var parsedUserId))
+                {
+                    userId = parsedUserId;
+                }
+
                 // Создаем заказ
                 var newOrder = new Order
                 {
+                    UserId = userId,
                     CustomerName = request.CustomerName.Trim(),
                     Phone = request.Phone?.Trim() ?? string.Empty,
                     Address = request.Address?.Trim() ?? string.Empty,
@@ -215,6 +255,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [Authorize(Roles = "admin,manager,courier")]
         public async Task<IActionResult> Update(int id, [FromBody] UpdateOrderRequest request)
         {
             try
@@ -256,6 +297,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [Authorize(Roles = "admin,manager")]
         public async Task<IActionResult> Delete(int id)
         {
             try
@@ -286,6 +328,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpGet("stats")]
+        [Authorize(Roles = "admin,manager")]
         public async Task<IActionResult> GetStats()
         {
             try
@@ -313,6 +356,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpPatch("{id}/status")]
+        [Authorize(Roles = "admin,manager,courier")]
         public async Task<IActionResult> UpdateStatus(int id, [FromBody] UpdateOrderRequest request)
         {
             try
