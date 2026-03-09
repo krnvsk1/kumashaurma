@@ -2,7 +2,7 @@ import * as React from 'react';
 import { 
   Typography, Box, Button, Card, CardContent, 
   Grid, Alert, Paper,
-  LinearProgress, Chip, useTheme  // 👈 Добавлено useTheme
+  LinearProgress, Chip, useTheme
 } from '@mui/material';
 import { 
   Restaurant as RestaurantIcon,
@@ -14,7 +14,7 @@ import {
   Refresh as RefreshIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { useShawarmas, useOrders } from '../api/hooks';
+import { useShawarmas, useOrders, useOrderStats } from '../api/hooks';
 import type { Order, Shawarma } from '../types';
 
 // Компонент для карточки статистики
@@ -200,8 +200,6 @@ const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ or
 };
 
 const DashboardPage: React.FC = () => {
-  //const theme = useTheme();
-  
   const { 
     data: shawarmas = [], 
     isLoading: shawarmasLoading, 
@@ -216,33 +214,48 @@ const DashboardPage: React.FC = () => {
     refetch: refetchOrders 
   } = useOrders();
 
+  // Статистика заказов с бэкенда
+  const { 
+    data: orderStats, 
+    isLoading: statsLoading, 
+    error: statsError,
+    refetch: refetchStats 
+  } = useOrderStats();
+
   const [refreshing, setRefreshing] = React.useState(false);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([refetchShawarmas(), refetchOrders()]);
+    await Promise.all([refetchShawarmas(), refetchOrders(), refetchStats()]);
     setRefreshing(false);
   };
 
-  const loading = shawarmasLoading || ordersLoading || refreshing;
-  const error = shawarmasError || ordersError;
+  const loading = shawarmasLoading || ordersLoading || statsLoading || refreshing;
+  const error = shawarmasError || ordersError || statsError;
 
+  // Статистика вычисляется на основе данных с бэкенда + локальные вычисления
   const stats = React.useMemo(() => {
     const totalShawarmas = shawarmas.length;
     const availableShawarmas = shawarmas.filter(s => s.isAvailable).length;
     
-    const totalOrders = orders.length;
+    // Активные заказы (Новый или Готовится) - вычисляем локально
     const activeOrders = orders.filter(o => 
       o.status === 'Новый' || o.status === 'Готовится'
     ).length;
-    
-    const totalRevenue = orders.reduce((sum, order) => sum + order.total, 0);
-    
-    const today = new Date().toDateString();
-    const todayOrders = orders.filter(o => 
-      new Date(o.createdAt).toDateString() === today
-    );
-    const todayRevenue = todayOrders.reduce((sum, order) => sum + order.total, 0);
+
+    // Берем статистику с бэкенда, если доступна
+    const totalOrders = orderStats?.totalOrders ?? orders.length;
+    const totalRevenue = orderStats?.totalRevenue ?? orders.reduce((sum, order) => sum + order.total, 0);
+    const todayOrders = orderStats?.todayOrders ?? 0;
+    const todayRevenue = orderStats?.todayOrders 
+      ? orders
+          .filter(o => {
+            const today = new Date().toDateString();
+            return new Date(o.createdAt).toDateString() === today;
+          })
+          .reduce((sum, order) => sum + order.total, 0)
+      : 0;
+    const averageOrderValue = orderStats?.averageOrderValue ?? (totalOrders > 0 ? totalRevenue / totalOrders : 0);
 
     return {
       totalShawarmas,
@@ -250,10 +263,11 @@ const DashboardPage: React.FC = () => {
       totalOrders,
       activeOrders,
       totalRevenue,
-      todayOrders: todayOrders.length,
-      todayRevenue
+      todayOrders,
+      todayRevenue,
+      averageOrderValue
     };
-  }, [shawarmas, orders]);
+  }, [shawarmas, orders, orderStats]);
 
   const recentOrders = orders
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())

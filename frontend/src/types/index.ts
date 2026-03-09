@@ -115,6 +115,24 @@ export interface Shawarma {
       count: number;
     }[];
   }
+
+  // Статистика заказов с бэкенда (GET /api/orders/stats)
+  export interface OrderStats {
+    totalOrders: number;
+    totalRevenue: number;
+    todayOrders: number;
+    averageOrderValue: number;
+  }
+
+  // DTO для обновления заказа (PUT /api/orders/{id})
+  export interface UpdateOrderDto {
+    status?: OrderStatus;
+    total?: number;
+    customerName?: string;
+    phone?: string;
+    address?: string;
+    notes?: string | null;
+  }
   
   // ==================== HEALTH (проверка API) ====================
   

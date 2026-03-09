@@ -5,7 +5,9 @@ import type {
   CreateShawarmaDto,
   Order, 
   CreateOrderDto, 
+  UpdateOrderDto,
   UpdateOrderStatusDto,
+  OrderStats,
   HealthStatus,
   DashboardStats,
   ShawarmaImage
@@ -132,6 +134,41 @@ export const useUpdateOrderStatus = () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
     },
+  });
+};
+
+// Полное обновление заказа
+export const useUpdateOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation<Order, Error, { id: number; data: UpdateOrderDto }>({
+    mutationFn: ({ id, data }) => 
+      apiClient.put(`/orders/${id}`, data).then(res => res.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] });
+    },
+  });
+};
+
+// Удаление заказа
+export const useDeleteOrder = () => {
+  const queryClient = useQueryClient();
+  return useMutation<{ message: string; deletedId: number }, Error, number>({
+    mutationFn: (id) => apiClient.delete(`/orders/${id}`).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+      queryClient.invalidateQueries({ queryKey: ['order-stats'] });
+    },
+  });
+};
+
+// Статистика заказов
+export const useOrderStats = () => {
+  return useQuery<OrderStats>({
+    queryKey: ['order-stats'],
+    queryFn: () => apiClient.get('/orders/stats').then(res => res.data),
+    staleTime: 60 * 1000,
   });
 };
 
