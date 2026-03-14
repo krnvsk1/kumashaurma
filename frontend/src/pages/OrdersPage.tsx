@@ -40,7 +40,7 @@ import {
   Edit as EditIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { useOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder } from '../api/hooks';
+import { useOrders, useMyOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder } from '../api/hooks';
 import { useAuthStore } from '../store/authStore';
 import type { Order, OrderStatus, OrderItemAddon, UpdateOrderDto } from '../types';
 
@@ -402,7 +402,15 @@ const OrdersPage: React.FC = () => {
   const { isAuthenticated, hasRole, user } = useAuthStore();
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager') || hasRole('courier'));
   
-  const { data: orders = [], isLoading, error, refetch } = useOrders();
+  // Используем разные хуки в зависимости от роли
+  const allOrdersQuery = useOrders();
+  const myOrdersQuery = useMyOrders();
+  
+  // Выбираем данные в зависимости от роли
+  const orders = isAdmin ? allOrdersQuery.data || [] : myOrdersQuery.data || [];
+  const isLoading = isAdmin ? allOrdersQuery.isLoading : myOrdersQuery.isLoading;
+  const error = isAdmin ? allOrdersQuery.error : myOrdersQuery.error;
+  const refetch = isAdmin ? allOrdersQuery.refetch : myOrdersQuery.refetch;
   
   // Мутации
   const deleteOrder = useDeleteOrder();

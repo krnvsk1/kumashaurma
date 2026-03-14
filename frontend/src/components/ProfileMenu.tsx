@@ -79,7 +79,7 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
 
   // Авторизован - показать меню профиля
   const isAdmin = hasRole('admin') || hasRole('manager');
-  const initials = user.firstName 
+  const initials = user.firstName
     ? `${user.firstName[0]}${user.lastName?.[0] || ''}`.toUpperCase()
     : user.phone.slice(-2);
 
@@ -138,22 +138,22 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
           </Typography>
           {user.roles.length > 0 && (
             <Typography variant="caption" color="primary" sx={{ display: 'block', mt: 0.5 }}>
-              {user.roles.includes('admin') ? 'Администратор' : 
+              {user.roles.includes('admin') ? 'Администратор' :
                user.roles.includes('manager') ? 'Менеджер' :
                user.roles.includes('courier') ? 'Курьер' : 'Клиент'}
             </Typography>
           )}
         </Box>
-        
+
         <Divider />
-        
+
         <MenuItem onClick={handleMyOrders} sx={{ borderRadius: 1, mx: 0.5 }}>
           <ListItemIcon>
             <OrdersIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Мои заказы</ListItemText>
         </MenuItem>
-        
+
         {isAdmin && (
           <MenuItem onClick={handleAdminDashboard} sx={{ borderRadius: 1, mx: 0.5 }}>
             <ListItemIcon>
@@ -162,9 +162,9 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
             <ListItemText>Панель управления</ListItemText>
           </MenuItem>
         )}
-        
+
         <Divider />
-        
+
         <MenuItem onClick={handleLogout} sx={{ borderRadius: 1, mx: 0.5, color: 'error.main' }}>
           <ListItemIcon>
             <LogoutIcon fontSize="small" color="error" />

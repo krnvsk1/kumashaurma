@@ -86,7 +86,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
 
     try {
       const response = await apiClient.post<AuthResponse>('/auth/send-code', { phone });
-      
+
       if (response.data.success) {
         setStep('verify');
         setCountdown(60);
@@ -122,7 +122,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
 
     try {
       const response = await apiClient.post<AuthResponse>('/auth/verify', { phone, code });
-      
+
       if (response.data.success) {
         if (response.data.accessToken && response.data.user) {
           // Пользователь уже зарегистрирован - входим
@@ -159,7 +159,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
       });
-      
+
       if (response.data.success && response.data.accessToken && response.data.user) {
         setAuth(response.data.user, response.data.accessToken, response.data.refreshToken || '');
         onClose();
@@ -233,7 +233,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Введите номер телефона для входа или регистрации
             </Typography>
-            
+
             <TextField
               fullWidth
               label="Номер телефона"
@@ -250,7 +250,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               sx={{ mb: 3 }}
               autoFocus
             />
-            
+
             <Button
               fullWidth
               variant="contained"
@@ -278,7 +278,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             <Typography variant="body1" fontWeight={600} sx={{ mb: 3 }}>
               {phone}
             </Typography>
-            
+
             <TextField
               fullWidth
               label="Код из SMS"
@@ -295,7 +295,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               sx={{ mb: 2 }}
               autoFocus
             />
-            
+
             <Button
               fullWidth
               variant="contained"
@@ -312,7 +312,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             >
               {loading ? <CircularProgress size={24} color="inherit" /> : 'Подтвердить'}
             </Button>
-            
+
             <Box sx={{ textAlign: 'center' }}>
               <Button
                 variant="text"
@@ -332,7 +332,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
             <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
               Телефон подтверждён! Заполните данные для завершения регистрации
             </Typography>
-            
+
             <TextField
               fullWidth
               label="Имя *"
@@ -348,7 +348,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               sx={{ mb: 2 }}
               autoFocus
             />
-            
+
             <TextField
               fullWidth
               label="Фамилия"
@@ -356,7 +356,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               onChange={(e) => setLastName(e.target.value)}
               sx={{ mb: 3 }}
             />
-            
+
             <Button
               fullWidth
               variant="contained"
@@ -376,7 +376,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
         )}
 
         <Divider sx={{ my: 3 }} />
-        
+
         <Typography variant="caption" color="text.secondary" align="center" display="block">
           Нажимая кнопку, вы соглашаетесь с условиями использования сервиса
         </Typography>

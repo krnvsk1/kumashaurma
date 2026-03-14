@@ -1,12 +1,12 @@
 import { BrowserRouter as Router, Routes, Route, Link, Navigate } from 'react-router-dom';
-import { 
-  AppBar, Toolbar, Typography, Button, Box, Container, 
+import {
+  AppBar, Toolbar, Typography, Button, Box, Container,
   ThemeProvider, createTheme, CssBaseline, Badge,
   IconButton, Drawer, List, ListItem, ListItemButton,
   ListItemIcon, ListItemText, Divider, useMediaQuery,
 } from '@mui/material';
-import { 
-  LocalDining as RestaurantIcon, 
+import {
+  LocalDining as RestaurantIcon,
   ShoppingCart,
   Schedule,
   Dashboard as DashboardIcon,
@@ -24,7 +24,7 @@ import { useState } from 'react';
 import { useTheme } from './hooks/useTheme';
 import { useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
-import CartModal from './components/CartModal'; 
+import CartModal from './components/CartModal';
 import OrderModal from './components/OrderModal';
 import AuthModal from './components/AuthModal';
 import ProfileMenu from './components/ProfileMenu';
@@ -48,13 +48,13 @@ const queryClient = new QueryClient({
 function App() {
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
-  
+
   const { theme: themeMode, toggleTheme } = useTheme();
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  
+
   const { isAuthenticated, hasRole } = useAuthStore();
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
   const isAdminRole = isAuthenticated && hasRole('admin');
@@ -107,20 +107,20 @@ function App() {
       { text: 'Мои заказы', icon: <ListAltIcon />, path: '/orders' },
       { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
     ];
-  
+
     if (isAdmin) {
       items.push(
         { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
         { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },
       );
     }
-    
+
     if (isAdminRole) {
       items.push(
         { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' },
       );
     }
-  
+
     return items;
   };
 
@@ -130,9 +130,9 @@ function App() {
         <CssBaseline />
         <Router>
           <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
-            <AppBar 
-              position="sticky" 
-              sx={{ 
+            <AppBar
+              position="sticky"
+              sx={{
                 bgcolor: 'background.paper',
                 color: 'text.primary',
                 boxShadow: 'none',
@@ -153,12 +153,12 @@ function App() {
                   </IconButton>
                 )}
 
-                <Typography 
-                  variant="h5" 
-                  component={Link} 
+                <Typography
+                  variant="h5"
+                  component={Link}
                   to="/"
-                  sx={{ 
-                    fontWeight: 700, 
+                  sx={{
+                    fontWeight: 700,
                     color: 'text.primary',
                     flexGrow: 1,
                     textDecoration: 'none',
@@ -179,15 +179,15 @@ function App() {
 
                 {/* Профиль / Вход */}
                 <ProfileMenu onLoginClick={() => setAuthOpen(true)} />
-                
+
                 <IconButton
                   onClick={toggleTheme}
-                  sx={{ 
+                  sx={{
                     color: 'text.primary',
                     mr: 1,
                     '&:hover': {
-                      backgroundColor: theme.palette.mode === 'light' 
-                        ? 'rgba(0,0,0,0.05)' 
+                      backgroundColor: theme.palette.mode === 'light'
+                        ? 'rgba(0,0,0,0.05)'
                         : 'rgba(255,255,255,0.05)',
                     }
                   }}
@@ -202,11 +202,11 @@ function App() {
                   </Typography>
                 </Box>
 
-                <Box 
+                <Box
                   onClick={() => setCartOpen(true)}
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
                     mr: { xs: 1, md: 3 },
                     color: 'text.primary',
                     cursor: 'pointer',
@@ -216,10 +216,10 @@ function App() {
                   <Badge badgeContent={totalItems} color="primary">
                     <ShoppingCart />
                   </Badge>
-                  <Typography 
-                    variant="body2" 
-                    sx={{ 
-                      fontWeight: 500, 
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      fontWeight: 500,
                       ml: 1,
                       display: { xs: 'none', sm: 'block' },
                       color: 'text.primary'
@@ -242,16 +242,16 @@ function App() {
 
                     {isAdmin && (
                       <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
-                        <Button 
-                          component={Link} 
+                        <Button
+                          component={Link}
                           to="/admin/dashboard"
                           startIcon={<DashboardIcon />}
                           sx={{ color: 'text.primary' }}
                         >
                           Дашборд
                         </Button>
-                        <Button 
-                          component={Link} 
+                        <Button
+                          component={Link}
                           to="/admin/menu"
                           startIcon={<AddIcon />}
                           sx={{ color: 'text.primary' }}
@@ -310,8 +310,8 @@ function App() {
                         <ListItemIcon sx={{ color: item.highlight ? 'white' : 'text.primary', minWidth: 40 }}>
                           {item.icon}
                         </ListItemIcon>
-                        <ListItemText 
-                          primary={item.text} 
+                        <ListItemText
+                          primary={item.text}
                           primaryTypographyProps={{
                             fontWeight: item.highlight ? 700 : 400,
                           }}
@@ -331,12 +331,12 @@ function App() {
                 </Box>
               </Box>
             </Drawer>
-            
-            <Container 
-              maxWidth="lg" 
-              sx={{ 
-                mt: { xs: 2, sm: 4 }, 
-                mb: { xs: 2, sm: 4 }, 
+
+            <Container
+              maxWidth="lg"
+              sx={{
+                mt: { xs: 2, sm: 4 },
+                mb: { xs: 2, sm: 4 },
                 flex: 1,
                 px: { xs: 2, sm: 3, md: 4 }
               }}
@@ -344,54 +344,54 @@ function App() {
               <Routes>
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
-                
+
                 {isAdmin && (
                   <>
                     <Route path="/admin/dashboard" element={<DashboardPage />} />
                     <Route path="/admin/menu" element={<AdminMenuPage />} />
                   </>
                 )}
-                
+
                 {isAdminRole && (
                   <Route path="/admin/create" element={<CreateMenuItemPage />} />
                 )}
-                
+
                 <Route path="/admin/edit/:id" element={
                   isAdminRole ? <CreateMenuItemPage /> : <Navigate to="/" replace />
                 } />
-                
+
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </Container>
 
-            <CartModal 
-              open={cartOpen} 
+            <CartModal
+              open={cartOpen}
               onClose={() => setCartOpen(false)}
               onCheckout={() => {
                 setCartOpen(false);
                 setOrderOpen(true);
               }}
             />
-            <OrderModal 
-              open={orderOpen} 
+            <OrderModal
+              open={orderOpen}
               onClose={() => setOrderOpen(false)}
               onBackToCart={() => {
                 setOrderOpen(false);
                 setCartOpen(true);
               }}
             />
-            
-            <AuthModal 
-              open={authOpen} 
-              onClose={() => setAuthOpen(false)} 
+
+            <AuthModal
+              open={authOpen}
+              onClose={() => setAuthOpen(false)}
             />
-            
-            <Box 
-              component="footer" 
-              sx={{ 
-                py: { xs: 2, sm: 3 }, 
-                px: 2, 
-                mt: 'auto', 
+
+            <Box
+              component="footer"
+              sx={{
+                py: { xs: 2, sm: 3 },
+                px: 2,
+                mt: 'auto',
                 backgroundColor: 'background.paper',
                 color: 'text.primary',
                 borderTop: `1px solid ${theme.palette.divider}`,

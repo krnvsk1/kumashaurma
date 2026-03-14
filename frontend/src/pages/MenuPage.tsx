@@ -50,9 +50,8 @@ interface NavCategory {
 const MenuPage: React.FC = () => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  
+
   const { isAuthenticated, hasRole } = useAuthStore();
-  const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
   const isAdminRole = isAuthenticated && hasRole('admin');
 
   const { data: menuItems, isLoading, error } = useShawarmas();
@@ -151,10 +150,8 @@ const MenuPage: React.FC = () => {
   // Определяем высоту sticky-панелей для отступа
   const stickyOffset = useMemo(() => {
     if (isMobile) {
-      // на мобильных: высота AppBar (56px) + высота панели категорий (~48px) + небольшой запас
       return (theme.mixins.toolbar.minHeight as number) + 56 + 8;
     } else {
-      // на десктопе: высота AppBar (64px) + отступ от края
       return (theme.mixins.toolbar.minHeight as number) + 16;
     }
   }, [isMobile, theme]);

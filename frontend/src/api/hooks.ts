@@ -99,10 +99,20 @@ export const useUpdateShawarmaOrder = () => {
 
 // ==================== ORDER HOOKS ====================
 
+// Все заказы (только для админов)
 export const useOrders = () => {
   return useQuery<Order[]>({
     queryKey: ['orders'],
     queryFn: () => apiClient.get('/orders').then(res => res.data),
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+// Мои заказы (для обычных пользователей)
+export const useMyOrders = () => {
+  return useQuery<Order[]>({
+    queryKey: ['my-orders'],
+    queryFn: () => apiClient.get('/orders/my').then(res => res.data),
     staleTime: 2 * 60 * 1000,
   });
 };
