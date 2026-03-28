@@ -18,6 +18,7 @@ import {
   AddShoppingCart as AddCartIcon,
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
+  People as PeopleIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
@@ -35,6 +36,7 @@ import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
 import AdminMenuPage from './pages/AdminMenuPage';
+import UsersPage from './pages/UserPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -118,6 +120,7 @@ function App() {
     if (isAdminRole) {
       items.push(
         { text: 'Добавить товар', icon: <AddIcon />, path: '/admin/create' },
+        { text: 'Пользователи', icon: <PeopleIcon />, path: '/admin/users' },
       );
     }
 
@@ -258,6 +261,16 @@ function App() {
                         >
                           Товары
                         </Button>
+                        {isAdminRole && (
+                          <Button
+                            component={Link}
+                            to="/admin/users"
+                            startIcon={<PeopleIcon />}
+                            sx={{ color: 'text.primary' }}
+                          >
+                            Пользователи
+                          </Button>
+                        )}
                       </Box>
                     )}
                   </>
@@ -353,7 +366,10 @@ function App() {
                 )}
 
                 {isAdminRole && (
-                  <Route path="/admin/create" element={<CreateMenuItemPage />} />
+                  <>
+                    <Route path="/admin/create" element={<CreateMenuItemPage />} />
+                    <Route path="/admin/users" element={<UsersPage />} />
+                  </>
                 )}
 
                 <Route path="/admin/edit/:id" element={

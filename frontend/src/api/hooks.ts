@@ -10,7 +10,11 @@ import type {
   OrderStats,
   HealthStatus,
   DashboardStats,
-  ShawarmaImage
+  ShawarmaImage,
+  User,
+  UserDetail,
+  AssignRoleDto,
+  UsersQueryParams
 } from '../types';
 
 // ==================== SHAWARMA HOOKS ====================
@@ -262,6 +266,62 @@ export const useReorderShawarmas = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
+    },
+  });
+};
+
+// ==================== USER HOOKS ====================
+
+// Получить список пользователей
+export const useUsers = (params?: UsersQueryParams) => {
+  return useQuery<User[]>({
+    queryKey: ['users', params],
+    queryFn: async () => {
+      const queryParams = new URLSearchParams();
+      if (params?.role) queryParams.append('role', params.role);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
+      
+      const { data } = await apiClient.get(`/users?${queryParams.toString()}`);
+      return data;
+    },
+    staleTime: 2 * 60 * 1000,
+  });
+};
+
+// Получить пользователя по ID
+export const useUser = (id: number) => {
+  return useQuery<UserDetail>({
+    queryKey: ['user', id],
+    queryFn: () => apiClient.get(`/users/${id}`).then(res => res.data),
+    enabled: !!id,
+  });
+};
+
+// Назначить роль пользователю
+export const useAssignRole = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation<{ message: string }, Error, { userId: number; role: AssignRoleDto }>({
+    mutationFn: ({ userId, role }) => 
+      apiClient.post(`/users/${userId}/roles`, role).then(res => res.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
+    },
+  });
+};
+
+// Удалить роль у пользователя
+export const useRemoveRole = () => {
+  const queryClient = useQueryClient();
+  
+  return useMutation<{ message: string }, Error, { userId: number; role: string }>({
+    mutationFn: ({ userId, role }) => 
+      apiClient.delete(`/users/${userId}/roles/${role}`).then(res => res.data),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
     },
   });
 };

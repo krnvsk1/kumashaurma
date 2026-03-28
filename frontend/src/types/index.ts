@@ -195,3 +195,41 @@ export interface Shawarma {
     price: number;
     quantity: number;
   }
+
+  // ==================== USERS (Пользователи) ====================
+
+  export type UserRole = 'user' | 'admin' | 'manager' | 'courier';
+
+  export interface User {
+    id: number;
+    phone: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    phoneVerified: boolean;
+    roles: string[];
+    createdAt: string;
+  }
+
+  export interface UserDetail extends User {
+    addresses: UserAddress[];
+  }
+
+  export interface UserAddress {
+    id: number;
+    address: string;
+    entrance?: string | null;
+    floor?: string | null;
+    apartment?: string | null;
+    comment?: string | null;
+    isDefault: boolean;
+  }
+
+  export interface AssignRoleDto {
+    role: UserRole;
+  }
+
+  export interface UsersQueryParams {
+    role?: UserRole;
+    page?: number;
+    pageSize?: number;
+  }
