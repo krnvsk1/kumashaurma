@@ -29,8 +29,6 @@ import CartModal from './components/CartModal';
 import OrderModal from './components/OrderModal';
 import AuthModal from './components/AuthModal';
 import ProfileMenu from './components/ProfileMenu';
-import ChatModal from './components/ChatModal';
-import ChatButton from './components/ChatButton';
 
 // Страницы
 import DashboardPage from './pages/DashboardPage';
@@ -58,7 +56,6 @@ function App() {
   const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
-  const [chatOpen, setChatOpen] = useState(false);
 
   const { isAuthenticated, hasRole } = useAuthStore();
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
@@ -404,23 +401,6 @@ function App() {
               open={authOpen}
               onClose={() => setAuthOpen(false)}
             />
-
-            <ChatModal
-              open={chatOpen}
-              onClose={() => setChatOpen(false)}
-            />
-
-            {/* Floating Chat Button */}
-            <Box
-              sx={{
-                position: 'fixed',
-                bottom: 24,
-                right: 24,
-                zIndex: 1000,
-              }}
-            >
-              <ChatButton onClick={() => setChatOpen(true)} />
-            </Box>
 
             <Box
               component="footer"

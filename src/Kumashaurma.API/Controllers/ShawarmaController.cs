@@ -58,7 +58,7 @@ namespace Kumashaurma.API.Controllers
             var shawarmas = await _context.Shawarmas
                 .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ИЗОБРАЖЕНИЯ
                 .OrderBy(s => s.SortOrder)
-                .OrderBy(s => s.Name)
+                .ThenBy(s => s.Name)
                 .ToListAsync();
                 
             return Ok(shawarmas);
