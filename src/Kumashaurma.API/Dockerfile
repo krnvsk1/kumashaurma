@@ -4,10 +4,15 @@ EXPOSE 8080
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
-COPY ["Kumashaurma.API.csproj", "."]
-RUN dotnet restore "./Kumashaurma.API.csproj"
+
+# Копируем оба csproj для кэширования nuget-пакетов
+COPY ["src/Kumashaurma.API/Kumashaurma.API.csproj", "src/Kumashaurma.API/"]
+COPY ["src/Kumashaurma.Core/Kumashaurma.Core.csproj", "src/Kumashaurma.Core/"]
+RUN dotnet restore "src/Kumashaurma.API/Kumashaurma.API.csproj"
+
+# Копируем весь исходный код
 COPY . .
-WORKDIR "/src/."
+WORKDIR "/src/src/Kumashaurma.API"
 RUN dotnet build "Kumashaurma.API.csproj" -c Release -o /app/build
 
 FROM build AS publish

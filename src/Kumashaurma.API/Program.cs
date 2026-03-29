@@ -144,21 +144,6 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// Initialize roles
-using (var scope = app.Services.CreateScope())
-{
-    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
-
-    foreach (var role in AppRoles.AllRoles)
-    {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole<int>(role));
-            Console.WriteLine($"Created role: {role}");
-        }
-    }
-}
-
 // CORS
 app.UseCors("AllowFrontend");
 
@@ -177,7 +162,7 @@ app.UseAuthorization();
 
 app.MapControllers();
 
-// Seed database
+// Seed database & initialize roles
 try
 {
     using (var scope = app.Services.CreateScope())
@@ -185,6 +170,17 @@ try
         var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
         Console.WriteLine("Database initializing...");
         DbInitializer.Initialize(dbContext);
+
+        // Roles must be created AFTER migrations
+        var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole<int>>>();
+        foreach (var role in AppRoles.AllRoles)
+        {
+            if (!await roleManager.RoleExistsAsync(role))
+            {
+                await roleManager.CreateAsync(new IdentityRole<int>(role));
+                Console.WriteLine($"Created role: {role}");
+            }
+        }
     }
 }
 catch (Exception ex)
