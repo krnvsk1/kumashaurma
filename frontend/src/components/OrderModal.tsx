@@ -30,6 +30,8 @@ import {
 import { useCreateOrder } from '../api/hooks';
 import type { CreateOrderDto } from '../types';
 import { useCartStore } from '../store/cartStore';
+import type { DeliveryType } from '../store/orderFlowStore';
+import { resolveMediaUrl } from '../utils/media';
 
 const Transition = React.forwardRef<unknown, SlideProps>(function Transition(props, ref) {
   return <Slide direction="up" ref={ref} {...props} />;
@@ -39,7 +41,7 @@ interface OrderModalProps {
   open: boolean;
   onClose: () => void;
   onBackToCart: () => void;
-  deliveryType: string;
+  deliveryType: DeliveryType;
   address: string;
   onAddressChange: (addr: string) => void;
 }
@@ -236,7 +238,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                         >
                           {item.images?.[0]?.filePath ? (
                             <img
-                              src={`http://localhost:5199${item.images[0].filePath}`}
+                              src={resolveMediaUrl(item.images[0].filePath)}
                               alt={item.name}
                               style={{
                                 width: '100%',

@@ -12,6 +12,7 @@ import {
 import { Add as AddIcon } from '@mui/icons-material';
 import type { Shawarma } from '../types';
 import placeholderImage from '../assets/placeholder-shawarma.svg';
+import { resolveMediaUrl } from '../utils/media';
 
 interface MenuItemCardProps {
   item: Shawarma;
@@ -21,7 +22,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
   const theme = useTheme();
 
   const imageUrl = item.images && item.images.length > 0
-    ? `http://localhost:5199${item.images[0].filePath}`
+    ? resolveMediaUrl(item.images[0].filePath)
     : '';
 
   if (!item.isAvailable) return null;

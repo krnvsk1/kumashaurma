@@ -25,6 +25,7 @@ import { useState } from 'react';
 import { useTheme } from './hooks/useTheme';
 import { useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
+import { useOrderFlowStore } from './store/orderFlowStore';
 import CartModal from './components/CartModal';
 import OrderModal from './components/OrderModal';
 import AuthModal from './components/AuthModal';
@@ -35,6 +36,7 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
+import CreateOrderPage from './pages/CreateOrderPage';
 import AdminMenuPage from './pages/AdminMenuPage';
 import UsersPage from './pages/UserPage';
 
@@ -52,10 +54,20 @@ function App() {
   const totalPrice = useTotalPrice();
 
   const { theme: themeMode, toggleTheme } = useTheme();
-  const [cartOpen, setCartOpen] = useState(false);
-  const [orderOpen, setOrderOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+
+  const cartOpen = useOrderFlowStore((state) => state.cartOpen);
+  const orderOpen = useOrderFlowStore((state) => state.orderOpen);
+  const deliveryType = useOrderFlowStore((state) => state.deliveryType);
+  const address = useOrderFlowStore((state) => state.address);
+  const openCart = useOrderFlowStore((state) => state.openCart);
+  const closeCart = useOrderFlowStore((state) => state.closeCart);
+  const closeOrder = useOrderFlowStore((state) => state.closeOrder);
+  const proceedToCheckout = useOrderFlowStore((state) => state.proceedToCheckout);
+  const backToCart = useOrderFlowStore((state) => state.backToCart);
+  const setDeliveryType = useOrderFlowStore((state) => state.setDeliveryType);
+  const setAddress = useOrderFlowStore((state) => state.setAddress);
 
   const { isAuthenticated, hasRole } = useAuthStore();
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
@@ -206,7 +218,7 @@ function App() {
                 </Box>
 
                 <Box
-                  onClick={() => setCartOpen(true)}
+                  onClick={openCart}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
@@ -356,6 +368,7 @@ function App() {
             >
               <Routes>
                 <Route path="/" element={<MenuPage />} />
+                <Route path="/order" element={<CreateOrderPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
 
                 {isAdmin && (
@@ -382,19 +395,20 @@ function App() {
 
             <CartModal
               open={cartOpen}
-              onClose={() => setCartOpen(false)}
-              onCheckout={() => {
-                setCartOpen(false);
-                setOrderOpen(true);
-              }}
+              onClose={closeCart}
+              onCheckout={proceedToCheckout}
+              deliveryType={deliveryType}
+              onDeliveryTypeChange={setDeliveryType}
+              address={address}
+              onAddressChange={setAddress}
             />
             <OrderModal
               open={orderOpen}
-              onClose={() => setOrderOpen(false)}
-              onBackToCart={() => {
-                setOrderOpen(false);
-                setCartOpen(true);
-              }}
+              onClose={closeOrder}
+              onBackToCart={backToCart}
+              deliveryType={deliveryType}
+              address={address}
+              onAddressChange={setAddress}
             />
 
             <AuthModal

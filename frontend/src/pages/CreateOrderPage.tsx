@@ -25,12 +25,16 @@ import {
 import { useCreateOrder } from '../api/hooks';
 import type { CreateOrderDto } from '../types';
 import { useCartStore, useTotalPrice, useTotalItems } from '../store/cartStore';
+import { useOrderFlowStore } from '../store/orderFlowStore';
 
 const CreateOrderPage: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   
   const createOrder = useCreateOrder();
+  const savedAddress = useOrderFlowStore(state => state.address);
+  const savedDeliveryType = useOrderFlowStore(state => state.deliveryType);
+  const setSavedAddress = useOrderFlowStore(state => state.setAddress);
 
   // Получаем данные из корзины
   const cartItems = useCartStore(state => state.items);
@@ -44,7 +48,7 @@ const CreateOrderPage: React.FC = () => {
   // Поля клиента
   const [customerName, setCustomerName] = React.useState('');
   const [phone, setPhone] = React.useState('');
-  const [address, setAddress] = React.useState('');
+  const [address, setAddress] = React.useState(savedDeliveryType === 'Доставка' ? savedAddress : '');
   const [notes, setNotes] = React.useState('');
 
   const [snackbar, setSnackbar] = React.useState({ 
@@ -56,6 +60,12 @@ const CreateOrderPage: React.FC = () => {
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({ open: true, message, severity });
   };
+
+  React.useEffect(() => {
+    if (savedDeliveryType === 'Доставка') {
+      setAddress(savedAddress);
+    }
+  }, [savedAddress, savedDeliveryType]);
 
   // Функция для обработки изменения количества
   const handleQuantityChange = (uniqueKey: string, delta: number) => {
@@ -85,10 +95,6 @@ const CreateOrderPage: React.FC = () => {
       showSnackbar('Корзина пуста', 'error');
       return;
     }
-
-    React.useEffect(() => {
-      console.log('🛒 Текущая корзина:', cartItems);
-    }, [cartItems]);
 
     // Подготавливаем данные
     const orderData: CreateOrderDto = {
@@ -184,7 +190,10 @@ const CreateOrderPage: React.FC = () => {
                 fullWidth
                 label="Адрес доставки"
                 value={address}
-                onChange={(e) => setAddress(e.target.value)}
+                onChange={(e) => {
+                  setAddress(e.target.value);
+                  setSavedAddress(e.target.value);
+                }}
                 margin="normal"
                 disabled={createOrder.isPending}
                 helperText="Оставьте пустым для самовывоза"
@@ -232,7 +241,7 @@ const CreateOrderPage: React.FC = () => {
                   </Typography>
                   <Button 
                     variant="outlined" 
-                    onClick={() => navigate('/menu')}
+                    onClick={() => navigate('/')}
                     sx={{ mt: 2, borderRadius: 3 }}
                   >
                     Перейти в меню

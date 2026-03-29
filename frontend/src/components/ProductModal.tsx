@@ -26,6 +26,7 @@ import {
 } from '@mui/icons-material';
 import type { Shawarma, Addon, SelectedAddon, AddonCategory } from '../types';
 import { useShawarmaAddons } from '../hooks/useAddons';
+import { resolveMediaUrl } from '../utils/media';
 
 interface ProductModalProps {
   open: boolean;
@@ -198,7 +199,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   {product.images && product.images.length > 0 ? (
                     <Box
                       component="img"
-                      src={`http://localhost:5199${product.images[0].filePath}`}
+                      src={resolveMediaUrl(product.images[0].filePath)}
                       alt={product.name}
                       sx={{
                         width: '100%',
@@ -337,7 +338,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 {product.images && product.images.length > 0 && (
                   <Box
                     component="img"
-                    src={`http://localhost:5199${product.images[0].filePath}`}
+                    src={resolveMediaUrl(product.images[0].filePath)}
                     alt={product.name}
                     sx={{
                       width: '100%',

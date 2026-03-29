@@ -133,9 +133,11 @@ kumashaurma/
 ### Frontend (.env)
 
 ```env
-VITE_API_URL=http://localhost:5000
-VITE_AI_SERVICE_URL=http://localhost:3001
+VITE_API_URL=http://localhost:5199
+VITE_MEDIA_URL=http://localhost:5199
 ```
+
+`VITE_MEDIA_URL` используется для построения абсолютных URL к изображениям товаров. Если backend и frontend работают с одного origin и картинки доступны по относительным путям, переменную можно не задавать.
 
 ## 🚢 Деплой
 

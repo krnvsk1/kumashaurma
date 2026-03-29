@@ -38,8 +38,7 @@ import type { Shawarma } from '../types';
 import ProductModal from '../components/ProductModal';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
 import { useAuthStore } from '../store/authStore';
-import CartModal from '../components/CartModal';
-import OrderModal from '../components/OrderModal';
+import { useOrderFlowStore } from '../store/orderFlowStore';
 
 interface NavCategory {
   id: string;
@@ -60,12 +59,7 @@ const MenuPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const [cartOpen, setCartOpen] = useState(false);
-  const [orderOpen, setOrderOpen] = useState(false);
-
-  // Общий стейт для типа доставки и адреса
-  const [deliveryType, setDeliveryType] = useState('Доставка');
-  const [address, setAddress] = useState('Пионерский переулок, 1');
+  const openCart = useOrderFlowStore((state) => state.openCart);
 
   const cartItems = useCartStore(state => state.items);
   const totalItems = useTotalItems();
@@ -576,7 +570,7 @@ const MenuPage: React.FC = () => {
             variant="extended"
             color="primary"
             aria-label="cart"
-            onClick={() => setCartOpen(true)}
+            onClick={openCart}
             sx={{
               position: 'fixed',
               bottom: 16,
@@ -599,29 +593,6 @@ const MenuPage: React.FC = () => {
         onClose={handleCloseModal}
         product={selectedProduct}
         onAddToCart={handleAddToCart}
-      />
-      <CartModal
-        open={cartOpen}
-        onClose={() => setCartOpen(false)}
-        onCheckout={() => {
-          setCartOpen(false);
-          setOrderOpen(true);
-        }}
-        deliveryType={deliveryType}
-        onDeliveryTypeChange={setDeliveryType}
-        address={address}
-        onAddressChange={setAddress}
-      />
-      <OrderModal
-        open={orderOpen}
-        onClose={() => setOrderOpen(false)}
-        onBackToCart={() => {
-          setOrderOpen(false);
-          setCartOpen(true);
-        }}
-        deliveryType={deliveryType}
-        address={address}
-        onAddressChange={setAddress}
       />
     </>
   );

@@ -26,13 +26,15 @@ import {
   LocalOffer as OfferIcon
 } from '@mui/icons-material';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
+import type { DeliveryType } from '../store/orderFlowStore';
+import { resolveMediaUrl } from '../utils/media';
 
 interface CartModalProps {
   open: boolean;
   onClose: () => void;
   onCheckout: () => void;
-  deliveryType: string;
-  onDeliveryTypeChange: (type: string) => void;
+  deliveryType: DeliveryType;
+  onDeliveryTypeChange: (type: DeliveryType) => void;
   address: string;
   onAddressChange: (addr: string) => void;
 }
@@ -60,6 +62,7 @@ const CartModal: React.FC<CartModalProps> = ({
   const MIN_ORDER = 499;
   const deliveryPrice = 0;
   const isMinOrderReached = totalPrice >= MIN_ORDER;
+  const deliveryOptions: DeliveryType[] = ['Доставка', 'Самовывоз', 'В зале'];
 
   const handleQuantityChange = (uniqueKey: string | undefined, delta: number) => {
     if (!uniqueKey) return;
@@ -108,7 +111,7 @@ const CartModal: React.FC<CartModalProps> = ({
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-          {['Доставка', 'Самовывоз', 'В зале'].map((type) => (
+          {deliveryOptions.map((type) => (
             <Chip
               key={type}
               label={type}
@@ -168,7 +171,7 @@ const CartModal: React.FC<CartModalProps> = ({
                   >
                     {item.images?.[0]?.filePath ? (
                       <img
-                        src={`http://localhost:5199${item.images[0].filePath}`}
+                        src={resolveMediaUrl(item.images[0].filePath)}
                         alt={item.name}
                         style={{
                           width: '100%',

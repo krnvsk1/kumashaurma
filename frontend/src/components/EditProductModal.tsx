@@ -34,6 +34,7 @@ import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import type { Shawarma, CreateShawarmaDto, ShawarmaImage } from '../types';
 import { useUploadImage, useShawarmaImages, useDeleteImage, useUpdateShawarma } from '../api/hooks';
+import { resolveMediaUrl } from '../utils/media';
 
 interface EditProductModalProps {
   open: boolean;
@@ -348,7 +349,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
                         }}
                       >
                         <img
-                          src={`http://localhost:5199${img.filePath}`}
+                          src={resolveMediaUrl(img.filePath)}
                           alt=""
                           style={{
                             width: '100%',

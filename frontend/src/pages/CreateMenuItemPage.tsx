@@ -37,6 +37,7 @@ import 'react-image-crop/dist/ReactCrop.css';
 import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma } from '../api/hooks';
 import type { CreateShawarmaDto, ShawarmaImage } from '../types';
 import { useUploadImage, useShawarmaImages, useDeleteImage } from '../api/hooks';
+import { resolveMediaUrl } from '../utils/media';
 
 const CATEGORIES = [
   'Курица',
@@ -661,7 +662,7 @@ const CreateMenuItemPage: React.FC = () => {
                       }}
                     >
                       <img
-                        src={`http://localhost:5199${image.filePath}`}
+                        src={resolveMediaUrl(image.filePath)}
                         alt=""
                         style={{
                           width: '100%',
