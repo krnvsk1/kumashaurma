@@ -31,12 +31,24 @@ interface CartModalProps {
   open: boolean;
   onClose: () => void;
   onCheckout: () => void;
+  deliveryType: string;
+  onDeliveryTypeChange: (type: string) => void;
+  address: string;
+  onAddressChange: (addr: string) => void;
 }
 
-const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
+const CartModal: React.FC<CartModalProps> = ({
+  open,
+  onClose,
+  onCheckout,
+  deliveryType,
+  onDeliveryTypeChange,
+  address,
+  onAddressChange,
+}) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const items = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
@@ -44,8 +56,6 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
 
   const [promoCode, setPromoCode] = React.useState('');
   const [promoError, setPromoError] = React.useState(false);
-  const [deliveryType, setDeliveryType] = React.useState('Доставка');
-  const [address, setAddress] = React.useState('Пионерский переулок, 1');
 
   const MIN_ORDER = 499;
   const deliveryPrice = 0;
@@ -80,24 +90,29 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
         }
       }}
     >
-      {/* Заголовок */}
-      <DialogTitle sx={{ p: 3, pb: 1, borderBottom: `1px solid ${theme.palette.divider}` }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Корзина
-          </Typography>
-          <IconButton onClick={onClose}>
-            <CloseIcon />
-          </IconButton>
-        </Box>
+      <DialogTitle
+        sx={{
+          p: 3,
+          pb: 1,
+          position: 'relative',
+        }}
+      >
+        <IconButton
+          onClick={onClose}
+          sx={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)' }}
+        >
+          <CloseIcon />
+        </IconButton>
+        <Typography variant="h4" sx={{ fontWeight: 700, textAlign: 'center' }}>
+          Корзина
+        </Typography>
 
-        {/* Табы доставки */}
         <Box sx={{ display: 'flex', gap: 1, mt: 2, flexWrap: 'wrap' }}>
-          {['Доставка', 'Самовывоз', 'В зале', 'Food Drive'].map((type) => (
+          {['Доставка', 'Самовывоз', 'В зале'].map((type) => (
             <Chip
               key={type}
               label={type}
-              onClick={() => setDeliveryType(type)}
+              onClick={() => onDeliveryTypeChange(type)}
               variant={deliveryType === type ? 'filled' : 'outlined'}
               color={deliveryType === type ? 'primary' : 'default'}
               sx={{ borderRadius: 2, fontWeight: 500 }}
@@ -106,31 +121,33 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: isMobile ? 2 : 3, pt: 1 }}>
-        {/* Поиск адреса */}
-        <Paper
-          variant="outlined"
-          sx={{
-            p: 1,
-            mb: 3,
-            display: 'flex',
-            alignItems: 'center',
-            borderRadius: 3,
-            borderColor: theme.palette.divider,
-          }}
-        >
-          <SearchIcon sx={{ mx: 1, color: 'text.secondary' }} />
-          <TextField
-            fullWidth
-            placeholder="Поиск адреса"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            variant="standard"
-            InputProps={{ disableUnderline: true }}
-          />
-        </Paper>
+      <Box sx={{ borderBottom: `1px solid ${theme.palette.divider}` }} />
 
-        {/* Список товаров */}
+      <DialogContent sx={{ p: isMobile ? 2 : 3, pt: 1 }}>
+        {deliveryType === 'Доставка' && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 1,
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              borderRadius: 3,
+              borderColor: theme.palette.divider,
+            }}
+          >
+            <SearchIcon sx={{ mx: 1, color: 'text.secondary' }} />
+            <TextField
+              fullWidth
+              placeholder="Поиск адреса"
+              value={address}
+              onChange={(e) => onAddressChange(e.target.value)}
+              variant="standard"
+              InputProps={{ disableUnderline: true }}
+            />
+          </Paper>
+        )}
+
         <List sx={{ mb: 2 }}>
           {items.map((item) => {
             const addonsTotal = item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0;
@@ -169,8 +186,7 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
                   <Typography variant="h6" sx={{ fontWeight: 600, fontSize: isMobile ? '1rem' : '1.25rem' }}>
                     {item.name}
                   </Typography>
-                  
-                  {/* Отображение добавок */}
+
                   {item.selectedAddons && item.selectedAddons.length > 0 && (
                     <Box sx={{ mt: 0.5, mb: 1 }}>
                       {item.selectedAddons.map((addon, idx) => (
@@ -181,7 +197,6 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
                     </Box>
                   )}
 
-                  {/* Особые пожелания */}
                   {item.specialInstructions && (
                     <Typography variant="caption" color="info.main" sx={{ display: 'block', mb: 1 }}>
                       ✏️ {item.specialInstructions}
@@ -216,7 +231,6 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
           })}
         </List>
 
-        {/* Промокод */}
         <Paper
           variant="outlined"
           sx={{
@@ -245,7 +259,6 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
           )}
         </Paper>
 
-        {/* Итого */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography color="text.secondary">Товары в заказе {totalItems} шт.</Typography>
@@ -262,7 +275,6 @@ const CartModal: React.FC<CartModalProps> = ({ open, onClose, onCheckout }) => {
           )}
         </Box>
 
-        {/* Бонусы */}
         <Paper
           variant="outlined"
           sx={{

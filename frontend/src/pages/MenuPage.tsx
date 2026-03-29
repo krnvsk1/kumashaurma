@@ -63,6 +63,10 @@ const MenuPage: React.FC = () => {
   const [cartOpen, setCartOpen] = useState(false);
   const [orderOpen, setOrderOpen] = useState(false);
 
+  // Общий стейт для типа доставки и адреса
+  const [deliveryType, setDeliveryType] = useState('Доставка');
+  const [address, setAddress] = useState('Пионерский переулок, 1');
+
   const cartItems = useCartStore(state => state.items);
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
@@ -87,7 +91,6 @@ const MenuPage: React.FC = () => {
     addToCart(product, quantity, selectedAddons, instructions);
   };
 
-  // Рефы для заголовков категорий (правый контент)
   const categoryRefs = useRef<Map<string, HTMLElement>>(new Map());
   const setCategoryRef = useCallback((id: string, element: HTMLElement | null) => {
     if (element) {
@@ -97,12 +100,9 @@ const MenuPage: React.FC = () => {
     }
   }, []);
 
-  // Реф для контейнера списка категорий в левом меню (десктоп)
   const categoryListRef = useRef<HTMLUListElement>(null);
-  // Реф для контейнера чипов на мобильных
   const chipContainerRef = useRef<HTMLDivElement>(null);
 
-  // Фильтрация товаров по поиску
   const filteredItems = useMemo(() => {
     if (!items) return [];
     let filtered = items.filter(item => item.isAvailable);
@@ -115,7 +115,6 @@ const MenuPage: React.FC = () => {
     return filtered;
   }, [items, searchQuery]);
 
-  // Группировка: сначала промо, потом категории
   const groupedItems = useMemo(() => {
     const promo = filteredItems.filter(item => item.isPromo);
     const others = filteredItems.filter(item => !item.isPromo);
@@ -135,7 +134,6 @@ const MenuPage: React.FC = () => {
     };
   }, [filteredItems]);
 
-  // Список для навигации
   const navCategories = useMemo<NavCategory[]>(() => {
     const nav: NavCategory[] = [];
     if (groupedItems.promo) {
@@ -147,7 +145,6 @@ const MenuPage: React.FC = () => {
     return nav;
   }, [groupedItems]);
 
-  // Определяем высоту sticky-панелей для отступа
   const stickyOffset = useMemo(() => {
     if (isMobile) {
       return (theme.mixins.toolbar.minHeight as number) + 56 + 8;
@@ -156,7 +153,6 @@ const MenuPage: React.FC = () => {
     }
   }, [isMobile, theme]);
 
-  // Intersection Observer для определения активной категории
   useEffect(() => {
     categoryRefs.current.clear();
 
@@ -186,7 +182,6 @@ const MenuPage: React.FC = () => {
     return () => clearTimeout(timeout);
   }, [groupedItems, stickyOffset]);
 
-  // Эффект для прокрутки левого меню к активной категории (десктоп)
   useEffect(() => {
     if (isMobile || !categoryListRef.current || !activeCategory) return;
 
@@ -199,7 +194,6 @@ const MenuPage: React.FC = () => {
     }
   }, [activeCategory, isMobile]);
 
-  // Эффект для прокрутки горизонтальных чипов к активной категории (мобильные)
   useEffect(() => {
     if (!isMobile || !chipContainerRef.current || !activeCategory) return;
 
@@ -209,7 +203,6 @@ const MenuPage: React.FC = () => {
     }
   }, [activeCategory, isMobile]);
 
-  // Плавная прокрутка к категории с учётом отступа
   const scrollToCategory = (id: string) => {
     const element = categoryRefs.current.get(id);
     if (element) {
@@ -614,6 +607,10 @@ const MenuPage: React.FC = () => {
           setCartOpen(false);
           setOrderOpen(true);
         }}
+        deliveryType={deliveryType}
+        onDeliveryTypeChange={setDeliveryType}
+        address={address}
+        onAddressChange={setAddress}
       />
       <OrderModal
         open={orderOpen}
@@ -622,6 +619,9 @@ const MenuPage: React.FC = () => {
           setOrderOpen(false);
           setCartOpen(true);
         }}
+        deliveryType={deliveryType}
+        address={address}
+        onAddressChange={setAddress}
       />
     </>
   );
