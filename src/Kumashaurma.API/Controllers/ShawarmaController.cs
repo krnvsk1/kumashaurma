@@ -11,10 +11,12 @@ namespace Kumashaurma.API.Controllers
     public class ShawarmaController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
+        private readonly IWebHostEnvironment _environment;
 
-        public ShawarmaController(ApplicationDbContext context)
+        public ShawarmaController(ApplicationDbContext context, IWebHostEnvironment environment)
         {
             _context = context;
+            _environment = environment;
         }
 
         [HttpPut("reorder")]
@@ -125,9 +127,25 @@ namespace Kumashaurma.API.Controllers
         [Authorize(Roles = "admin")]
         public async Task<IActionResult> Delete(int id)
         {
-            var shawarma = await _context.Shawarmas.FindAsync(id);
+            var shawarma = await _context.Shawarmas
+                .Include(s => s.Images)
+                .FirstOrDefaultAsync(s => s.Id == id);
             if (shawarma == null)
                 return NotFound();
+
+            // Удаляем физические файлы изображений
+            if (shawarma.Images != null && shawarma.Images.Any())
+            {
+                var uploadsFolder = Path.Combine(_environment.WebRootPath ?? "wwwroot", "uploads");
+                foreach (var image in shawarma.Images)
+                {
+                    var filePath = Path.Combine(uploadsFolder, image.FileName);
+                    if (System.IO.File.Exists(filePath))
+                    {
+                        System.IO.File.Delete(filePath);
+                    }
+                }
+            }
                 
             _context.Shawarmas.Remove(shawarma);
             await _context.SaveChangesAsync();

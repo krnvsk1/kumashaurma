@@ -119,8 +119,8 @@ export const useTotalItems = () => {
 
 export const useTotalPrice = () => {
   const items = useCartStore(state => state.items);
-  return items.reduce((sum, item) => {
+  return Math.round(items.reduce((sum, item) => {
     const addonsPrice = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
     return sum + (item.price + addonsPrice) * item.quantity;
-  }, 0);
+  }, 0));
 };

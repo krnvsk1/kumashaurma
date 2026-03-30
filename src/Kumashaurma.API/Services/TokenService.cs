@@ -34,7 +34,8 @@ namespace Kumashaurma.API.Services
                 ?? throw new InvalidOperationException("JWT SecretKey not configured");
             var issuer = jwtSettings["Issuer"] ?? "Kumashaurma";
             var audience = jwtSettings["Audience"] ?? "KumashaurmaClient";
-            var expirationMinutes = int.Parse(jwtSettings["ExpirationMinutes"] ?? "60");
+            if (!int.TryParse(jwtSettings["ExpirationMinutes"], out var expirationMinutes))
+                expirationMinutes = 60;
 
             var claims = new List<Claim>
             {
@@ -74,7 +75,8 @@ namespace Kumashaurma.API.Services
         public RefreshToken GenerateRefreshToken(int userId, string ipAddress)
         {
             var jwtSettings = _configuration.GetSection("JwtSettings");
-            var refreshExpirationDays = int.Parse(jwtSettings["RefreshExpirationDays"] ?? "7");
+            if (!int.TryParse(jwtSettings["RefreshExpirationDays"], out var refreshExpirationDays))
+                refreshExpirationDays = 7;
 
             using var rng = RandomNumberGenerator.Create();
             var randomBytes = new byte[64];

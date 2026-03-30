@@ -321,7 +321,7 @@ const UsersPage: React.FC = () => {
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2">
-                            {formatDate(user.createdAt)}
+                            {formatDate(user.createdAt ?? '')}
                           </Typography>
                         </TableCell>
                         <TableCell align="right">

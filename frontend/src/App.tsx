@@ -21,7 +21,7 @@ import {
   People as PeopleIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTheme } from './hooks/useTheme';
 import { useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
@@ -36,7 +36,6 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
-import CreateOrderPage from './pages/CreateOrderPage';
 import AdminMenuPage from './pages/AdminMenuPage';
 import UsersPage from './pages/UserPage';
 
@@ -58,18 +57,34 @@ function App() {
   const [authOpen, setAuthOpen] = useState(false);
 
   const cartOpen = useOrderFlowStore((state) => state.cartOpen);
-  const orderOpen = useOrderFlowStore((state) => state.orderOpen);
   const deliveryType = useOrderFlowStore((state) => state.deliveryType);
   const address = useOrderFlowStore((state) => state.address);
+  const orderOpen = useOrderFlowStore((state) => state.orderOpen);
   const openCart = useOrderFlowStore((state) => state.openCart);
   const closeCart = useOrderFlowStore((state) => state.closeCart);
   const closeOrder = useOrderFlowStore((state) => state.closeOrder);
-  const proceedToCheckout = useOrderFlowStore((state) => state.proceedToCheckout);
   const backToCart = useOrderFlowStore((state) => state.backToCart);
+  const proceedToCheckout = useOrderFlowStore((state) => state.proceedToCheckout);
   const setDeliveryType = useOrderFlowStore((state) => state.setDeliveryType);
   const setAddress = useOrderFlowStore((state) => state.setAddress);
+  const customerName = useOrderFlowStore((state) => state.customerName);
+  const setCustomerName = useOrderFlowStore((state) => state.setCustomerName);
+  const phone = useOrderFlowStore((state) => state.phone);
+  const setPhone = useOrderFlowStore((state) => state.setPhone);
 
-  const { isAuthenticated, hasRole } = useAuthStore();
+  const { isAuthenticated, hasRole, logout } = useAuthStore();
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, [logout]);
+
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager'));
   const isAdminRole = isAuthenticated && hasRole('admin');
 
@@ -368,8 +383,8 @@ function App() {
             >
               <Routes>
                 <Route path="/" element={<MenuPage />} />
-                <Route path="/order" element={<CreateOrderPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/order" element={<Navigate to="/" replace />} />
 
                 {isAdmin && (
                   <>
@@ -402,6 +417,7 @@ function App() {
               address={address}
               onAddressChange={setAddress}
             />
+
             <OrderModal
               open={orderOpen}
               onClose={closeOrder}
@@ -409,6 +425,10 @@ function App() {
               deliveryType={deliveryType}
               address={address}
               onAddressChange={setAddress}
+              customerName={customerName}
+              onCustomerNameChange={setCustomerName}
+              phone={phone}
+              onPhoneChange={setPhone}
             />
 
             <AuthModal

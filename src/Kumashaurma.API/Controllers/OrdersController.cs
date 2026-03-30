@@ -70,6 +70,7 @@ namespace Kumashaurma.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [Authorize]
         public async Task<IActionResult> GetById(int id)
         {
             try
@@ -103,11 +104,32 @@ namespace Kumashaurma.API.Controllers
                 if (request.Items == null || !request.Items.Any())
                     return BadRequest(new { Message = "Добавьте хотя бы один товар в заказ" });
 
-                // Получаем актуальные цены из базы данных
+                // Валидация количества
+                foreach (var itemRequest in request.Items)
+                {
+                    if (itemRequest.Quantity <= 0)
+                        return BadRequest(new { Message = $"Количество товара '{itemRequest.Name}' должно быть больше 0" });
+
+                    if (itemRequest.SelectedAddons != null)
+                    {
+                        foreach (var selectedAddon in itemRequest.SelectedAddons)
+                        {
+                            if (selectedAddon.Quantity <= 0)
+                                return BadRequest(new { Message = "Количество добавки должно быть больше 0" });
+                        }
+                    }
+                }
+
+                // Получаем актуальные цены из базы данных (только доступные шаурмы)
                 var shawarmaIds = request.Items.Select(i => i.ShawarmaId).Distinct();
                 var shawarmas = await _context.Shawarmas
-                    .Where(s => shawarmaIds.Contains(s.Id))
+                    .Where(s => s.IsAvailable && shawarmaIds.Contains(s.Id))
                     .ToDictionaryAsync(s => s.Id, s => s.Price);
+
+                // Проверяем, что все запрошенные шаурмы существуют и доступны
+                var missingShawarmaIds = shawarmaIds.Where(id => !shawarmas.ContainsKey(id)).ToList();
+                if (missingShawarmaIds.Any())
+                    return BadRequest(new { Message = $"Шаурма с ID {string.Join(", ", missingShawarmaIds)} не найдена или недоступна" });
 
                 // Получаем все добавки для проверки цен
                 var allAddonIds = request.Items
@@ -267,13 +289,14 @@ namespace Kumashaurma.API.Controllers
                 // Обновляем поля
                 if (!string.IsNullOrEmpty(request.Status))
                 {
+                    var oldStatus = order.Status;
                     order.Status = request.Status;
                     
                     if (request.Status == "Выполнен" && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
                     }
-                    else if (order.Status == "Выполнен" && request.Status != "Выполнен")
+                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }
@@ -306,11 +329,6 @@ namespace Kumashaurma.API.Controllers
                 if (order == null)
                     return NotFound(new { Message = $"Заказ с ID {id} не найден" });
 
-                var orderItems = await _context.OrderItems
-                    .Where(oi => oi.OrderId == id)
-                    .ToListAsync();
-                    
-                _context.OrderItems.RemoveRange(orderItems);
                 _context.Orders.Remove(order);
                 
                 await _context.SaveChangesAsync();
@@ -367,13 +385,14 @@ namespace Kumashaurma.API.Controllers
 
                 if (!string.IsNullOrEmpty(request.Status))
                 {
+                    var oldStatus = order.Status;
                     order.Status = request.Status;
                     
                     if (request.Status == "Выполнен" && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
                     }
-                    else if (order.Status == "Выполнен" && request.Status != "Выполнен")
+                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }
@@ -392,22 +411,6 @@ namespace Kumashaurma.API.Controllers
                 return StatusCode(500, new { Message = "Ошибка сервера при обновлении статуса" });
             }
         }
-    }
-
-    public class CreateOrderRequest
-    {
-        public string CustomerName { get; set; } = string.Empty;  // 👈 Исправлено
-        public string Phone { get; set; } = string.Empty;  // 👈 Исправлено
-        public string Address { get; set; } = string.Empty;  // 👈 Исправлено
-        public List<OrderItemRequest> Items { get; set; } = new();
-    }
-
-    public class OrderItemRequest
-    {
-        public int ShawarmaId { get; set; }
-        public string Name { get; set; } = string.Empty;  // 👈 Исправлено
-        public int Quantity { get; set; }
-        public decimal Price { get; set; }
     }
 
     public class UpdateOrderRequest

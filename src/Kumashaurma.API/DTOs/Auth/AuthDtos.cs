@@ -13,6 +13,8 @@ namespace Kumashaurma.API.DTOs.Auth
     public class VerifyCodeDto
     {
         [Required(ErrorMessage = "Phone number is required")]
+        [RegularExpression(@"^\+7 \(\d{3}\) \d{3}-\d{2}-\d{2}$",
+            ErrorMessage = "Invalid phone format. Use: +7 (999) 123-45-67")]
         public string Phone { get; set; } = string.Empty;
 
         [Required(ErrorMessage = "Verification code is required")]

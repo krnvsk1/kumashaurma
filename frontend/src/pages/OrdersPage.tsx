@@ -403,8 +403,8 @@ const OrdersPage: React.FC = () => {
   const isAdmin = isAuthenticated && (hasRole('admin') || hasRole('manager') || hasRole('courier'));
   
   // Используем разные хуки в зависимости от роли
-  const allOrdersQuery = useOrders();
-  const myOrdersQuery = useMyOrders();
+  const allOrdersQuery = useOrders(isAdmin);
+  const myOrdersQuery = useMyOrders(!isAdmin && isAuthenticated);
   
   // Выбираем данные в зависимости от роли
   const orders = isAdmin ? allOrdersQuery.data || [] : myOrdersQuery.data || [];

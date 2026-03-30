@@ -66,7 +66,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleAddonToggle = (addon: Addon, checked: boolean) => {
     const newSelected = new Map(selectedAddons);
-    const categoryId = 0; // плоский список
+    const categoryId = addon.addonCategoryId || 0;
     const categorySelections = newSelected.get(categoryId) || [];
 
     if (checked) {
@@ -77,8 +77,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
           addonName: addon.name,
           price: addon.price,
           quantity: 1,
-          categoryId: 0,
-          categoryName: 'Добавки'
+          categoryId: categoryId,
+          categoryName: addonCategories?.find((c: AddonCategory) => c.id === categoryId)?.name || 'Добавки'
         }
       ]);
     } else {
@@ -91,7 +91,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleAddonQuantityChange = (addonId: number, delta: number) => {
     const newSelected = new Map(selectedAddons);
-    const categoryId = 0;
+    const addonDef = allAddons.find((a: Addon) => a.id === addonId);
+    const categoryId = addonDef?.addonCategoryId || 0;
     const categorySelections = [...(newSelected.get(categoryId) || [])];
     
     const addonIndex = categorySelections.findIndex((s: SelectedAddon) => s.addonId === addonId);
@@ -258,7 +259,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <FormGroup>
                         {allAddons.map((addon) => {
                           const selectedAddon = selectedAddons
-                            .get(0)
+                            .get(addon.addonCategoryId || 0)
                             ?.find((s: SelectedAddon) => s.addonId === addon.id);
 
                           return (
@@ -375,7 +376,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     <FormGroup>
                       {allAddons.map((addon) => {
                         const selectedAddon = selectedAddons
-                          .get(0)
+                          .get(addon.addonCategoryId || 0)
                           ?.find((s: SelectedAddon) => s.addonId === addon.id);
 
                         return (

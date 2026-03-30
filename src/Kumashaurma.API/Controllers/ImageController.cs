@@ -33,6 +33,17 @@ namespace Kumashaurma.API.Controllers
                 if (file == null || file.Length == 0)
                     return BadRequest(new { Message = "Файл не выбран" });
 
+                // Валидация размера файла (максимум 5MB)
+                const long maxFileSize = 5 * 1024 * 1024;
+                if (file.Length > maxFileSize)
+                    return BadRequest(new { Message = "Размер файла не должен превышать 5 МБ" });
+
+                // Валидация типа файла
+                var allowedExtensions = new[] { ".jpg", ".jpeg", ".png", ".webp", ".gif" };
+                var fileExtension = Path.GetExtension(file.FileName).ToLowerInvariant();
+                if (!allowedExtensions.Contains(fileExtension))
+                    return BadRequest(new { Message = "Допустимые форматы: .jpg, .jpeg, .png, .webp, .gif" });
+
                 // Проверяем, существует ли шаурма
                 var shawarma = await _context.Shawarmas.FindAsync(shawarmaId);
                 if (shawarma == null)
@@ -44,7 +55,6 @@ namespace Kumashaurma.API.Controllers
                     Directory.CreateDirectory(uploadsFolder);
 
                 // Генерируем уникальное имя файла
-                var fileExtension = Path.GetExtension(file.FileName);
                 var fileName = $"{Guid.NewGuid()}{fileExtension}";
                 var filePath = Path.Combine(uploadsFolder, fileName);
 

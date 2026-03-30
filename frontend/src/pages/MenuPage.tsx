@@ -34,8 +34,9 @@ import {
 import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
 import { useShawarmas } from '../api/hooks';
-import type { Shawarma } from '../types';
+import type { Shawarma, SelectedAddon } from '../types';
 import ProductModal from '../components/ProductModal';
+import OrderModal from '../components/OrderModal';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
 import { useAuthStore } from '../store/authStore';
 import { useOrderFlowStore } from '../store/orderFlowStore';
@@ -59,7 +60,22 @@ const MenuPage: React.FC = () => {
   const [modalOpen, setModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
-  const openCart = useOrderFlowStore((state) => state.openCart);
+  
+  const { openCart, orderOpen, closeOrder, backToCart, deliveryType, address, setAddress, customerName, setCustomerName, phone, setPhone } = useOrderFlowStore(
+    (state) => ({
+      openCart: state.openCart,
+      orderOpen: state.orderOpen,
+      closeOrder: state.closeOrder,
+      backToCart: state.backToCart,
+      deliveryType: state.deliveryType,
+      address: state.address,
+      setAddress: state.setAddress,
+      customerName: state.customerName,
+      setCustomerName: state.setCustomerName,
+      phone: state.phone,
+      setPhone: state.setPhone,
+    })
+  );
 
   const cartItems = useCartStore(state => state.items);
   const totalItems = useTotalItems();
@@ -81,7 +97,7 @@ const MenuPage: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: any[], instructions: string) => {
+  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => {
     addToCart(product, quantity, selectedAddons, instructions);
   };
 
@@ -593,6 +609,19 @@ const MenuPage: React.FC = () => {
         onClose={handleCloseModal}
         product={selectedProduct}
         onAddToCart={handleAddToCart}
+      />
+
+      <OrderModal
+        open={orderOpen}
+        onClose={closeOrder}
+        onBackToCart={backToCart}
+        deliveryType={deliveryType}
+        address={address}
+        onAddressChange={setAddress}
+        customerName={customerName}
+        onCustomerNameChange={setCustomerName}
+        phone={phone}
+        onPhoneChange={setPhone}
       />
     </>
   );
