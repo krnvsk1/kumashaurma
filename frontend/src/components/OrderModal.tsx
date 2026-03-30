@@ -206,7 +206,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
           <Box sx={{ mb: 3 }}>
             <TextField
               fullWidth
-              label="Имя клиента *"
+              label="Имя клиента "
               value={customerName}
               onChange={(e) => onCustomerNameChange(e.target.value)}
               margin="normal"
@@ -216,7 +216,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
             />
             <TextField
               fullWidth
-              label="Телефон *"
+              label="Телефон "
               value={phone}
               onChange={(e) => onPhoneChange(e.target.value)}
               margin="normal"
