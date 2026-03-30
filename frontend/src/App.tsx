@@ -27,7 +27,6 @@ import { useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
 import { useOrderFlowStore } from './store/orderFlowStore';
 import CartModal from './components/CartModal';
-import OrderModal from './components/OrderModal';
 import AuthModal from './components/AuthModal';
 import ProfileMenu from './components/ProfileMenu';
 
@@ -62,8 +61,6 @@ function App() {
   const orderOpen = useOrderFlowStore((state) => state.orderOpen);
   const openCart = useOrderFlowStore((state) => state.openCart);
   const closeCart = useOrderFlowStore((state) => state.closeCart);
-  const closeOrder = useOrderFlowStore((state) => state.closeOrder);
-  const backToCart = useOrderFlowStore((state) => state.backToCart);
   const proceedToCheckout = useOrderFlowStore((state) => state.proceedToCheckout);
   const setDeliveryType = useOrderFlowStore((state) => state.setDeliveryType);
   const setAddress = useOrderFlowStore((state) => state.setAddress);
@@ -71,6 +68,19 @@ function App() {
   const setCustomerName = useOrderFlowStore((state) => state.setCustomerName);
   const phone = useOrderFlowStore((state) => state.phone);
   const setPhone = useOrderFlowStore((state) => state.setPhone);
+
+  const { isAuthenticated, hasRole, logout } = useAuthStore();
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, [logout]);
 
   const { isAuthenticated, hasRole, logout } = useAuthStore();
 
@@ -416,19 +426,6 @@ function App() {
               onDeliveryTypeChange={setDeliveryType}
               address={address}
               onAddressChange={setAddress}
-            />
-
-            <OrderModal
-              open={orderOpen}
-              onClose={closeOrder}
-              onBackToCart={backToCart}
-              deliveryType={deliveryType}
-              address={address}
-              onAddressChange={setAddress}
-              customerName={customerName}
-              onCustomerNameChange={setCustomerName}
-              phone={phone}
-              onPhoneChange={setPhone}
             />
 
             <AuthModal
