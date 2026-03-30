@@ -58,11 +58,29 @@ function App() {
   const cartOpen = useOrderFlowStore((state) => state.cartOpen);
   const deliveryType = useOrderFlowStore((state) => state.deliveryType);
   const address = useOrderFlowStore((state) => state.address);
+  const orderOpen = useOrderFlowStore((state) => state.orderOpen);
   const openCart = useOrderFlowStore((state) => state.openCart);
   const closeCart = useOrderFlowStore((state) => state.closeCart);
   const proceedToCheckout = useOrderFlowStore((state) => state.proceedToCheckout);
   const setDeliveryType = useOrderFlowStore((state) => state.setDeliveryType);
   const setAddress = useOrderFlowStore((state) => state.setAddress);
+  const customerName = useOrderFlowStore((state) => state.customerName);
+  const setCustomerName = useOrderFlowStore((state) => state.setCustomerName);
+  const phone = useOrderFlowStore((state) => state.phone);
+  const setPhone = useOrderFlowStore((state) => state.setPhone);
+
+  const { isAuthenticated, hasRole, logout } = useAuthStore();
+
+  useEffect(() => {
+    const handleUnauthorized = () => {
+      logout();
+    };
+
+    window.addEventListener('auth-unauthorized', handleUnauthorized);
+    return () => {
+      window.removeEventListener('auth-unauthorized', handleUnauthorized);
+    };
+  }, [logout]);
 
   const { isAuthenticated, hasRole, logout } = useAuthStore();
 
@@ -376,6 +394,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/order" element={<Navigate to="/" replace />} />
 
                 {isAdmin && (
                   <>

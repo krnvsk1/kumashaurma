@@ -156,6 +156,11 @@ namespace Kumashaurma.API.Controllers
                 return NotFound(new { message = "Пользователь не найден" });
             }
 
+            if (!AppRoles.AllRoles.Contains(role))
+            {
+                return BadRequest(new { message = $"Недопустимая роль. Допустимые роли: {string.Join(", ", AppRoles.AllRoles)}" });
+            }
+
             var result = await _userManager.RemoveFromRoleAsync(user, role);
 
             if (!result.Succeeded)
@@ -220,9 +225,14 @@ namespace Kumashaurma.API.Controllers
                 return NotFound();
             }
 
+            if (!int.TryParse(userId, out var parsedUserId))
+            {
+                return Unauthorized();
+            }
+
             var address = new UserAddress
             {
-                UserId = int.Parse(userId),
+                UserId = parsedUserId,
                 Address = dto.Address,
                 Entrance = dto.Entrance,
                 Floor = dto.Floor,
@@ -236,7 +246,7 @@ namespace Kumashaurma.API.Controllers
             if (address.IsDefault)
             {
                 var existingAddresses = await _context.UserAddresses
-                    .Where(a => a.UserId == int.Parse(userId) && a.IsDefault)
+                    .Where(a => a.UserId == parsedUserId && a.IsDefault)
                     .ToListAsync();
 
                 foreach (var a in existingAddresses)
@@ -273,8 +283,13 @@ namespace Kumashaurma.API.Controllers
                 return Unauthorized();
             }
 
+            if (!int.TryParse(userId, out var parsedUserId))
+            {
+                return Unauthorized();
+            }
+
             var addresses = await _context.UserAddresses
-                .Where(a => a.UserId == int.Parse(userId))
+                .Where(a => a.UserId == parsedUserId)
                 .OrderByDescending(a => a.IsDefault)
                 .ThenByDescending(a => a.CreatedAt)
                 .ToListAsync();
@@ -304,8 +319,13 @@ namespace Kumashaurma.API.Controllers
                 return Unauthorized();
             }
 
+            if (!int.TryParse(userId, out var parsedUserId))
+            {
+                return Unauthorized();
+            }
+
             var address = await _context.UserAddresses
-                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == int.Parse(userId));
+                .FirstOrDefaultAsync(a => a.Id == id && a.UserId == parsedUserId);
 
             if (address == null)
             {

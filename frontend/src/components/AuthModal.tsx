@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -48,8 +48,18 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [countdown, setCountdown] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const { setAuth } = useAuthStore();
+
+  // Очистка таймера при размонтировании
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+    };
+  }, []);
 
   // Форматирование телефона
   const formatPhone = (value: string) => {
@@ -85,16 +95,20 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setError('');
 
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/send-code', { phone });
+      const response = await apiClient.post<AuthResponse>('/api/auth/send-code', { phone });
 
       if (response.data.success) {
         setStep('verify');
         setCountdown(60);
-        // Обратный отсчёт
-        const timer = setInterval(() => {
+        // Обратный отсчёт с сохранением ссылки для очистки
+        if (timerRef.current) {
+          clearInterval(timerRef.current);
+        }
+        timerRef.current = setInterval(() => {
           setCountdown((prev) => {
             if (prev <= 1) {
-              clearInterval(timer);
+              if (timerRef.current) clearInterval(timerRef.current);
+              timerRef.current = null;
               return 0;
             }
             return prev - 1;
@@ -189,6 +203,10 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setLastName('');
     setError('');
     setCountdown(0);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
   };
 
   const handleClose = () => {

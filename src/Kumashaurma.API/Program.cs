@@ -91,8 +91,19 @@ builder.Services.AddIdentity<AppUser, IdentityRole<int>>(options =>
 
 // JWT Settings
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
-var secretKey = jwtSettings["SecretKey"]
-    ?? "YourSuperSecretKeyForDevelopment2024!ChangeInProduction!MakeItAtLeast64Chars!";
+var secretKey = jwtSettings["SecretKey"];
+if (string.IsNullOrEmpty(secretKey))
+{
+    if (builder.Environment.IsDevelopment())
+    {
+        Console.WriteLine("WARNING: JWT SecretKey not configured. Using development-only fallback. DO NOT use in production!");
+        secretKey = "DevOnlySecretKey_2024_DoNotUseInProduction_MustBeAtLeast64CharactersLong!!";
+    }
+    else
+    {
+        throw new InvalidOperationException("JWT SecretKey is not configured. Set JwtSettings:SecretKey in configuration.");
+    }
+}
 
 builder.Services.AddAuthentication(options =>
 {

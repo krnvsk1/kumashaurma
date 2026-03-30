@@ -132,7 +132,7 @@ const RecentOrderRow: React.FC<{ order: Order }> = ({ order }) => {
 };
 
 // Компонент для популярных товаров
-const PopularItems: React.FC<{ orders: Order[]; shawarmas: Shawarma[] }> = ({ orders }) => {
+const PopularItems: React.FC<{ orders: Order[]; shawarmas?: Shawarma[] }> = ({ orders }) => {
   const theme = useTheme();
   
   const itemStats = React.useMemo(() => {
@@ -419,7 +419,7 @@ const DashboardPage: React.FC = () => {
         <Button
           variant="contained"
           component={Link}
-          to="/order"
+          to="/"
           sx={{
             bgcolor: 'primary.main',
             '&:hover': { bgcolor: 'primary.dark' }

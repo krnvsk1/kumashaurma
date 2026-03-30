@@ -290,7 +290,7 @@ const CartModal: React.FC<CartModalProps> = ({
           }}
         >
           <Typography color="text.secondary">Бонусы к начислению</Typography>
-          <Typography fontWeight={600} color="primary.main">+35 ₽</Typography>
+          <Typography fontWeight={600} color="primary.main">+{Math.round(totalPrice * 0.02)} ₽</Typography>
         </Paper>
       </DialogContent>
 

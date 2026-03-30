@@ -331,6 +331,15 @@ namespace Kumashaurma.API.Controllers
 
         // ==================== SHAWARMA-ADDON LINKS ====================
 
+        public class LinkAddonRequest
+        {
+            public int ShawarmaId { get; set; }
+            public int AddonId { get; set; }
+            public decimal? CustomPrice { get; set; }
+            public bool IsDefault { get; set; }
+            public int MaxQuantity { get; set; } = 1;
+        }
+
         // POST: api/addons/link-to-shawarma
         [HttpPost("link-to-shawarma")]
         [Authorize(Roles = "admin,manager")]
@@ -402,14 +411,5 @@ namespace Kumashaurma.API.Controllers
                 return StatusCode(500, new { Message = "Ошибка при отвязке добавки" });
             }
         }
-    }
-
-    public class LinkAddonRequest
-    {
-        public int ShawarmaId { get; set; }
-        public int AddonId { get; set; }
-        public decimal? CustomPrice { get; set; }
-        public bool IsDefault { get; set; }
-        public int MaxQuantity { get; set; } = 1;
     }
 }

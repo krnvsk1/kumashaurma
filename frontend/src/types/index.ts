@@ -207,7 +207,7 @@ export interface Shawarma {
     lastName?: string | null;
     phoneVerified: boolean;
     roles: string[];
-    createdAt: string;
+    createdAt?: string;
   }
 
   export interface UserDetail extends User {

@@ -1,3 +1,4 @@
+using System.Security.Cryptography;
 using Microsoft.EntityFrameworkCore;
 using Kumashaurma.API.Data;
 using Kumashaurma.API.Models;
@@ -47,7 +48,7 @@ namespace Kumashaurma.API.Services
                     var remainingBlock = existingCode.BlockedUntil!.Value - DateTime.UtcNow;
                     return (false,
                         $"Too many attempts. Try again in {(int)remainingBlock.TotalMinutes + 1} min",
-                        (int)remainingBlock.TotalSeconds);
+                        Math.Max(0, (int)remainingBlock.TotalSeconds));
                 }
 
                 var timeSinceCreation = DateTime.UtcNow - existingCode.CreatedAt;
@@ -156,8 +157,10 @@ namespace Kumashaurma.API.Services
 
         private static string GenerateCode()
         {
-            var random = new Random();
-            return random.Next(0, 10000).ToString("D4");
+            var bytes = new byte[2];
+            RandomNumberGenerator.Fill(bytes);
+            var value = (bytes[0] << 8) | bytes[1];
+            return (value % 10000).ToString("D4");
         }
     }
 }
