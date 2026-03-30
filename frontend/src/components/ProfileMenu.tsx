@@ -61,11 +61,12 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
           color: 'text.primary',
           border: '1px solid',
           borderColor: 'divider',
-          borderRadius: 2,
+          borderRadius: '9999px',
           px: 1.5,
           py: 0.75,
           '&:hover': {
             bgcolor: 'action.hover',
+            borderColor: 'primary.main',
           },
         }}
       >
@@ -91,11 +92,12 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
           color: 'text.primary',
           border: '1px solid',
           borderColor: 'divider',
-          borderRadius: 2,
+          borderRadius: '9999px',
           px: 1.5,
           py: 0.75,
           '&:hover': {
             bgcolor: 'action.hover',
+            borderColor: 'primary.main',
           },
         }}
       >

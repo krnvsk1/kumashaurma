@@ -317,7 +317,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
                 component="label"
                 startIcon={<UploadIcon />}
                 fullWidth
-                sx={{ mb: 2, borderRadius: 2 }}
+                sx={{ mb: 2, borderRadius: '9999px' }}
               >
                 Добавить изображения
                 <input
@@ -538,7 +538,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
             disabled={saving}
-            sx={{ bgcolor: 'primary.main' }}
+            sx={{ bgcolor: 'primary.main', borderRadius: '9999px' }}
           >
             {saving ? 'Сохранение...' : 'Сохранить'}
           </Button>

@@ -106,10 +106,11 @@ function App() {
     palette: {
       mode: themeMode,
       primary: {
-        main: '#ef4444',
+        main: themeMode === 'light' ? '#0891b2' : '#22d3ee',
+        dark: themeMode === 'light' ? '#0e7490' : '#0891b2',
       },
       secondary: {
-        main: '#fbbf24',
+        main: '#f59e0b',
       },
       background: {
         default: themeMode === 'light' ? '#ffffff' : '#0f172a',
@@ -179,8 +180,9 @@ function App() {
               sx={{
                 bgcolor: 'background.paper',
                 color: 'text.primary',
-                boxShadow: 'none',
-                borderBottom: `1px solid ${theme.palette.divider}`,
+                boxShadow: theme.palette.mode === 'light'
+                  ? '0 1px 3px rgba(0,0,0,0.08)'
+                  : '0 1px 3px rgba(0,0,0,0.3)',
               }}
             >
               <Toolbar>

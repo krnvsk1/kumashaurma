@@ -360,7 +360,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
               p: 2,
               borderRadius: 4,
               border: `1px solid ${theme.palette.divider}`,
-              bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b',
+              bgcolor: theme.palette.mode === 'light' ? '#ecfeff' : 'rgba(8,145,178,0.08)',
               mb: 2,
             }}
           >
@@ -395,7 +395,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
             }
             startIcon={createOrder.isPending ? <CircularProgress size={20} color="inherit" /> : null}
             sx={{
-              borderRadius: 3,
+              borderRadius: '9999px',
               py: isMobile ? 1.5 : 1.8,
               fontSize: isMobile ? '1rem' : '1.1rem',
             }}

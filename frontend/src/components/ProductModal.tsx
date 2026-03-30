@@ -462,11 +462,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Typography variant="h6">Количество:</Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <IconButton onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} size="small">
+              <IconButton onClick={() => handleQuantityChange(-1)} disabled={quantity <= 1} size="small" sx={{ borderRadius: '50%', bgcolor: theme.palette.mode === 'light' ? '#ecfeff' : 'rgba(34,211,238,0.1)', color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'white' } }}>
                 <RemoveIcon />
               </IconButton>
               <Typography sx={{ minWidth: 30, textAlign: 'center' }}>{quantity}</Typography>
-              <IconButton onClick={() => handleQuantityChange(1)} size="small">
+              <IconButton onClick={() => handleQuantityChange(1)} size="small" sx={{ borderRadius: '50%', bgcolor: theme.palette.mode === 'light' ? '#ecfeff' : 'rgba(34,211,238,0.1)', color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'white' } }}>
                 <AddIcon />
               </IconButton>
             </Box>
@@ -476,7 +476,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
             variant="contained"
             onClick={handleAddToCart}
             disabled={isLoading}
-            sx={{ borderRadius: 3, px: 4 }}
+            sx={{ borderRadius: '9999px', px: 4 }}
           >
             В корзину {totalPrice} ₽
           </Button>

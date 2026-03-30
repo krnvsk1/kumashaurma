@@ -118,7 +118,7 @@ const CartModal: React.FC<CartModalProps> = ({
               onClick={() => onDeliveryTypeChange(type)}
               variant={deliveryType === type ? 'filled' : 'outlined'}
               color={deliveryType === type ? 'primary' : 'default'}
-              sx={{ borderRadius: 2, fontWeight: 500 }}
+              sx={{ borderRadius: '9999px', fontWeight: 500 }}
             />
           ))}
         </Box>
@@ -214,7 +214,7 @@ const CartModal: React.FC<CartModalProps> = ({
                       <IconButton
                         size="small"
                         onClick={() => handleQuantityChange(item.uniqueKey, -1)}
-                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
+                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: '50%', bgcolor: theme.palette.mode === 'light' ? '#ecfeff' : 'rgba(34,211,238,0.1)', color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'white' } }}
                       >
                         <RemoveIcon fontSize="small" />
                       </IconButton>
@@ -222,7 +222,7 @@ const CartModal: React.FC<CartModalProps> = ({
                       <IconButton
                         size="small"
                         onClick={() => handleQuantityChange(item.uniqueKey, 1)}
-                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 2 }}
+                        sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: '50%', bgcolor: theme.palette.mode === 'light' ? '#ecfeff' : 'rgba(34,211,238,0.1)', color: 'primary.main', '&:hover': { bgcolor: 'primary.main', color: 'white' } }}
                       >
                         <AddIcon fontSize="small" />
                       </IconButton>
@@ -301,7 +301,7 @@ const CartModal: React.FC<CartModalProps> = ({
           fullWidth
           disabled={!isMinOrderReached || items.length === 0}
           sx={{
-            borderRadius: 3,
+            borderRadius: '9999px',
             py: 2,
             fontSize: isMobile ? '1rem' : '1.1rem',
             fontWeight: 600,
