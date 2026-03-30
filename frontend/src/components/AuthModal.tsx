@@ -101,10 +101,10 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
           });
         }, 1000);
       } else {
-        setError(response.data.message || 'Ошибка отправки кода');
+        setError(response.data.message || "Ошибка отправки кода");
       }
     } catch (err: any) {
-      setError(err.displayMessage || 'Ошибка отправки кода');
+      setError(err.response?.data?.message || err.message || "Ошибка отправки кода");
     } finally {
       setLoading(false);
     }
@@ -113,31 +113,31 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   // Проверка кода
   const handleVerifyCode = async () => {
     if (code.length !== 4) {
-      setError('Введите 4 цифры кода');
+      setError("Введите 4 цифры кода");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/verify', { phone, code });
+      const response = await apiClient.post<AuthResponse>("/auth/verify", { phone, code });
 
       if (response.data.success) {
         if (response.data.accessToken && response.data.user) {
           // Пользователь уже зарегистрирован - входим
-          setAuth(response.data.user, response.data.accessToken, response.data.refreshToken || '');
+          setAuth(response.data.user, response.data.accessToken, response.data.refreshToken || "");
           onClose();
           resetForm();
         } else {
           // Новый пользователь - нужно зарегистрироваться
-          setStep('register');
+          setStep("register");
         }
       } else {
-        setError(response.data.message || 'Неверный код');
+        setError(response.data.message || "Неверный код");
       }
     } catch (err: any) {
-      setError(err.displayMessage || 'Ошибка проверки кода');
+      setError(err.response?.data?.message || err.message || "Ошибка проверки кода");
     } finally {
       setLoading(false);
     }
@@ -146,29 +146,29 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
   // Регистрация
   const handleRegister = async () => {
     if (!firstName.trim()) {
-      setError('Введите имя');
+      setError("Введите имя");
       return;
     }
 
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
-      const response = await apiClient.post<AuthResponse>('/auth/register', {
+      const response = await apiClient.post<AuthResponse>("/auth/register", {
         phone,
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
       });
 
       if (response.data.success && response.data.accessToken && response.data.user) {
-        setAuth(response.data.user, response.data.accessToken, response.data.refreshToken || '');
+        setAuth(response.data.user, response.data.accessToken, response.data.refreshToken || "");
         onClose();
         resetForm();
       } else {
-        setError(response.data.message || 'Ошибка регистрации');
+        setError(response.data.message || "Ошибка регистрации");
       }
     } catch (err: any) {
-      setError(err.displayMessage || 'Ошибка регистрации');
+      setError(err.response?.data?.message || err.message || "Ошибка регистрации");
     } finally {
       setLoading(false);
     }

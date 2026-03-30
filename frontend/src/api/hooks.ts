@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from './client';
+import apiClient from './client';
 import type { 
   Shawarma, 
   CreateShawarmaDto,
@@ -22,7 +22,7 @@ import type {
 export const useShawarmas = () => {
   return useQuery<Shawarma[]>({
     queryKey: ['shawarmas'],
-    queryFn: () => apiClient.get('/shawarma').then(res => res.data),
+    queryFn: () => apiClient.get('/api/shawarma').then(res => res.data),
     staleTime: 5 * 60 * 1000,
     retry: 2,
   });
@@ -31,7 +31,7 @@ export const useShawarmas = () => {
 export const useShawarma = (id: number) => {
   return useQuery<Shawarma>({
     queryKey: ['shawarma', id],
-    queryFn: () => apiClient.get(`/shawarma/${id}`).then(res => res.data),
+    queryFn: () => apiClient.get(`/api/shawarma/${id}`).then(res => res.data),
     enabled: !!id,
   });
 };
@@ -39,7 +39,7 @@ export const useShawarma = (id: number) => {
 export const useCreateShawarma = () => {
   const queryClient = useQueryClient();
   return useMutation<Shawarma, Error, CreateShawarmaDto>({
-    mutationFn: (data) => apiClient.post('/shawarma', data).then(res => res.data),
+    mutationFn: (data) => apiClient.post('/api/shawarma', data).then(res => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
     },
@@ -50,7 +50,7 @@ export const useUpdateShawarma = () => {
   const queryClient = useQueryClient();
   return useMutation<Shawarma, Error, Partial<Shawarma> & { id: number }>({
     mutationFn: ({ id, ...data }) => 
-      apiClient.put(`/shawarma/${id}`, data).then(res => res.data),
+      apiClient.put(`/api/shawarma/${id}`, data).then(res => res.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
       queryClient.invalidateQueries({ queryKey: ['shawarma', variables.id] });
@@ -61,7 +61,7 @@ export const useUpdateShawarma = () => {
 export const useDeleteShawarma = () => {
   const queryClient = useQueryClient();
   return useMutation<void, Error, number>({
-    mutationFn: (id) => apiClient.delete(`/shawarma/${id}`).then(res => res.data),
+    mutationFn: (id) => apiClient.delete(`/api/shawarma/${id}`).then(res => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
     },
@@ -75,10 +75,10 @@ export const useUpdateShawarmaAvailability = () => {
   return useMutation({
     mutationFn: async ({ id, isAvailable }: { id: number; isAvailable: boolean }) => {
       // Сначала получаем текущий товар
-      const { data: shawarma } = await apiClient.get(`/shawarma/${id}`);
+      const { data: shawarma } = await apiClient.get(`/api/shawarma/${id}`);
       // Обновляем только поле isAvailable
       const updated = { ...shawarma, isAvailable };
-      await apiClient.put(`/shawarma/${id}`, updated);
+      await apiClient.put(`/api/shawarma/${id}`, updated);
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
@@ -93,7 +93,7 @@ export const useUpdateShawarmaOrder = () => {
   
   return useMutation({
     mutationFn: async (items: { id: number; sortOrder: number }[]) => {
-      await apiClient.put('/shawarma/reorder', items);
+      await apiClient.put('/api/shawarma/reorder', items);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
@@ -104,27 +104,29 @@ export const useUpdateShawarmaOrder = () => {
 // ==================== ORDER HOOKS ====================
 
 // Все заказы (только для админов)
-export const useOrders = () => {
+export const useOrders = (enabled = true) => {
   return useQuery<Order[]>({
     queryKey: ['orders'],
-    queryFn: () => apiClient.get('/orders').then(res => res.data),
+    queryFn: () => apiClient.get('/api/orders').then(res => res.data),
     staleTime: 2 * 60 * 1000,
+    enabled,
   });
 };
 
 // Мои заказы (для обычных пользователей)
-export const useMyOrders = () => {
+export const useMyOrders = (enabled = true) => {
   return useQuery<Order[]>({
     queryKey: ['my-orders'],
-    queryFn: () => apiClient.get('/orders/my').then(res => res.data),
+    queryFn: () => apiClient.get('/api/orders/my').then(res => res.data),
     staleTime: 2 * 60 * 1000,
+    enabled,
   });
 };
 
 export const useOrder = (id: number) => {
   return useQuery<Order>({
     queryKey: ['order', id],
-    queryFn: () => apiClient.get(`/orders/${id}`).then(res => res.data),
+    queryFn: () => apiClient.get(`/api/orders/${id}`).then(res => res.data),
     enabled: !!id,
   });
 };
@@ -132,7 +134,7 @@ export const useOrder = (id: number) => {
 export const useCreateOrder = () => {
   const queryClient = useQueryClient();
   return useMutation<Order, Error, CreateOrderDto>({
-    mutationFn: (data) => apiClient.post('/orders', data).then(res => res.data),
+    mutationFn: (data) => apiClient.post('/api/orders', data).then(res => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
@@ -143,7 +145,7 @@ export const useUpdateOrderStatus = () => {
   const queryClient = useQueryClient();
   return useMutation<Order, Error, { id: number; status: UpdateOrderStatusDto }>({
     mutationFn: ({ id, status }) => 
-      apiClient.patch(`/orders/${id}/status`, status).then(res => res.data),
+      apiClient.patch(`/api/orders/${id}/status`, status).then(res => res.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
@@ -156,7 +158,7 @@ export const useUpdateOrder = () => {
   const queryClient = useQueryClient();
   return useMutation<Order, Error, { id: number; data: UpdateOrderDto }>({
     mutationFn: ({ id, data }) => 
-      apiClient.put(`/orders/${id}`, data).then(res => res.data),
+      apiClient.put(`/api/orders/${id}`, data).then(res => res.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
@@ -169,7 +171,7 @@ export const useUpdateOrder = () => {
 export const useDeleteOrder = () => {
   const queryClient = useQueryClient();
   return useMutation<{ message: string; deletedId: number }, Error, number>({
-    mutationFn: (id) => apiClient.delete(`/orders/${id}`).then(res => res.data),
+    mutationFn: (id) => apiClient.delete(`/api/orders/${id}`).then(res => res.data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order-stats'] });
@@ -181,7 +183,7 @@ export const useDeleteOrder = () => {
 export const useOrderStats = () => {
   return useQuery<OrderStats>({
     queryKey: ['order-stats'],
-    queryFn: () => apiClient.get('/orders/stats').then(res => res.data),
+    queryFn: () => apiClient.get('/api/orders/stats').then(res => res.data),
     staleTime: 60 * 1000,
   });
 };
@@ -191,7 +193,7 @@ export const useOrderStats = () => {
 export const useDashboardStats = () => {
   return useQuery<DashboardStats>({
     queryKey: ['dashboard'],
-    queryFn: () => apiClient.get('/dashboard/stats').then(res => res.data),
+    queryFn: () => apiClient.get('/api/dashboard/stats').then(res => res.data),
     staleTime: 60 * 1000,
   });
 };
@@ -201,7 +203,7 @@ export const useDashboardStats = () => {
 export const useHealth = () => {
   return useQuery<HealthStatus>({
     queryKey: ['health'],
-    queryFn: () => apiClient.get('/health').then(res => res.data),
+    queryFn: () => apiClient.get('/api/health').then(res => res.data),
     refetchInterval: 30 * 1000,
   });
 };
@@ -216,7 +218,7 @@ export const useUploadImage = () => {
       const formData = new FormData();
       formData.append('file', file);
       
-      const { data } = await apiClient.post(`/image/upload/${shawarmaId}`, formData, {
+      const { data } = await apiClient.post(`/api/image/upload/${shawarmaId}`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -234,7 +236,7 @@ export const useShawarmaImages = (shawarmaId: number) => {
   return useQuery({
     queryKey: ['shawarma-images', shawarmaId],
     queryFn: async () => {
-      const { data } = await apiClient.get(`/image/shawarma/${shawarmaId}`);
+      const { data } = await apiClient.get(`/api/image/shawarma/${shawarmaId}`);
       return data as ShawarmaImage[];
     },
     enabled: !!shawarmaId,
@@ -246,7 +248,7 @@ export const useDeleteImage = () => {
   
   return useMutation({
     mutationFn: async (imageId: number) => {
-      await apiClient.delete(`/image/${imageId}`);
+      await apiClient.delete(`/api/image/${imageId}`);
     },
     onSuccess: (_) => {
       queryClient.invalidateQueries({ queryKey: ['shawarmas'] });
@@ -261,7 +263,7 @@ export const useReorderShawarmas = () => {
   
   return useMutation({
     mutationFn: async (items: { id: number; order: number }[]) => {
-      const response = await apiClient.put('/shawarma/reorder', items);
+      const response = await apiClient.put('/api/shawarma/reorder', items);
       return response.data;
     },
     onSuccess: () => {
@@ -282,7 +284,7 @@ export const useUsers = (params?: UsersQueryParams) => {
       if (params?.page) queryParams.append('page', params.page.toString());
       if (params?.pageSize) queryParams.append('pageSize', params.pageSize.toString());
       
-      const { data } = await apiClient.get(`/users?${queryParams.toString()}`);
+      const { data } = await apiClient.get(`/api/users?${queryParams.toString()}`);
       return data;
     },
     staleTime: 2 * 60 * 1000,
@@ -293,7 +295,7 @@ export const useUsers = (params?: UsersQueryParams) => {
 export const useUser = (id: number) => {
   return useQuery<UserDetail>({
     queryKey: ['user', id],
-    queryFn: () => apiClient.get(`/users/${id}`).then(res => res.data),
+    queryFn: () => apiClient.get(`/api/users/${id}`).then(res => res.data),
     enabled: !!id,
   });
 };
@@ -304,7 +306,7 @@ export const useAssignRole = () => {
   
   return useMutation<{ message: string }, Error, { userId: number; role: AssignRoleDto }>({
     mutationFn: ({ userId, role }) => 
-      apiClient.post(`/users/${userId}/roles`, role).then(res => res.data),
+      apiClient.post(`/api/users/${userId}/roles`, role).then(res => res.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
@@ -318,7 +320,7 @@ export const useRemoveRole = () => {
   
   return useMutation<{ message: string }, Error, { userId: number; role: string }>({
     mutationFn: ({ userId, role }) => 
-      apiClient.delete(`/users/${userId}/roles/${role}`).then(res => res.data),
+      apiClient.delete(`/api/users/${userId}/roles/${role}`).then(res => res.data),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });

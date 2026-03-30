@@ -1,39 +1,48 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../utils/media';
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: import.meta.env.VITE_API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-apiClient.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response) {
-      const status = error.response.status;
-      const data = error.response.data;
-      let message = 'Произошла ошибка';
-      if (status === 400) message = data?.message || 'Неверный запрос';
-      else if (status === 401) message = 'Необходима авторизация';
-      else if (status === 404) message = 'Ресурс не найден';
-      else if (status === 500) message = 'Ошибка сервера';
-      error.displayMessage = message;
-    } else if (error.request) {
-      error.displayMessage = 'Сервер не отвечает. Проверьте подключение.';
-    } else {
-      error.displayMessage = 'Ошибка при отправке запроса';
-    }
-    console.error('API Error:', error);
-    return Promise.reject(error);
-  }
-);
-
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  // Пытаемся достать токен из хранилища Zustand (первоисточник)
+  let token = localStorage.getItem('token');
+  
+  if (!token) {
+    const authStorage = localStorage.getItem('kumashaurma-auth');
+    if (authStorage) {
+      try {
+        const authData = JSON.parse(authStorage);
+        token = authData.state?.accessToken;
+      } catch (e) {
+        console.error('Error parsing auth storage', e);
+      }
+    }
+  }
+
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
-});
+}, (error) => Promise.reject(error));
+
+// Добавляем обработку 401 ошибки
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      localStorage.removeItem('token');
+      localStorage.removeItem('kumashaurma-auth'); // Очищаем и Zustand storage
+      // Мы не можем напрямую вызвать useAuthStore.getState().logout() здесь из-за циклической зависимости,
+      // но очистка localStorage поможет при следующей загрузке или проверке состояния.
+      // В идеале здесь нужно событие или колбэк.
+      window.dispatchEvent(new Event('auth-unauthorized'));
+    }
+    return Promise.reject(error);
+  }
+);
+
+export default apiClient;

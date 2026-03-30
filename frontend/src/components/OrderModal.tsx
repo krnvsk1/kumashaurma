@@ -44,6 +44,11 @@ interface OrderModalProps {
   deliveryType: DeliveryType;
   address: string;
   onAddressChange: (addr: string) => void;
+  // Добавлены новые пропсы для полей имени и телефона
+  customerName: string;
+  onCustomerNameChange: (name: string) => void;
+  phone: string;
+  onPhoneChange: (phone: string) => void;
 }
 
 const OrderModal: React.FC<OrderModalProps> = ({
@@ -53,9 +58,13 @@ const OrderModal: React.FC<OrderModalProps> = ({
   deliveryType,
   address,
   onAddressChange,
+  customerName,
+  onCustomerNameChange,
+  phone,
+  onPhoneChange,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const createOrder = useCreateOrder();
 
@@ -82,6 +91,14 @@ const OrderModal: React.FC<OrderModalProps> = ({
   };
 
   const handleSubmit = async () => {
+    if (!customerName.trim()) {
+      showSnackbar('Введите имя клиента', 'error');
+      return;
+    }
+    if (!phone.trim()) {
+      showSnackbar('Введите телефон', 'error');
+      return;
+    }
     if (deliveryType === 'Доставка' && !address.trim()) {
       showSnackbar('Введите адрес доставки', 'error');
       return;
@@ -92,9 +109,9 @@ const OrderModal: React.FC<OrderModalProps> = ({
     }
 
     const orderData: CreateOrderDto = {
-      customerName: 'Гость',
-      phone: 'Не указан',
-      address: deliveryType === 'Доставка' ? address.trim() : '',
+      customerName: customerName.trim(),
+      phone: phone.trim(),
+      address: deliveryType === 'Доставка' ? address.trim() : 'Самовывоз',
       notes: notes.trim() || null,
       items: cartItems.map(item => ({
         shawarmaId: item.id,
@@ -112,6 +129,9 @@ const OrderModal: React.FC<OrderModalProps> = ({
       showSnackbar(`Заказ #${result.id} создан успешно!`, 'success');
       clearCart();
       setNotes('');
+      onCustomerNameChange(''); // Очищаем поле имени
+      onPhoneChange(''); // Очищаем поле телефона
+      onAddressChange(''); // Очищаем поле адреса
       setTimeout(() => onClose(), 1500);
     } catch (error: any) {
       showSnackbar(error.message || 'Ошибка при создании заказа', 'error');
@@ -183,8 +203,28 @@ const OrderModal: React.FC<OrderModalProps> = ({
         </DialogTitle>
 
         <DialogContent sx={{ p: isMobile ? 2 : 3 }}>
-          {deliveryType === 'Доставка' && (
-            <Box sx={{ mb: 3 }}>
+          <Box sx={{ mb: 3 }}>
+            <TextField
+              fullWidth
+              label="Имя клиента *"
+              value={customerName}
+              onChange={(e) => onCustomerNameChange(e.target.value)}
+              margin="normal"
+              required
+              disabled={createOrder.isPending}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+            />
+            <TextField
+              fullWidth
+              label="Телефон *"
+              value={phone}
+              onChange={(e) => onPhoneChange(e.target.value)}
+              margin="normal"
+              required
+              disabled={createOrder.isPending}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+            />
+            {deliveryType === 'Доставка' && (
               <TextField
                 fullWidth
                 label="Адрес доставки *"
@@ -192,10 +232,10 @@ const OrderModal: React.FC<OrderModalProps> = ({
                 onChange={(e) => onAddressChange(e.target.value)}
                 disabled={createOrder.isPending}
                 placeholder="ул. Ленина, д. 1, кв. 1"
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                sx={{ mt: 2, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
               />
-            </Box>
-          )}
+            )}
+          </Box>
 
           <Typography variant="h6" sx={{ fontWeight: 600, mb: 2 }}>
             Ваш заказ {cartItems.length > 0 && `(${cartItems.length})`}
@@ -332,11 +372,12 @@ const OrderModal: React.FC<OrderModalProps> = ({
             </Box>
           </Paper>
 
-          <Box sx={{ p: 2, bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b', borderRadius: 3, border: `1px solid ${theme.palette.divider}` }}>
+          {/* Убираем заглушку, так как теперь поля ввода есть */}
+          {/* <Box sx={{ p: 2, bgcolor: theme.palette.mode === 'light' ? '#f8fafc' : '#1e293b', borderRadius: 3, border: `1px solid ${theme.palette.divider}` }}>
             <Typography variant="body2" color="text.secondary">
               🔐 В будущем здесь будут имя и телефон из профиля
             </Typography>
-          </Box>
+          </Box> */}
         </DialogContent>
 
         <DialogActions sx={{
@@ -349,7 +390,9 @@ const OrderModal: React.FC<OrderModalProps> = ({
             onClick={handleSubmit}
             fullWidth
             disabled={cartItems.length === 0 || createOrder.isPending ||
-              (deliveryType === 'Доставка' && !address.trim())}
+              (deliveryType === 'Доставка' && !address.trim()) ||
+              !customerName.trim() || !phone.trim() // Добавлена валидация для имени и телефона
+            }
             startIcon={createOrder.isPending ? <CircularProgress size={20} color="inherit" /> : null}
             sx={{
               borderRadius: 3,
