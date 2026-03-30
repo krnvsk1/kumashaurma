@@ -281,7 +281,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
         fullWidth
         PaperProps={{
           sx: {
-            borderRadius: 3,
+            borderRadius: 2,
             maxWidth: '1000px',
             bgcolor: theme.palette.mode === 'light' ? '#ffffff' : '#1e293b',
           }

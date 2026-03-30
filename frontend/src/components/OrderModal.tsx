@@ -153,7 +153,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
         TransitionComponent={Transition}
         PaperProps={{
           sx: {
-            borderRadius: isMobile ? 0 : 6,
+            borderRadius: isMobile ? 0 : 2,
             bgcolor: 'background.paper',
             border: `1px solid ${theme.palette.divider}`,
             boxShadow: '0 20px 25px -5px rgba(0,0,0,0.05), 0 10px 10px -5px rgba(0,0,0,0.02)',
@@ -171,7 +171,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
             size="small"
             sx={{
               position: 'absolute',
-              left: 16,
+              left: 24,
               top: '50%',
               transform: 'translateY(-50%)',
               border: `1px solid ${theme.palette.divider}`,
@@ -191,7 +191,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
             size="small"
             sx={{
               position: 'absolute',
-              right: 16,
+              right: 24,
               top: '50%',
               transform: 'translateY(-50%)',
               border: `1px solid ${theme.palette.divider}`,

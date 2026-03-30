@@ -165,7 +165,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       fullWidth={!isMobile}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? 0 : 4,
+          borderRadius: isMobile ? 0 : 2,
           maxHeight: isMobile ? '100%' : '90vh',
         }
       }}

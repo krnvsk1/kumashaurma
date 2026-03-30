@@ -222,7 +222,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: 2,
           bgcolor: 'background.paper',
         },
       }}

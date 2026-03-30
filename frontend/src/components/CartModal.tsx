@@ -86,7 +86,7 @@ const CartModal: React.FC<CartModalProps> = ({
       fullWidth={!isMobile}
       PaperProps={{
         sx: {
-          borderRadius: isMobile ? 0 : 4,
+          borderRadius: isMobile ? 0 : 2,
           bgcolor: 'background.paper',
           maxHeight: isMobile ? '100%' : '90vh',
           margin: isMobile ? 0 : undefined,
@@ -102,7 +102,7 @@ const CartModal: React.FC<CartModalProps> = ({
       >
         <IconButton
           onClick={onClose}
-          sx={{ position: 'absolute', right: 16, top: '50%', transform: 'translateY(-50%)' }}
+          sx={{ position: 'absolute', right: 24, top: '50%', transform: 'translateY(-50%)' }}
         >
           <CloseIcon />
         </IconButton>
