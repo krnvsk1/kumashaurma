@@ -135,7 +135,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setError("");
 
     try {
-      const response = await apiClient.post<AuthResponse>("/auth/verify", { phone, code });
+      const response = await apiClient.post<AuthResponse>("/api/auth/verify", { phone, code });
 
       if (response.data.success) {
         if (response.data.accessToken && response.data.user) {
@@ -168,7 +168,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
     setError("");
 
     try {
-      const response = await apiClient.post<AuthResponse>("/auth/register", {
+      const response = await apiClient.post<AuthResponse>("/api/auth/register", {
         phone,
         firstName: firstName.trim(),
         lastName: lastName.trim() || undefined,
