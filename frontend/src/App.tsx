@@ -73,6 +73,20 @@ function App() {
   const setPhone = useOrderFlowStore((state) => state.setPhone);
 
   const { isAuthenticated, hasRole, logout } = useAuthStore();
+  const user = useAuthStore((state) => state.user);
+
+  // При открытии модалки заказа — подставляем данные авторизованного пользователя
+  useEffect(() => {
+    if (orderOpen && isAuthenticated && user) {
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      if (name && !customerName) {
+        setCustomerName(name);
+      }
+      if (user.phone && !phone) {
+        setPhone(user.phone);
+      }
+    }
+  }, [orderOpen, isAuthenticated, user]);
 
   useEffect(() => {
     const handleUnauthorized = () => {
