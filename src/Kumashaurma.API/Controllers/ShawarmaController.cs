@@ -107,10 +107,10 @@ namespace Kumashaurma.API.Controllers
                 Price = request.Price,
                 Description = request.Description ?? string.Empty,
                 Category = request.Category ?? "Курица",
-                IsSpicy = request.IsSpicy,
-                HasCheese = request.HasCheese,
-                IsAvailable = request.IsAvailable,
-                IsPromo = request.IsPromo,
+                IsSpicy = request.IsSpicy ?? false,
+                HasCheese = request.HasCheese ?? false,
+                IsAvailable = request.IsAvailable ?? true,
+                IsPromo = request.IsPromo ?? false,
                 CreatedAt = DateTime.UtcNow,
             };
 
