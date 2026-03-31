@@ -36,9 +36,14 @@ import {
   Tune as SettingsIcon,
   Image as ImageIcon,
   ImageOutlined as ImageIconOutlined,
+  RotateLeft as RotateLeftIcon,
+  ZoomOut as ZoomOutIcon,
+  ZoomIn as ZoomInIcon,
+  AspectRatio as AspectRatioIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useNavigate, useParams } from 'react-router-dom';
-import ReactCrop, { type Crop } from 'react-image-crop';
+import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma, useCategories } from '../api/hooks';
 import type { CreateShawarmaDto, ShawarmaImage } from '../types';
@@ -167,7 +172,10 @@ const CreateMenuItemPage: React.FC = () => {
   });
   const [zoom, setZoom] = React.useState(1);
   const [rotation, setRotation] = React.useState(0);
-  const [completedCrop, setCompletedCrop] = React.useState<Crop | null>(null);
+  const [completedCrop, setCompletedCrop] = React.useState<PixelCrop | null>(null);
+  const [aspect, setAspect] = React.useState<number | undefined>(1);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
+  const [cropProcessing, setCropProcessing] = React.useState(false);
 
   // Хуки для работы с изображениями (только для режима редактирования)
   const uploadImage = useUploadImage();
@@ -247,8 +255,13 @@ const CreateMenuItemPage: React.FC = () => {
     return true;
   };
 
-  // Функция для кадрирования изображения
-  const getCroppedImg = async (imageSrc: string, crop: Crop): Promise<Blob | null> => {
+  // Функция для кадрирования изображения с учётом зума и поворота
+  const getCroppedImg = async (
+    imageSrc: string,
+    pixelCrop: PixelCrop,
+    currentZoom: number,
+    currentRotation: number
+  ): Promise<Blob | null> => {
     const image = new Image();
     image.src = imageSrc;
     await new Promise((resolve) => {
@@ -257,31 +270,50 @@ const CreateMenuItemPage: React.FC = () => {
 
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
 
-    const scaleX = image.naturalWidth / image.width;
-    const scaleY = image.naturalHeight / image.height;
+    const cropWidth = pixelCrop.width;
+    const cropHeight = pixelCrop.height;
 
-    canvas.width = crop.width!;
-    canvas.height = crop.height!;
+    canvas.width = cropWidth;
+    canvas.height = cropHeight;
 
-    if (ctx) {
-      ctx.drawImage(
-        image,
-        crop.x! * scaleX,
-        crop.y! * scaleY,
-        crop.width! * scaleX,
-        crop.height! * scaleY,
-        0,
-        0,
-        crop.width!,
-        crop.height!
-      );
-    }
+    const rad = (currentRotation * Math.PI) / 180;
+    const absRot = Math.abs(currentRotation);
+
+    // Рассчитываем размер изображения с учётом поворота
+    const rotW = absRot % 180 === 90 ? image.naturalHeight : image.naturalWidth;
+    const rotH = absRot % 180 === 90 ? image.naturalWidth : image.naturalHeight;
+
+    // Масштаб отображаемого изображения к натуральному
+    const elImg = imgRef.current;
+    const scaleX = elImg ? image.naturalWidth / (elImg.width / currentZoom) : image.naturalWidth;
+    const scaleY = elImg ? image.naturalHeight / (elImg.height / currentZoom) : image.naturalHeight;
+
+    ctx.save();
+    ctx.translate(cropWidth / 2, cropHeight / 2);
+    ctx.rotate(rad);
+    ctx.scale(currentZoom, currentZoom);
+    ctx.translate(-cropWidth / 2, -cropHeight / 2);
+
+    ctx.drawImage(
+      image,
+      pixelCrop.x * scaleX,
+      pixelCrop.y * scaleY,
+      pixelCrop.width * scaleX,
+      pixelCrop.height * scaleY,
+      0,
+      0,
+      cropWidth,
+      cropHeight
+    );
+
+    ctx.restore();
 
     return new Promise((resolve) => {
       canvas.toBlob((blob) => {
         resolve(blob);
-      }, 'image/jpeg');
+      }, 'image/jpeg', 0.92);
     });
   };
 
@@ -326,15 +358,28 @@ const CreateMenuItemPage: React.FC = () => {
     setCrop({ unit: '%', width: 90, height: 90, x: 5, y: 5 });
     setZoom(1);
     setRotation(0);
+    setAspect(1);
+    setCompletedCrop(null);
+    setCropProcessing(false);
     setCropModalOpen(true);
   };
 
+  const onImageLoad = (e: React.SyntheticEvent<HTMLImageElement>) => {
+    imgRef.current = e.currentTarget;
+  };
+
   // Сохранить откадрированное изображение
-  const handleCropComplete = async () => {
+  const handleCropApply = async () => {
     if (!currentCropImage || !completedCrop) return;
 
+    setCropProcessing(true);
     try {
-      const croppedBlob = await getCroppedImg(currentCropImage.preview, completedCrop);
+      const croppedBlob = await getCroppedImg(
+        currentCropImage.preview,
+        completedCrop,
+        zoom,
+        rotation
+      );
 
       if (croppedBlob) {
         const croppedFile = new File([croppedBlob], currentCropImage.file.name, {
@@ -355,6 +400,8 @@ const CreateMenuItemPage: React.FC = () => {
     } catch (error) {
       console.error('Ошибка при кадрировании:', error);
       showSnackbar('Ошибка при обработке изображения', 'error');
+    } finally {
+      setCropProcessing(false);
     }
   };
 
@@ -961,58 +1008,110 @@ const CreateMenuItemPage: React.FC = () => {
       {/* Модальное окно для кадрирования */}
       <Modal
         open={cropModalOpen}
-        onClose={() => setCropModalOpen(false)}
+        onClose={() => !cropProcessing && setCropModalOpen(false)}
+        closeAfterTransition
+        slotProps={{
+          backdrop: {
+            sx: {
+              bgcolor: alpha('#000', 0.6),
+              backdropFilter: 'blur(4px)',
+            },
+          },
+        }}
         sx={{
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          zIndex: 1300,
         }}
       >
         <Paper
           sx={{
-            width: '90%',
-            maxWidth: 800,
-            p: 3,
-            borderRadius: 4,
+            width: '92vw',
+            maxWidth: 680,
+            borderRadius: 3,
             outline: 'none',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '92vh',
           }}
         >
-          <Typography variant="h6" sx={{ mb: 2, fontWeight: 600 }}>
-            Кадрирование изображения
-          </Typography>
+          {/* Шапка модала */}
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              px: 3,
+              py: 2,
+              borderBottom: `1px solid ${theme.palette.divider}`,
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+              <Box
+                sx={{
+                  width: 32,
+                  height: 32,
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  bgcolor: alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                }}
+              >
+                <CropIcon sx={{ fontSize: 18 }} />
+              </Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
+                Кадрирование
+              </Typography>
+            </Box>
+            <IconButton
+              size="small"
+              onClick={() => !cropProcessing && setCropModalOpen(false)}
+              sx={{
+                borderRadius: 2,
+                color: 'text.secondary',
+                '&:hover': { bgcolor: alpha(theme.palette.action.hover, 0.08) },
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </Box>
 
           {currentCropImage && (
             <>
+              {/* Область с изображением */}
               <Box
                 sx={{
                   position: 'relative',
                   width: '100%',
-                  height: 400,
-                  bgcolor: '#f5f5f5',
-                  borderRadius: 2,
-                  overflow: 'hidden',
-                  mb: 2,
+                  height: { xs: 280, sm: 380 },
+                  bgcolor: theme.palette.mode === 'light' ? '#f1f5f9' : '#0f172a',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
+                  overflow: 'hidden',
                 }}
               >
                 <Box
                   sx={{
-                    maxWidth: '100%',
-                    maxHeight: '100%',
                     transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                    transition: 'transform 0.2s',
+                    transition: 'transform 0.15s ease',
+                    transformOrigin: 'center center',
                   }}
                 >
                   <ReactCrop
                     crop={crop}
                     onChange={(c) => setCrop(c)}
                     onComplete={(c) => setCompletedCrop(c)}
-                    aspect={1}
+                    aspect={aspect}
                   >
                     <img
+                      ref={imgRef}
                       src={currentCropImage.preview}
+                      onLoad={onImageLoad}
                       style={{
                         maxWidth: '100%',
                         maxHeight: '100%',
@@ -1024,51 +1123,191 @@ const CreateMenuItemPage: React.FC = () => {
                 </Box>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" gutterBottom sx={{ fontWeight: 500 }}>
-                  Масштаб
-                </Typography>
-                <Slider
-                  value={zoom}
-                  min={1}
-                  max={3}
-                  step={0.1}
-                  onChange={(_, val) => setZoom(val as number)}
-                />
+              {/* Панель инструментов */}
+              <Box sx={{ px: 3, pt: 2, pb: 1 }}>
+                {/* Соотношение сторон */}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, minWidth: 90 }}>
+                    Пропорции:
+                  </Typography>
+                  <Box sx={{ display: 'flex', gap: 0.75 }}>
+                    {[{ label: 'Свобод', value: undefined }, { label: '1:1', value: 1 }, { label: '4:3', value: 4 / 3 }, { label: '16:9', value: 16 / 9 }].map(
+                      (opt) => (
+                        <Chip
+                          key={opt.label}
+                          label={opt.label}
+                          size="small"
+                          clickable
+                          onClick={() => {
+                            setAspect(opt.value);
+                            setCrop({ unit: '%', width: 90, height: 90, x: 5, y: 5 });
+                          }}
+                          variant={aspect === opt.value ? 'filled' : 'outlined'}
+                          sx={{
+                            height: 28,
+                            fontSize: '0.72rem',
+                            fontWeight: aspect === opt.value ? 600 : 400,
+                            borderRadius: 1.5,
+                            borderColor: aspect === opt.value ? 'primary.main' : theme.palette.divider,
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                          }}
+                        />
+                      )
+                    )}
+                  </Box>
+                </Box>
+
+                {/* Зум и поворот — компактная строка */}
+                <Box sx={{ display: 'flex', gap: 3 }}>
+                  {/* Зум */}
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                        Масштаб
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontVariantNumeric: 'tabular-nums' }}>
+                        {Math.round(zoom * 100)}%
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => setZoom((z) => Math.max(0.5, z - 0.2))}
+                        sx={{ width: 28, height: 28 }}
+                      >
+                        <ZoomOutIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                      <Slider
+                        value={zoom}
+                        min={0.5}
+                        max={3}
+                        step={0.1}
+                        onChange={(_, val) => setZoom(val as number)}
+                        sx={{ flex: 1, mx: 0.5 }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => setZoom((z) => Math.min(3, z + 0.2))}
+                        sx={{ width: 28, height: 28 }}
+                      >
+                        <ZoomInIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+
+                  {/* Поворот */}
+                  <Box sx={{ flex: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                      <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                        Поворот
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
+                        <Chip
+                          label="-90°"
+                          size="small"
+                          clickable
+                          onClick={() => setRotation((r) => (r - 90 + 360) % 360)}
+                          sx={{
+                            height: 22,
+                            fontSize: '0.68rem',
+                            borderRadius: 1.5,
+                            borderColor: theme.palette.divider,
+                            borderWidth: 1,
+                            borderStyle: 'solid',
+                          }}
+                        />
+                        <Chip
+                          label="+90°"
+                          size="small"
+                          clickable
+                          onClick={() => setRotation((r) => (r + 90) % 360)}
+                          sx={{
+                            height: 22,
+                            fontSize: '0.68rem',
+                            borderRadius: 1.5,
+                            borderColor: theme.palette.divider,
+                            borderWidth: 1,
+                            borderStyle: 'solid',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <IconButton
+                        size="small"
+                        onClick={() => setRotation((r) => (r - 15 + 360) % 360)}
+                        sx={{ width: 28, height: 28 }}
+                      >
+                        <RotateLeftIcon sx={{ fontSize: 16 }} />
+                      </IconButton>
+                      <Slider
+                        value={rotation}
+                        min={0}
+                        max={359}
+                        step={1}
+                        onChange={(_, val) => setRotation(val as number)}
+                        sx={{ flex: 1, mx: 0.5 }}
+                      />
+                      <IconButton
+                        size="small"
+                        onClick={() => setRotation(0)}
+                        sx={{ width: 28, height: 28 }}
+                        title="Сбросить"
+                      >
+                        <RotateLeftIcon sx={{ fontSize: 16, opacity: 0.5 }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                </Box>
               </Box>
 
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="body2" gutterBottom sx={{ fontWeight: 500 }}>
-                  Поворот
-                </Typography>
-                <Slider
-                  value={rotation}
-                  min={0}
-                  max={360}
-                  step={1}
-                  onChange={(_, val) => setRotation(val as number)}
-                />
-              </Box>
-
-              <Box sx={{ display: 'flex', gap: 2, justifyContent: 'flex-end' }}>
+              {/* Кнопки */}
+              <Box
+                sx={{
+                  display: 'flex',
+                  gap: 1.5,
+                  justifyContent: 'flex-end',
+                  px: 3,
+                  py: 2,
+                  borderTop: `1px solid ${theme.palette.divider}`,
+                  bgcolor: theme.palette.mode === 'light'
+                    ? alpha(theme.palette.text.primary, 0.01)
+                    : alpha(theme.palette.text.primary, 0.02),
+                }}
+              >
                 <Button
                   variant="outlined"
                   onClick={() => setCropModalOpen(false)}
-                  sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 600 }}
+                  disabled={cropProcessing}
+                  sx={{
+                    borderRadius: 2.5,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    px: 3,
+                    borderWidth: 1.5,
+                    '&:hover': { borderWidth: 1.5 },
+                  }}
                 >
                   Отмена
                 </Button>
                 <Button
                   variant="contained"
-                  onClick={handleCropComplete}
+                  onClick={handleCropApply}
+                  disabled={cropProcessing || !completedCrop}
+                  startIcon={cropProcessing ? <CircularProgress size={16} color="inherit" /> : <CropIcon sx={{ fontSize: 16 }} />}
                   sx={{
                     borderRadius: 2.5,
                     textTransform: 'none',
                     fontWeight: 600,
+                    px: 3,
                     boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.3)}`,
+                    '&:hover': {
+                      boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.4)}`,
+                    },
                   }}
                 >
-                  Применить
+                  {cropProcessing ? 'Применение...' : 'Применить'}
                 </Button>
               </Box>
             </>
