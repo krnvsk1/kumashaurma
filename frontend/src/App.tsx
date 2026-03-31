@@ -195,7 +195,56 @@ function App() {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <Router>
-          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', position: 'relative', overflow: 'hidden' }}>
+            {/* Декоративные блобы на фоне */}
+            <Box
+              aria-hidden="true"
+              sx={{
+                position: 'fixed',
+                top: { xs: '-120px', md: '-180px' },
+                right: { xs: '-80px', md: '-140px' },
+                width: { xs: 300, md: 500 },
+                height: { xs: 300, md: 500 },
+                borderRadius: '50%',
+                background: theme.palette.mode === 'light'
+                  ? 'radial-gradient(circle, rgba(8,145,178,0.07) 0%, transparent 70%)'
+                  : 'radial-gradient(circle, rgba(34,211,238,0.06) 0%, transparent 70%)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+            <Box
+              aria-hidden="true"
+              sx={{
+                position: 'fixed',
+                bottom: { xs: '-100px', md: '-160px' },
+                left: { xs: '-60px', md: '-120px' },
+                width: { xs: 280, md: 450 },
+                height: { xs: 280, md: 450 },
+                borderRadius: '50%',
+                background: theme.palette.mode === 'light'
+                  ? 'radial-gradient(circle, rgba(245,158,11,0.06) 0%, transparent 70%)'
+                  : 'radial-gradient(circle, rgba(245,158,11,0.04) 0%, transparent 70%)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
+            <Box
+              aria-hidden="true"
+              sx={{
+                position: 'fixed',
+                top: '40%',
+                left: { xs: '50%', md: '60%' },
+                width: { xs: 200, md: 350 },
+                height: { xs: 200, md: 350 },
+                borderRadius: '50%',
+                background: theme.palette.mode === 'light'
+                  ? 'radial-gradient(circle, rgba(8,145,178,0.04) 0%, transparent 70%)'
+                  : 'radial-gradient(circle, rgba(14,116,144,0.05) 0%, transparent 70%)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
+            />
             <AppBar
               position="sticky"
               sx={{
@@ -204,6 +253,7 @@ function App() {
                 boxShadow: theme.palette.mode === 'light'
                   ? '0 1px 3px rgba(0,0,0,0.08)'
                   : '0 1px 3px rgba(0,0,0,0.3)',
+                zIndex: 1201,
               }}
             >
               <Toolbar>
@@ -415,7 +465,9 @@ function App() {
                 mt: { xs: 2, sm: 4 },
                 mb: { xs: 2, sm: 4 },
                 flex: 1,
-                px: { xs: 2, sm: 3, md: 4 }
+                px: { xs: 2, sm: 3, md: 4 },
+                position: 'relative',
+                zIndex: 1,
               }}
             >
               <Routes>
@@ -473,15 +525,46 @@ function App() {
               onClose={() => setAuthOpen(false)}
             />
 
+            {/* Волна перед футером */}
+            <Box
+              aria-hidden="true"
+              sx={{
+                mt: 'auto',
+                position: 'relative',
+                height: { xs: 50, md: 70 },
+                overflow: 'hidden',
+                zIndex: 1,
+                '& svg': {
+                  position: 'absolute',
+                  bottom: 0,
+                  width: '100%',
+                  height: '100%',
+                },
+              }}
+            >
+              <svg viewBox="0 0 1440 70" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                <path
+                  d="M0,30 C240,60 480,5 720,35 C960,65 1200,15 1440,40 L1440,70 L0,70 Z"
+                  fill={theme.palette.mode === 'light' ? '#f0f9ff' : '#0c2a3a'}
+                  opacity="0.6"
+                />
+                <path
+                  d="M0,40 C360,10 720,60 1080,25 C1260,10 1380,35 1440,30 L1440,70 L0,70 Z"
+                  fill={theme.palette.mode === 'light' ? '#e0f2fe' : '#0e3548'}
+                  opacity="0.4"
+                />
+              </svg>
+            </Box>
+
             <Box
               component="footer"
               sx={{
                 py: { xs: 2, sm: 3 },
                 px: 2,
-                mt: 'auto',
-                backgroundColor: 'background.paper',
+                backgroundColor: theme.palette.mode === 'light' ? '#f0f9ff' : '#0c2a3a',
                 color: 'text.primary',
-                borderTop: `1px solid ${theme.palette.divider}`,
+                zIndex: 1,
+                position: 'relative',
               }}
             >
               <Container maxWidth="lg">
