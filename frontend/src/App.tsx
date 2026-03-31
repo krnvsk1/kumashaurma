@@ -23,7 +23,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTheme } from './hooks/useTheme';
-import { useTotalItems, useTotalPrice } from './store/cartStore';
+import { useCartStore, useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
 import { useOrderFlowStore } from './store/orderFlowStore';
 import CartModal from './components/CartModal';
