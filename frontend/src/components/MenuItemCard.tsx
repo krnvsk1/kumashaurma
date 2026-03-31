@@ -140,7 +140,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
           <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-            от {item.price} ₽
+            {item.variants && item.variants.length > 0
+              ? `от ${Math.min(...item.variants.map(v => v.price))} ₽`
+              : `${item.price} ₽`}
           </Typography>
           <IconButton
             size="small"

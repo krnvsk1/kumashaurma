@@ -6,6 +6,7 @@ export interface Shawarma {
   id: number;
   name: string;
   price: number;
+  displayPrice?: number;
   description: string;
   category: string;
   isSpicy: boolean;
@@ -18,6 +19,7 @@ export interface Shawarma {
   primaryImage?: string;
   sortOrder?: number;
   addonCategories?: AddonCategory[];
+  variants?: ProductVariant[];
 }
 
   export interface ShawarmaImage {
@@ -25,6 +27,15 @@ export interface Shawarma {
     shawarmaId: number;
     filePath: string;
     isPrimary: boolean;
+    createdAt: string;
+  }
+
+  export interface ProductVariant {
+    id: number;
+    shawarmaId: number;
+    name: string;
+    price: number;
+    sortOrder: number;
     createdAt: string;
   }
   
@@ -37,12 +48,14 @@ export interface Shawarma {
     isSpicy?: boolean;
     hasCheese?: boolean;
     isAvailable?: boolean;
+    variants?: { name: string; price: number }[];
   };
 
   export interface CartItem extends Shawarma {
     quantity: number;
-    selectedAddons: SelectedAddon[]; // 👈 НОВОЕ
-    specialInstructions?: string; // 👈 НОВОЕ
+    selectedAddons: SelectedAddon[];
+    selectedVariant?: ProductVariant;
+    specialInstructions?: string;
     uniqueKey?: string;
   }
   
