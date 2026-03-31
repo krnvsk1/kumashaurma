@@ -7,7 +7,6 @@ import {
   Typography,
   Box,
   Button,
-  IconButton,
   TextField,
   Divider,
   useTheme,
@@ -19,8 +18,8 @@ import {
   InputAdornment,
   FormControl,
   InputLabel,
-  Select,
   MenuItem,
+  Autocomplete,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -33,7 +32,7 @@ import { useNavigate } from 'react-router-dom';
 import ReactCrop, { type Crop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import type { Shawarma, CreateShawarmaDto, ShawarmaImage } from '../types';
-import { useUploadImage, useShawarmaImages, useDeleteImage, useUpdateShawarma } from '../api/hooks';
+import { useUploadImage, useShawarmaImages, useDeleteImage, useUpdateShawarma, useCategories } from '../api/hooks';
 import { resolveMediaUrl } from '../utils/media';
 
 interface EditProductModalProps {
@@ -41,17 +40,6 @@ interface EditProductModalProps {
   onClose: () => void;
   product: Shawarma | null;
 }
-
-const DEFAULT_CATEGORIES = [
-  'Курица',
-  'Баранина',
-  'Говядина',
-  'Вегетарианская',
-  'Рыбная',
-  'Острая',
-  'Детская',
-  'Фирменная'
-];
 
 interface TempImage {
   file: File;
@@ -91,33 +79,12 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null);
   const [saving, setSaving] = useState(false);
 
-  const [categories, setCategories] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('kumashaurma-categories');
-      if (saved) return JSON.parse(saved);
-    } catch {}
-    return DEFAULT_CATEGORIES;
-  });
-  const [newCategory, setNewCategory] = useState('');
-  const [showNewCategory, setShowNewCategory] = useState(false);
-
-  const handleAddCategory = () => {
-    const trimmed = newCategory.trim();
-    if (!trimmed) return;
-    if (categories.includes(trimmed)) return;
-    const updated = [...categories, trimmed];
-    setCategories(updated);
-    handleChange('category', trimmed);
-    localStorage.setItem('kumashaurma-categories', JSON.stringify(updated));
-    setNewCategory('');
-    setShowNewCategory(false);
-  };
+  const { data: categoryOptions } = useCategories();
 
   const uploadImage = useUploadImage();
   const deleteImage = useDeleteImage();
   const updateShawarma = useUpdateShawarma();
 
-  // Загружаем существующие изображения
   const { data: images = [], refetch: refetchImages } = useShawarmaImages(product?.id || 0);
 
   useEffect(() => {
@@ -268,13 +235,11 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
     
     setSaving(true);
     try {
-      // Обновляем основные данные
       await updateShawarma.mutateAsync({
         id: product.id,
         ...formData
       });
 
-      // Загружаем новые изображения
       for (const tempImage of tempImages) {
         await uploadImage.mutateAsync({ 
           shawarmaId: product.id, 
@@ -282,7 +247,6 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
         });
       }
 
-      // Закрываем модалку и переходим на страницу управления меню
       onClose();
       navigate('/admin/menu');
     } catch (error) {
@@ -482,59 +446,24 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
                     }}
                   />
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>Категория</InputLabel>
-                    <Select
-                      value={formData.category}
-                      label="Категория"
-                      onChange={(e) => handleChange('category', e.target.value)}
-                    >
-                      {categories.map((cat) => (
-                        <MenuItem key={cat} value={cat}>{cat}</MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-                </Box>
-
-                {showNewCategory ? (
-                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <TextField
-                      size="small"
-                      placeholder="Название категории"
-                      value={newCategory}
-                      onChange={(e) => setNewCategory(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(); }}
-                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                      autoFocus
-                    />
-                    <Button
-                      variant="contained"
-                      size="small"
-                      onClick={handleAddCategory}
-                      disabled={!newCategory.trim()}
-                      sx={{ borderRadius: '9999px', px: 2 }}
-                    >
-                      Добавить
-                    </Button>
-                    <Button
-                      variant="text"
-                      size="small"
-                      onClick={() => { setShowNewCategory(false); setNewCategory(''); }}
-                      sx={{ color: 'text.secondary' }}
-                    >
-                      Отмена
-                    </Button>
-                  </Box>
-                ) : (
-                  <Button
-                    variant="text"
+                  <Autocomplete
+                    freeSolo
+                    options={categoryOptions || []}
+                    value={formData.category || ''}
                     size="small"
-                    onClick={() => setShowNewCategory(true)}
-                    sx={{ color: 'primary.main', textTransform: 'none', p: 0 }}
-                  >
-                    + Новая категория
-                  </Button>
-                )}
+                    onInputChange={(e, value) => handleChange('category', value)}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Категория"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
+                    renderOption={(props, option) => (
+                      <MenuItem {...props} sx={{ borderRadius: 1, mx: 0.5 }}>{option}</MenuItem>
+                    )}
+                  />
+                </Box>
 
                 <TextField
                   fullWidth
@@ -600,7 +529,7 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <SaveIcon />}
             disabled={saving}
-            sx={{ bgcolor: 'primary.main', borderRadius: '9999px' }}
+            sx={{ bgcolor: 'primary.main' }}
           >
             {saving ? 'Сохранение...' : 'Сохранить'}
           </Button>

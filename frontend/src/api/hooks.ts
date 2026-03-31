@@ -101,6 +101,16 @@ export const useUpdateShawarmaOrder = () => {
   });
 };
 
+// ==================== CATEGORY HOOK ====================
+
+export const useCategories = () => {
+  return useQuery<string[]>({
+    queryKey: ['shawarma-categories'],
+    queryFn: () => apiClient.get('/api/shawarma/categories').then(res => res.data),
+    staleTime: 5 * 60 * 1000,
+  });
+};
+
 // ==================== ORDER HOOKS ====================
 
 // Все заказы (только для админов)

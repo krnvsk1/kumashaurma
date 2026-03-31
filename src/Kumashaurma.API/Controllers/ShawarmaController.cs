@@ -54,6 +54,19 @@ namespace Kumashaurma.API.Controllers
             public int Order { get; set; }
         }
 
+        [HttpGet("categories")]
+        public async Task<IActionResult> GetCategories()
+        {
+            var categories = await _context.Shawarmas
+                .Where(s => !string.IsNullOrEmpty(s.Category))
+                .OrderBy(s => s.Category)
+                .Select(s => s.Category)
+                .Distinct()
+                .ToListAsync();
+            
+            return Ok(categories);
+        }
+
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
