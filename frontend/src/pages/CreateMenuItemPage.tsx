@@ -39,7 +39,7 @@ import type { CreateShawarmaDto, ShawarmaImage } from '../types';
 import { useUploadImage, useShawarmaImages, useDeleteImage } from '../api/hooks';
 import { resolveMediaUrl } from '../utils/media';
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   'Курица',
   'Баранина',
   'Говядина',
@@ -99,6 +99,32 @@ const CreateMenuItemPage: React.FC = () => {
     hasCheese: false,
     isAvailable: true
   });
+
+  // Категории — из localStorage или дефолтные
+  const [categories, setCategories] = React.useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('kumashaurma-categories');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_CATEGORIES;
+  });
+  const [newCategory, setNewCategory] = React.useState('');
+  const [showNewCategory, setShowNewCategory] = React.useState(false);
+
+  const handleAddCategory = () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) {
+      showSnackbar('Такая категория уже существует', 'warning');
+      return;
+    }
+    const updated = [...categories, trimmed];
+    setCategories(updated);
+    handleChange('category', trimmed);
+    localStorage.setItem('kumashaurma-categories', JSON.stringify(updated));
+    setNewCategory('');
+    setShowNewCategory(false);
+  };
 
   const [snackbar, setSnackbar] = React.useState({
     open: false,
@@ -458,12 +484,59 @@ const CreateMenuItemPage: React.FC = () => {
                   disabled={isPending}
                   sx={{ borderRadius: 3 }}
                 >
-                  {CATEGORIES.map((cat) => (
+                  {categories.map((cat) => (
                     <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={() => setShowNewCategory(!showNewCategory)}
+                disabled={isPending}
+                sx={{
+                  whiteSpace: 'nowrap',
+                  borderRadius: '9999px',
+                  minWidth: 140,
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                }}
+              >
+                + Новая
+              </Button>
             </Box>
+
+            {showNewCategory && (
+              <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  placeholder="Название категории"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(); }}
+                  disabled={isPending}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                  autoFocus
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleAddCategory}
+                  disabled={!newCategory.trim() || isPending}
+                  sx={{ borderRadius: '9999px', px: 3 }}
+                >
+                  Добавить
+                </Button>
+                <Button
+                  variant="text"
+                  size="small"
+                  onClick={() => { setShowNewCategory(false); setNewCategory(''); }}
+                  sx={{ color: 'text.secondary' }}
+                >
+                  Отмена
+                </Button>
+              </Box>
+            )}
 
             <TextField
               fullWidth

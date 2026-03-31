@@ -42,7 +42,7 @@ interface EditProductModalProps {
   product: Shawarma | null;
 }
 
-const CATEGORIES = [
+const DEFAULT_CATEGORIES = [
   'Курица',
   'Баранина',
   'Говядина',
@@ -90,6 +90,28 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
   const [rotation, setRotation] = useState(0);
   const [completedCrop, setCompletedCrop] = useState<Crop | null>(null);
   const [saving, setSaving] = useState(false);
+
+  const [categories, setCategories] = useState<string[]>(() => {
+    try {
+      const saved = localStorage.getItem('kumashaurma-categories');
+      if (saved) return JSON.parse(saved);
+    } catch {}
+    return DEFAULT_CATEGORIES;
+  });
+  const [newCategory, setNewCategory] = useState('');
+  const [showNewCategory, setShowNewCategory] = useState(false);
+
+  const handleAddCategory = () => {
+    const trimmed = newCategory.trim();
+    if (!trimmed) return;
+    if (categories.includes(trimmed)) return;
+    const updated = [...categories, trimmed];
+    setCategories(updated);
+    handleChange('category', trimmed);
+    localStorage.setItem('kumashaurma-categories', JSON.stringify(updated));
+    setNewCategory('');
+    setShowNewCategory(false);
+  };
 
   const uploadImage = useUploadImage();
   const deleteImage = useDeleteImage();
@@ -467,12 +489,52 @@ const EditProductModal: React.FC<EditProductModalProps> = ({
                       label="Категория"
                       onChange={(e) => handleChange('category', e.target.value)}
                     >
-                      {CATEGORIES.map((cat) => (
+                      {categories.map((cat) => (
                         <MenuItem key={cat} value={cat}>{cat}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Box>
+
+                {showNewCategory ? (
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <TextField
+                      size="small"
+                      placeholder="Название категории"
+                      value={newCategory}
+                      onChange={(e) => setNewCategory(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') handleAddCategory(); }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      autoFocus
+                    />
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={handleAddCategory}
+                      disabled={!newCategory.trim()}
+                      sx={{ borderRadius: '9999px', px: 2 }}
+                    >
+                      Добавить
+                    </Button>
+                    <Button
+                      variant="text"
+                      size="small"
+                      onClick={() => { setShowNewCategory(false); setNewCategory(''); }}
+                      sx={{ color: 'text.secondary' }}
+                    >
+                      Отмена
+                    </Button>
+                  </Box>
+                ) : (
+                  <Button
+                    variant="text"
+                    size="small"
+                    onClick={() => setShowNewCategory(true)}
+                    sx={{ color: 'primary.main', textTransform: 'none', p: 0 }}
+                  >
+                    + Новая категория
+                  </Button>
+                )}
 
                 <TextField
                   fullWidth
