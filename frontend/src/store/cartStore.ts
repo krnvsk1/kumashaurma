@@ -1,22 +1,23 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import type { Shawarma, CartItem, SelectedAddon } from '../types';
+import type { Shawarma, CartItem, SelectedAddon, ProductVariant } from '../types';
 
-// Функция для создания уникального ключа на основе выбранных добавок
-const generateUniqueKey = (id: number, selectedAddons: SelectedAddon[]): string => {
-  if (!selectedAddons || selectedAddons.length === 0) return `item-${id}-no-addons`;
+// Функция для создания уникального ключа на основе выбранных добавок и варианта
+const generateUniqueKey = (id: number, selectedAddons: SelectedAddon[], variantId?: number): string => {
+  const variantPart = variantId ? `v${variantId}` : 'no-variant';
+  if (!selectedAddons || selectedAddons.length === 0) return `item-${id}-${variantPart}-no-addons`;
   
   // Сортируем по ID добавки для консистентности
   const sorted = [...selectedAddons].sort((a, b) => a.addonId - b.addonId);
   const addonsPart = sorted.map(a => `${a.addonId}:${a.quantity}`).join('|');
-  return `item-${id}-${addonsPart}`;
+  return `item-${id}-${variantPart}-${addonsPart}`;
 };
 
 interface CartStore {
   items: CartItem[];
   
   // Добавление товара с добавками
-  addItem: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions?: string) => void;
+  addItem: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions?: string, selectedVariant?: ProductVariant) => void;
   
   // Удаление товара
   removeItem: (uniqueKey: string) => void;
@@ -36,19 +37,19 @@ export const useCartStore = create<CartStore>()(
     (set, get) => ({
       items: [],
       
-      addItem: (product, quantity, selectedAddons, instructions = '') => {
-        console.log('🛒 Добавление в корзину:', { product, quantity, selectedAddons, instructions });
+      addItem: (product, quantity, selectedAddons, instructions = '', selectedVariant) => {
+        console.log('Добавление в корзину:', { product, quantity, selectedAddons, instructions, selectedVariant });
         
         const items = get().items;
-        const uniqueKey = generateUniqueKey(product.id, selectedAddons);
+        const uniqueKey = generateUniqueKey(product.id, selectedAddons, selectedVariant?.id);
         
-        console.log('🆔 Уникальный ключ:', uniqueKey);
+        console.log('Уникальный ключ:', uniqueKey);
         
         // Ищем существующую позицию с таким же ключом
         const existingIndex = items.findIndex(item => item.uniqueKey === uniqueKey);
         
         if (existingIndex >= 0) {
-          console.log('📦 Найдена существующая позиция');
+          console.log('Найдена существующая позиция');
           // Обновляем существующую позицию
           const updatedItems = [...items];
           updatedItems[existingIndex] = {
@@ -58,19 +59,20 @@ export const useCartStore = create<CartStore>()(
           };
           set({ items: updatedItems });
         } else {
-          console.log('➕ Добавляем новую позицию');
+          console.log('Добавляем новую позицию');
           // Добавляем новую позицию
           const newItem: CartItem = {
             ...product,
             quantity,
             selectedAddons,
+            selectedVariant,
             specialInstructions: instructions,
             uniqueKey
           };
           set({ items: [...items, newItem] });
         }
         
-        console.log('📊 Текущая корзина:', get().items);
+        console.log('Текущая корзина:', get().items);
       },
       
       removeItem: (uniqueKey) => {
@@ -120,7 +122,8 @@ export const useTotalItems = () => {
 export const useTotalPrice = () => {
   const items = useCartStore(state => state.items);
   return Math.round(items.reduce((sum, item) => {
+    const basePrice = item.selectedVariant?.price ?? item.price;
     const addonsPrice = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
-    return sum + (item.price + addonsPrice) * item.quantity;
+    return sum + (basePrice + addonsPrice) * item.quantity;
   }, 0));
 };

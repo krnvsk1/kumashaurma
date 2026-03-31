@@ -71,7 +71,8 @@ namespace Kumashaurma.API.Controllers
         public async Task<IActionResult> GetAll()
         {
             var shawarmas = await _context.Shawarmas
-                .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ИЗОБРАЖЕНИЯ
+                .Include(s => s.Images)
+                .Include(s => s.Variants)
                 .OrderBy(s => s.SortOrder)
                 .ThenBy(s => s.Name)
                 .ToListAsync();
@@ -83,7 +84,8 @@ namespace Kumashaurma.API.Controllers
         public async Task<IActionResult> GetById(int id)
         {
             var shawarma = await _context.Shawarmas
-                .Include(s => s.Images)  // 👈 И ЗДЕСЬ ТОЖЕ
+                .Include(s => s.Images)
+                .Include(s => s.Variants)
                 .FirstOrDefaultAsync(s => s.Id == id);
                 
             if (shawarma == null)
@@ -94,18 +96,47 @@ namespace Kumashaurma.API.Controllers
 
         [HttpPost]
         [Authorize(Roles = "admin,manager")]
-        public async Task<IActionResult> Create([FromBody] Shawarma shawarma)
+        public async Task<IActionResult> Create([FromBody] CreateShawarmaRequest request)
         {
-            if (string.IsNullOrEmpty(shawarma.Name))
+            if (string.IsNullOrEmpty(request.Name))
                 return BadRequest("Name is required");
-                
-            shawarma.CreatedAt = DateTime.UtcNow;
+
+            var shawarma = new Shawarma
+            {
+                Name = request.Name,
+                Price = request.Price,
+                Description = request.Description ?? string.Empty,
+                Category = request.Category ?? "Курица",
+                IsSpicy = request.IsSpicy,
+                HasCheese = request.HasCheese,
+                IsAvailable = request.IsAvailable,
+                IsPromo = request.IsPromo,
+                CreatedAt = DateTime.UtcNow,
+            };
+
+            // Добавляем варианты, если есть
+            if (request.Variants != null && request.Variants.Any())
+            {
+                for (int i = 0; i < request.Variants.Count; i++)
+                {
+                    var v = request.Variants[i];
+                    shawarma.Variants.Add(new ProductVariant
+                    {
+                        Name = v.Name,
+                        Price = v.Price,
+                        SortOrder = i,
+                    });
+                }
+                // Если есть варианты, цена товара = минимальная из вариантов
+                shawarma.Price = shawarma.Variants.OrderBy(v => v.Price).First().Price;
+            }
+
             _context.Shawarmas.Add(shawarma);
             await _context.SaveChangesAsync();
             
-            // Загружаем созданный товар с изображениями (их пока нет)
             var created = await _context.Shawarmas
                 .Include(s => s.Images)
+                .Include(s => s.Variants)
                 .FirstOrDefaultAsync(s => s.Id == shawarma.Id);
                 
             return CreatedAtAction(nameof(GetById), new { id = shawarma.Id }, created);
@@ -113,27 +144,64 @@ namespace Kumashaurma.API.Controllers
 
         [HttpPut("{id}")]
         [Authorize(Roles = "admin,manager")]
-        public async Task<IActionResult> Update(int id, [FromBody] Shawarma updatedShawarma)
+        public async Task<IActionResult> Update(int id, [FromBody] UpdateShawarmaRequest request)
         {
             var shawarma = await _context.Shawarmas
-                .Include(s => s.Images)  // 👈 ЗАГРУЖАЕМ ДЛЯ ОТВЕТА
+                .Include(s => s.Images)
+                .Include(s => s.Variants)
                 .FirstOrDefaultAsync(s => s.Id == id);
                 
             if (shawarma == null)
                 return NotFound();
-                
-            shawarma.Name = updatedShawarma.Name ?? shawarma.Name;
-            shawarma.Price = updatedShawarma.Price;
-            shawarma.Description = updatedShawarma.Description ?? shawarma.Description;
-            shawarma.Category = updatedShawarma.Category ?? shawarma.Category;
-            shawarma.IsSpicy = updatedShawarma.IsSpicy;
-            shawarma.HasCheese = updatedShawarma.HasCheese;
-            shawarma.IsAvailable = updatedShawarma.IsAvailable;
-            shawarma.IsPromo = updatedShawarma.IsPromo;
+
+            shawarma.Name = request.Name ?? shawarma.Name;
+            shawarma.Description = request.Description ?? shawarma.Description;
+            shawarma.Category = request.Category ?? shawarma.Category;
+            shawarma.IsSpicy = request.IsSpicy ?? shawarma.IsSpicy;
+            shawarma.HasCheese = request.HasCheese ?? shawarma.HasCheese;
+            shawarma.IsAvailable = request.IsAvailable ?? shawarma.IsAvailable;
+            shawarma.IsPromo = request.IsPromo ?? shawarma.IsPromo;
             shawarma.UpdatedAt = DateTime.UtcNow;
+
+            // Обновляем варианты
+            if (request.Variants != null)
+            {
+                // Удаляем старые варианты
+                _context.ProductVariants.RemoveRange(shawarma.Variants);
+                shawarma.Variants.Clear();
+
+                // Добавляем новые
+                for (int i = 0; i < request.Variants.Count; i++)
+                {
+                    var v = request.Variants[i];
+                    shawarma.Variants.Add(new ProductVariant
+                    {
+                        Name = v.Name,
+                        Price = v.Price,
+                        SortOrder = i,
+                    });
+                }
+            }
+
+            // Обновляем цену = минимальная из вариантов или переданная
+            if (shawarma.Variants.Any())
+            {
+                shawarma.Price = request.Price > 0 ? request.Price : shawarma.Variants.OrderBy(v => v.Price).First().Price;
+            }
+            else
+            {
+                shawarma.Price = request.Price;
+            }
             
             await _context.SaveChangesAsync();
-            return Ok(shawarma);
+            
+            // Перезагружаем с включёнными связями
+            var updated = await _context.Shawarmas
+                .Include(s => s.Images)
+                .Include(s => s.Variants)
+                .FirstOrDefaultAsync(s => s.Id == id);
+            
+            return Ok(updated);
         }
 
         [HttpDelete("{id}")]
@@ -142,11 +210,11 @@ namespace Kumashaurma.API.Controllers
         {
             var shawarma = await _context.Shawarmas
                 .Include(s => s.Images)
+                .Include(s => s.Variants)
                 .FirstOrDefaultAsync(s => s.Id == id);
             if (shawarma == null)
                 return NotFound();
 
-            // Удаляем физические файлы изображений
             if (shawarma.Images != null && shawarma.Images.Any())
             {
                 var uploadsFolder = Path.Combine(_environment.WebRootPath ?? "wwwroot", "uploads");
@@ -164,6 +232,39 @@ namespace Kumashaurma.API.Controllers
             await _context.SaveChangesAsync();
             
             return Ok(new { Message = $"Shawarma {id} deleted" });
+        }
+
+        // DTOs for create/update with variants
+        public class VariantDto
+        {
+            public string Name { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+        }
+
+        public class CreateShawarmaRequest
+        {
+            public string Name { get; set; } = string.Empty;
+            public decimal Price { get; set; }
+            public string? Description { get; set; }
+            public string? Category { get; set; }
+            public bool? IsSpicy { get; set; }
+            public bool? HasCheese { get; set; }
+            public bool? IsAvailable { get; set; }
+            public bool? IsPromo { get; set; }
+            public List<VariantDto>? Variants { get; set; }
+        }
+
+        public class UpdateShawarmaRequest
+        {
+            public string? Name { get; set; }
+            public decimal Price { get; set; }
+            public string? Description { get; set; }
+            public string? Category { get; set; }
+            public bool? IsSpicy { get; set; }
+            public bool? HasCheese { get; set; }
+            public bool? IsAvailable { get; set; }
+            public bool? IsPromo { get; set; }
+            public List<VariantDto>? Variants { get; set; }
         }
     }
 }

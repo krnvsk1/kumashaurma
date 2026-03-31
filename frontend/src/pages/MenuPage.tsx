@@ -34,7 +34,7 @@ import {
 import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
 import { useShawarmas } from '../api/hooks';
-import type { Shawarma, SelectedAddon } from '../types';
+import type { Shawarma, SelectedAddon, ProductVariant } from '../types';
 import ProductModal from '../components/ProductModal';
 import OrderModal from '../components/OrderModal';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
@@ -97,8 +97,8 @@ const MenuPage: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => {
-    addToCart(product, quantity, selectedAddons, instructions);
+  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedVariant?: ProductVariant) => {
+    addToCart(product, quantity, selectedAddons, instructions, selectedVariant);
   };
 
   const categoryRefs = useRef<Map<string, HTMLElement>>(new Map());

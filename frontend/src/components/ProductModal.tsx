@@ -24,7 +24,7 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
-import type { Shawarma, Addon, SelectedAddon, AddonCategory } from '../types';
+import type { Shawarma, Addon, SelectedAddon, AddonCategory, ProductVariant } from '../types';
 import { useShawarmaAddons } from '../hooks/useAddons';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -32,7 +32,7 @@ interface ProductModalProps {
   open: boolean;
   onClose: () => void;
   product: Shawarma | null;
-  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => void;
+  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedVariant?: ProductVariant) => void;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({
@@ -47,6 +47,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<Map<number, SelectedAddon[]>>(new Map());
   const [specialInstructions, setSpecialInstructions] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   
   const { data: addonCategories, isLoading } = useShawarmaAddons(product?.id);
 
@@ -55,6 +56,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setQuantity(1);
       setSelectedAddons(new Map());
       setSpecialInstructions('');
+      setSelectedVariant(null);
     }
   }, [open, product]);
 
@@ -133,6 +135,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
       alert(`Пожалуйста, выберите ${missingRequired.join(', ')}`);
       return;
     }
+
+    if (product.variants && product.variants.length > 0 && !selectedVariant) {
+      alert('Пожалуйста, выберите вариант товара');
+      return;
+    }
   
     // Собираем все выбранные добавки в один массив
     const allSelectedAddons = Array.from(selectedAddons.values()).flat();
@@ -144,7 +151,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
       specialInstructions
     });
     
-    onAddToCart(product, quantity, allSelectedAddons, specialInstructions);
+    onAddToCart(product, quantity, allSelectedAddons, specialInstructions, selectedVariant || undefined);
     onClose();
   };
 
@@ -154,7 +161,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
     .flat()
     .reduce((sum: number, addon: SelectedAddon) => sum + addon.price * addon.quantity, 0);
   
-  const totalPrice = (product.price + addonsTotal) * quantity;
+  const basePrice = selectedVariant ? selectedVariant.price : product.price;
+  const totalPrice = (basePrice + addonsTotal) * quantity;
 
   return (
     <Dialog 
@@ -229,8 +237,39 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <Grid size={{ xs: 7 }}>
                   {/* Цена и вес */}
                   <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                    от {product.price} ₽ • 300 г
+                    {basePrice} ₽ • 300 г
                   </Typography>
+
+                  {/* Варианты товара */}
+                  {product.variants && product.variants.length > 0 && (
+                    <Box sx={{ mb: 2 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                        Выберите вариант:
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                        {product.variants
+                          .sort((a, b) => a.sortOrder - b.sortOrder)
+                          .map((variant) => (
+                            <Chip
+                              key={variant.id}
+                              label={`${variant.name} — ${variant.price} ₽`}
+                              clickable
+                              onClick={() => setSelectedVariant(variant)}
+                              variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
+                              sx={{
+                                fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
+                                borderRadius: 2.5,
+                                borderColor: selectedVariant?.id === variant.id
+                                  ? 'primary.main'
+                                  : theme.palette.divider,
+                                borderWidth: 1.5,
+                                borderStyle: 'solid',
+                              }}
+                            />
+                          ))}
+                      </Box>
+                    </Box>
+                  )}
 
                   {/* Описание */}
                   <Typography variant="body1" color="text.secondary" paragraph>
@@ -352,8 +391,39 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 )}
                 
                 <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                  от {product.price} ₽ • 300 г
+                  {basePrice} ₽ • 300 г
                 </Typography>
+
+                {/* Варианты товара (мобильная версия) */}
+                {product.variants && product.variants.length > 0 && (
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
+                      Выберите вариант:
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      {product.variants
+                        .sort((a, b) => a.sortOrder - b.sortOrder)
+                        .map((variant) => (
+                          <Chip
+                            key={variant.id}
+                            label={`${variant.name} — ${variant.price} ₽`}
+                            clickable
+                            onClick={() => setSelectedVariant(variant)}
+                            variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
+                            sx={{
+                              fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
+                              borderRadius: 2.5,
+                              borderColor: selectedVariant?.id === variant.id
+                                ? 'primary.main'
+                                : theme.palette.divider,
+                              borderWidth: 1.5,
+                              borderStyle: 'solid',
+                            }}
+                          />
+                        ))}
+                    </Box>
+                  </Box>
+                )}
 
                 <Typography variant="body1" color="text.secondary" paragraph>
                   {product.description || 'Нет описания'}

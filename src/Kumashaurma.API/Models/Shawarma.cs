@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 
 namespace Kumashaurma.API.Models
 {
@@ -58,5 +59,13 @@ namespace Kumashaurma.API.Models
         
         // НОВОЕ: связь с добавками
         public ICollection<ShawarmaAddon> Addons { get; set; } = new List<ShawarmaAddon>();
+
+        // Варианты товара (разные размеры, виды мяса и т.д.)
+        public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
+
+        [NotMapped]
+        public decimal DisplayPrice => Variants != null && Variants.Any()
+            ? Variants.OrderBy(v => v.Price).First().Price
+            : Price;
     }
 }
