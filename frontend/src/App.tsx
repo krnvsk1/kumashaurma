@@ -74,6 +74,27 @@ function App() {
 
   const { isAuthenticated, hasRole, logout } = useAuthStore();
   const user = useAuthStore((state) => state.user);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const resetCustomerData = useOrderFlowStore((state) => state.resetCustomerData);
+
+  // При выходе — очищаем корзину и данные пользователя
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearCart();
+      resetCustomerData();
+    }
+  }, [isAuthenticated]);
+
+  // При смене аккаунта (изменился user.id) — сбрасываем и перезаполняем данные
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId && isAuthenticated && user) {
+      resetCustomerData();
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      if (name) setCustomerName(name);
+      if (user.phone) setPhone(user.phone);
+    }
+  }, [userId]);
 
   // При открытии модалки заказа — подставляем данные авторизованного пользователя
   useEffect(() => {
