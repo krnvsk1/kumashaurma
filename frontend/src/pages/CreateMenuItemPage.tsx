@@ -462,6 +462,7 @@ const CreateMenuItemPage: React.FC = () => {
                   </MenuItem>
                 )}
               />
+            </Box>
 
             <TextField
               fullWidth
