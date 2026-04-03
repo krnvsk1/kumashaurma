@@ -25,7 +25,11 @@ struct ContentView: View {
             .tag(menuTag)
 
             NavigationStack {
-                isAdmin ? AdminOrdersView() : OrdersView()
+                if isAdmin {
+                    AdminOrdersView()
+                } else {
+                    OrdersView()
+                }
             }
             .tabItem {
                 Label("Заказы", systemImage: "bag")

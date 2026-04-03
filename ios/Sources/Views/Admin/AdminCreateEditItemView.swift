@@ -432,7 +432,6 @@ struct AdminCreateEditItemView: View {
         isPromo = item.isPromo
         variants = (item.variants ?? []).map {
             VariantFormData(
-                id: $0.id,
                 name: $0.name,
                 priceText: $0.price == floor($0.price)
                     ? "\(Int($0.price))"
