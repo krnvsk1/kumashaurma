@@ -20,6 +20,7 @@ interface OrderFlowState {
   setAddress: (address: string) => void;
   setCustomerName: (name: string) => void;
   setPhone: (phone: string) => void;
+  resetCustomerData: () => void;
 }
 
 export const useOrderFlowStore = create<OrderFlowState>()(
@@ -41,6 +42,7 @@ export const useOrderFlowStore = create<OrderFlowState>()(
       setAddress: (address) => set({ address }),
       setCustomerName: (name) => set({ customerName: name }),
       setPhone: (phone) => set({ phone }),
+      resetCustomerData: () => set({ customerName: '', phone: '' }),
     }),
     {
       name: 'order-flow-storage',

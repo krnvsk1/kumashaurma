@@ -32,15 +32,13 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
       sx={{
         display: 'flex',
         flexDirection: { xs: 'column', md: 'row' }, // на мобильных колонка, на десктопе ряд
-        borderRadius: { xs: 2, md: 4 }, // менее скруглённые углы на мобильных
+        borderRadius: { xs: 2, md: 3 },
         border: `1px solid ${theme.palette.divider}`,
-        boxShadow: 'none',
+        boxShadow: theme.palette.mode === 'light' ? '0 2px 8px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.3)',
         transition: 'all 0.2s ease',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: theme.palette.mode === 'light'
-            ? '0 20px 25px -5px rgba(0,0,0,0.05)'
-            : '0 20px 25px -5px rgba(0,0,0,0.3)',
+          boxShadow: '0 12px 24px rgba(0,0,0,0.12)',
           borderColor: 'primary.main',
         },
         height: '100%',
@@ -142,15 +140,18 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
           <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-            от {item.price} ₽
+            {item.variants && item.variants.length > 0
+              ? `от ${Math.min(...item.variants.map(v => v.price))} ₽`
+              : `${item.price} ₽`}
           </Typography>
           <IconButton
             size="small"
             sx={{
               bgcolor: 'primary.main',
               color: 'white',
-              width: { xs: 32, md: 36 },
-              height: { xs: 32, md: 36 },
+              width: { xs: 36, md: 40 },
+              height: { xs: 36, md: 40 },
+              borderRadius: '9999px',
               '&:hover': { bgcolor: 'primary.dark' },
             }}
           >

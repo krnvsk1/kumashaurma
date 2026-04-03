@@ -89,3 +89,19 @@ body {
 [data-theme="dark"] .border-subtle {
   border-color: #334155;
 }
+
+/* 👇 Hover оверлей для миниатюр изображений */
+.image-overlay {
+  opacity: 0 !important;
+  transition: opacity 0.2s ease !important;
+}
+
+.Paper-root:hover .image-overlay,
+[class*="MuiPaper"]:hover .image-overlay {
+  opacity: 1 !important;
+}
+
+/* 👇 Плавный фокус для полей ввода */
+.MuiOutlinedInput-root.Mui-focused {
+  transition: box-shadow 0.2s ease;
+}

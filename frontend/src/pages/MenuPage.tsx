@@ -34,7 +34,7 @@ import {
 import { Link } from 'react-router-dom';
 import MenuItemCard from '../components/MenuItemCard';
 import { useShawarmas } from '../api/hooks';
-import type { Shawarma, SelectedAddon } from '../types';
+import type { Shawarma, SelectedAddon, ProductVariant } from '../types';
 import ProductModal from '../components/ProductModal';
 import OrderModal from '../components/OrderModal';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
@@ -97,8 +97,8 @@ const MenuPage: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => {
-    addToCart(product, quantity, selectedAddons, instructions);
+  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedVariant?: ProductVariant) => {
+    addToCart(product, quantity, selectedAddons, instructions, selectedVariant);
   };
 
   const categoryRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -330,7 +330,7 @@ const MenuPage: React.FC = () => {
                         </InputAdornment>
                       ),
                     }}
-                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                    sx={{ '& .MuiOutlinedInput-root': { borderRadius: '9999px' } }}
                   />
                   {isAdminRole && (
                     <Button
@@ -338,7 +338,7 @@ const MenuPage: React.FC = () => {
                       to="/admin/create"
                       variant="contained"
                       startIcon={<AddIcon />}
-                      sx={{ borderRadius: 3, px: 4, whiteSpace: 'nowrap' }}
+                      sx={{ borderRadius: '9999px', px: 4, whiteSpace: 'nowrap' }}
                     >
                       Добавить товар
                     </Button>
@@ -456,7 +456,7 @@ const MenuPage: React.FC = () => {
                     </InputAdornment>
                   ),
                 }}
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: '9999px' } }}
               />
               {isAdminRole && (
                 <Button
@@ -464,7 +464,7 @@ const MenuPage: React.FC = () => {
                   to="/admin/create"
                   variant="contained"
                   startIcon={<AddIcon />}
-                  sx={{ borderRadius: 3, px: 4, whiteSpace: 'nowrap' }}
+                  sx={{ borderRadius: '9999px', px: 4, whiteSpace: 'nowrap' }}
                 >
                   Добавить товар
                 </Button>
@@ -499,6 +499,7 @@ const MenuPage: React.FC = () => {
                   onClick={() => scrollToCategory(cat.id)}
                   color={activeCategory === cat.id ? 'primary' : 'default'}
                   variant={activeCategory === cat.id ? 'filled' : 'outlined'}
+                  sx={{ borderRadius: '9999px' }}
                 />
               ))}
             </Box>
@@ -593,6 +594,7 @@ const MenuPage: React.FC = () => {
               right: 16,
               zIndex: 1000,
               boxShadow: 4,
+              borderRadius: '9999px',
             }}
           >
             <Badge badgeContent={totalItems} color="error" sx={{ mr: 1 }}>

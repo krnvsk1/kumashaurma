@@ -23,7 +23,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTheme } from './hooks/useTheme';
-import { useTotalItems, useTotalPrice } from './store/cartStore';
+import { useCartStore, useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
 import { useOrderFlowStore } from './store/orderFlowStore';
 import CartModal from './components/CartModal';
@@ -74,6 +74,27 @@ function App() {
 
   const { isAuthenticated, hasRole, logout } = useAuthStore();
   const user = useAuthStore((state) => state.user);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const resetCustomerData = useOrderFlowStore((state) => state.resetCustomerData);
+
+  // При выходе — очищаем корзину и данные пользователя
+  useEffect(() => {
+    if (!isAuthenticated) {
+      clearCart();
+      resetCustomerData();
+    }
+  }, [isAuthenticated]);
+
+  // При смене аккаунта (изменился user.id) — сбрасываем и перезаполняем данные
+  const userId = user?.id;
+  useEffect(() => {
+    if (userId && isAuthenticated && user) {
+      resetCustomerData();
+      const name = [user.firstName, user.lastName].filter(Boolean).join(' ');
+      if (name) setCustomerName(name);
+      if (user.phone) setPhone(user.phone);
+    }
+  }, [userId]);
 
   // При открытии модалки заказа — подставляем данные авторизованного пользователя
   useEffect(() => {
@@ -106,14 +127,15 @@ function App() {
     palette: {
       mode: themeMode,
       primary: {
-        main: '#ef4444',
+        main: themeMode === 'light' ? '#0891b2' : '#22d3ee',
+        dark: themeMode === 'light' ? '#0e7490' : '#0891b2',
       },
       secondary: {
-        main: '#fbbf24',
+        main: '#f59e0b',
       },
       background: {
-        default: themeMode === 'light' ? '#ffffff' : '#0f172a',
-        paper: themeMode === 'light' ? '#f8fafc' : '#1e293b',
+        default: themeMode === 'light' ? '#f1f5f9' : '#0b1120',
+        paper: themeMode === 'light' ? '#ffffff' : '#1e293b',
       },
       text: {
         primary: themeMode === 'light' ? '#0f172a' : '#f1f5f9',
@@ -179,8 +201,10 @@ function App() {
               sx={{
                 bgcolor: 'background.paper',
                 color: 'text.primary',
-                boxShadow: 'none',
-                borderBottom: `1px solid ${theme.palette.divider}`,
+                boxShadow: theme.palette.mode === 'light'
+                  ? '0 1px 3px rgba(0,0,0,0.08)'
+                  : '0 1px 3px rgba(0,0,0,0.3)',
+                zIndex: 2,
               }}
             >
               <Toolbar>
@@ -392,7 +416,7 @@ function App() {
                 mt: { xs: 2, sm: 4 },
                 mb: { xs: 2, sm: 4 },
                 flex: 1,
-                px: { xs: 2, sm: 3, md: 4 }
+                px: { xs: 2, sm: 3, md: 4 },
               }}
             >
               <Routes>

@@ -375,6 +375,46 @@ namespace Kumashaurma.API.Migrations
                     b.ToTable("order_item_addons");
                 });
 
+            modelBuilder.Entity("Kumashaurma.API.Models.ProductVariant", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasColumnName("id");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("timestamp with time zone")
+                        .HasColumnName("created_at")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("name");
+
+                    b.Property<decimal>("Price")
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("price");
+
+                    b.Property<int>("ShawarmaId")
+                        .HasColumnType("integer")
+                        .HasColumnName("shawarma_id");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer")
+                        .HasColumnName("sort_order");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShawarmaId");
+
+                    b.ToTable("product_variants");
+                });
+
             modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
                 {
                     b.Property<int>("Id")
@@ -850,6 +890,17 @@ namespace Kumashaurma.API.Migrations
                     b.Navigation("OrderItem");
                 });
 
+            modelBuilder.Entity("Kumashaurma.API.Models.ProductVariant", b =>
+                {
+                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
+                        .WithMany("Variants")
+                        .HasForeignKey("ShawarmaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Shawarma");
+                });
+
             modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
                 {
                     b.HasOne("Kumashaurma.API.Models.AppUser", "User")
@@ -985,6 +1036,8 @@ namespace Kumashaurma.API.Migrations
                     b.Navigation("Addons");
 
                     b.Navigation("Images");
+
+                    b.Navigation("Variants");
                 });
 #pragma warning restore 612, 618
         }

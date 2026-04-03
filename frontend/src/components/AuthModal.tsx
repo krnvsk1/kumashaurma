@@ -222,7 +222,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
       fullWidth
       PaperProps={{
         sx: {
-          borderRadius: 3,
+          borderRadius: 2,
           bgcolor: 'background.paper',
         },
       }}
@@ -276,7 +276,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               onClick={handleSendCode}
               disabled={loading || phone.length < 18}
               sx={{
-                borderRadius: 2,
+                borderRadius: '9999px',
                 py: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -321,7 +321,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               onClick={handleVerifyCode}
               disabled={loading || code.length !== 4}
               sx={{
-                borderRadius: 2,
+                borderRadius: '9999px',
                 py: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
@@ -382,7 +382,7 @@ export default function AuthModal({ open, onClose }: AuthModalProps) {
               onClick={handleRegister}
               disabled={loading || !firstName.trim()}
               sx={{
-                borderRadius: 2,
+                borderRadius: '9999px',
                 py: 1.5,
                 textTransform: 'none',
                 fontWeight: 600,
