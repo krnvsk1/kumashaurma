@@ -64,7 +64,7 @@ struct CartView: View {
                 MenuView()
             } label: {
                 HStack(spacing: 8) {
-                    Image(systemName: "fork.knife")
+                    Image(systemName: "takeoutbag.and.cup.and.straw")
                     Text("Перейти в меню")
                         .fontWeight(.semibold)
                 }
@@ -245,7 +245,7 @@ struct CartItemRow: View {
                 default:
                     ZStack {
                         Color.appBackground
-                        Image(systemName: "fork.knife")
+                        Image(systemName: "takeoutbag.and.cup.and.straw")
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .opacity(0.3)
@@ -258,7 +258,7 @@ struct CartItemRow: View {
         } else {
             ZStack {
                 Color.appBackground
-                Image(systemName: "fork.knife")
+                Image(systemName: "takeoutbag.and.cup.and.straw")
                     .font(.caption)
                     .foregroundColor(.secondary)
                     .opacity(0.3)

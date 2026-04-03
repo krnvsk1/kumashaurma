@@ -71,7 +71,7 @@ struct AuthView: View {
                     .fill(Color.appPrimary.opacity(0.12))
                     .frame(width: 96, height: 96)
 
-                Image(systemName: "fork.knife.fill")
+                Image(systemName: "takeoutbag.and.cup.and.straw")
                     .font(.system(size: 40))
                     .foregroundStyle(
                         .linearGradient(

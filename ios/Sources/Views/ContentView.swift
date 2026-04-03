@@ -11,7 +11,7 @@ struct ContentView: View {
                 MenuView()
             }
             .tabItem {
-                Label("Меню", systemImage: "fork.knife")
+                Label("Меню", systemImage: "takeoutbag.and.cup.and.straw")
             }
             .tag(0)
 

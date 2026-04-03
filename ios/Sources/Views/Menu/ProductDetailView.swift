@@ -103,7 +103,7 @@ struct ProductDetailView: View {
                 // Placeholder
                 ZStack {
                     Color.appBackground
-                    Image(systemName: "fork.knife")
+                    Image(systemName: "takeoutbag.and.cup.and.straw")
                         .font(.system(size: 48))
                         .foregroundColor(.secondary)
                         .opacity(0.3)

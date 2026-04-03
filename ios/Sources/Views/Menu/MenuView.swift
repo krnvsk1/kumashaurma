@@ -401,7 +401,7 @@ struct MenuProductCard: View {
     private var placeholderView: some View {
         ZStack {
             Color.appBackground
-            Image(systemName: "fork.knife")
+            Image(systemName: "takeoutbag.and.cup.and.straw")
                 .font(.system(size: 28))
                 .foregroundColor(.secondary)
                 .opacity(0.3)
