@@ -29,18 +29,8 @@ struct Shawarma: Codable, Identifiable, Sendable {
         return price
     }
 
-    enum CodingKeys: String, CodingKey {
-        case id, name, price, description, category
-        case isSpicy = "is_spicy"
-        case hasCheese = "has_cheese"
-        case isAvailable = "is_available"
-        case isPromo = "is_promo"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-        case images, variants
-        case sortOrder = "sort_order"
-    }
-
+    // Custom decoder with safe fallbacks
+    // convertFromSnakeCase in APIClient handles snake_case → camelCase conversion
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         id = try container.decode(Int.self, forKey: .id)
@@ -68,12 +58,6 @@ struct ProductVariant: Codable, Identifiable, Sendable {
     let name: String
     let price: Double
     let sortOrder: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, price
-        case shawarmaId = "shawarma_id"
-        case sortOrder = "sort_order"
-    }
 }
 
 // MARK: - ShawarmaImage
@@ -85,11 +69,6 @@ struct ShawarmaImage: Codable, Identifiable, Sendable {
     let filePath: String
     let isPrimary: Bool
     let createdAt: String?
-
-    enum CodingKeys: String, CodingKey {
-        case id, fileName, filePath, isPrimary, createdAt
-        case shawarmaId = "shawarma_id"
-    }
 }
 
 // MARK: - AddonCategory
@@ -106,17 +85,6 @@ struct AddonCategory: Codable, Identifiable, Sendable {
     let createdAt: String?
     let updatedAt: String?
     let addons: [Addon]?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, description, addons
-        case displayOrder = "display_order"
-        case isRequired = "is_required"
-        case minSelections = "min_selections"
-        case maxSelections = "max_selections"
-        case isActive = "is_active"
-        case createdAt = "created_at"
-        case updatedAt = "updated_at"
-    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -146,15 +114,6 @@ struct Addon: Codable, Identifiable, Sendable {
     let addonCategoryId: Int?
     let maxQuantity: Int?
     let isDefault: Bool?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, description, price
-        case displayOrder = "display_order"
-        case isAvailable = "is_available"
-        case addonCategoryId = "addon_category_id"
-        case maxQuantity = "max_quantity"
-        case isDefault = "is_default"
-    }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
@@ -195,13 +154,6 @@ struct User: Codable, Identifiable, Sendable {
         let last = (lastName?.first ?? Character("")).uppercased()
         return first + last
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id, phone, roles
-        case firstName = "first_name"
-        case lastName = "last_name"
-        case phoneVerified = "phone_verified"
-    }
 }
 
 // MARK: - Order
@@ -222,17 +174,6 @@ struct Order: Codable, Identifiable, Sendable {
     var orderStatus: OrderStatus {
         OrderStatus(rawValue: status) ?? .new
     }
-
-    enum CodingKeys: String, CodingKey {
-        case id, total, status, notes
-        case userId = "user_id"
-        case customerName = "customer_name"
-        case address
-        case phone
-        case createdAt = "created_at"
-        case completedAt = "completed_at"
-        case orderItems = "order_items"
-    }
 }
 
 // MARK: - OrderItem
@@ -246,13 +187,6 @@ struct OrderItem: Codable, Identifiable, Sendable {
     let price: Double
     let subtotal: Double?
     let selectedAddons: [OrderItemAddon]?
-
-    enum CodingKeys: String, CodingKey {
-        case id, name, quantity, price, subtotal
-        case orderId = "order_id"
-        case shawarmaId = "shawarma_id"
-        case selectedAddons = "selected_addons"
-    }
 }
 
 // MARK: - OrderItemAddon
@@ -266,26 +200,15 @@ struct OrderItemAddon: Codable, Identifiable, Sendable {
     let addonCategoryName: String?
     let price: Double
     let quantity: Int
-
-    enum CodingKeys: String, CodingKey {
-        case id, price, quantity
-        case orderItemId = "order_item_id"
-        case addonId = "addon_id"
-        case addonName = "addon_name"
-        case addonCategoryId = "addon_category_id"
-        case addonCategoryName = "addon_category_name"
-    }
 }
 
-// MARK: - OrderStatus
+// MARK: - OrderStatus (matches backend)
 
 enum OrderStatus: String, Sendable {
     case new = "Новый"
-    case accepted = "Принят"
     case cooking = "Готовится"
     case ready = "Готов"
-    case delivering = "В пути"
-    case completed = "Выполнен"
+    case delivered = "Доставлен"
     case cancelled = "Отменён"
 
     var displayName: String { rawValue }
@@ -293,19 +216,17 @@ enum OrderStatus: String, Sendable {
     var color: String {
         switch self {
         case .new: return "#6B7280"        // gray
-        case .accepted: return "#0891B2"   // cyan
-        case .cooking: return "#F59E0B"    // amber
-        case .ready: return "#22C55E"      // green
-        case .delivering: return "#3B82F6" // blue
-        case .completed: return "#10B981"  // emerald
-        case .cancelled: return "#EF4444"  // red
+        case .cooking: return "#F59E0B"     // amber
+        case .ready: return "#22C55E"       // green
+        case .delivered: return "#0891B2"   // cyan
+        case .cancelled: return "#EF4444"   // red
         }
     }
 }
 
-// MARK: - CartItem
+// MARK: - CartItem (Codable for UserDefaults persistence)
 
-struct CartItem: Identifiable, Sendable {
+struct CartItem: Identifiable, Sendable, Codable {
     let id: UUID
     let shawarma: Shawarma
     let quantity: Int
@@ -333,9 +254,9 @@ struct CartItem: Identifiable, Sendable {
     }
 }
 
-// MARK: - SelectedAddon
+// MARK: - SelectedAddon (Codable for UserDefaults persistence)
 
-struct SelectedAddon: Identifiable, Sendable {
+struct SelectedAddon: Identifiable, Sendable, Codable {
     let id: UUID
     let addonId: Int
     let name: String
@@ -368,27 +289,16 @@ struct AuthResponse: Codable {
     let refreshToken: String?
     let expiresAt: String?
     let user: User?
-
-    enum CodingKeys: String, CodingKey {
-        case success, message, user
-        case accessToken = "access_token"
-        case refreshToken = "refresh_token"
-        case expiresAt = "expires_at"
-    }
 }
 
 struct SendCodeResponse: Codable {
     let success: Bool
     let message: String?
     let retryAfter: Int?
-
-    enum CodingKeys: String, CodingKey {
-        case success, message
-        case retryAfter = "retry_after"
-    }
 }
 
 // MARK: - Auth DTOs (Request)
+// Encoded with convertToSnakeCase — camelCase properties auto-converted
 
 struct SendCodeRequest: Encodable {
     let phone: String
@@ -403,20 +313,10 @@ struct RegisterRequest: Encodable {
     let phone: String
     let firstName: String
     let lastName: String
-
-    enum CodingKeys: String, CodingKey {
-        case phone
-        case firstName = "first_name"
-        case lastName = "last_name"
-    }
 }
 
 struct RefreshRequest: Encodable {
     let refreshToken: String
-
-    enum CodingKeys: String, CodingKey {
-        case refreshToken = "refresh_token"
-    }
 }
 
 // MARK: - Order DTOs (Request)
@@ -427,24 +327,15 @@ struct CreateOrderRequest: Encodable {
     let address: String
     let notes: String?
     let items: [CreateOrderItem]
-
-    enum CodingKeys: String, CodingKey {
-        case customerName = "customer_name"
-        case phone, address, notes, items
-    }
 }
 
 struct CreateOrderItem: Encodable {
     let shawarmaId: Int
     let name: String
     let quantity: Int
+    let variantId: Int?
+    let variantName: String?
     let selectedAddons: [CreateOrderAddon]?
-
-    enum CodingKeys: String, CodingKey {
-        case name, quantity
-        case shawarmaId = "shawarma_id"
-        case selectedAddons = "selected_addons"
-    }
 }
 
 struct CreateOrderAddon: Encodable {

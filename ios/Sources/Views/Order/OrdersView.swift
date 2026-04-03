@@ -228,11 +228,9 @@ struct StatusBadge: View {
     private var statusColor: Color {
         switch status {
         case .new: return .gray
-        case .accepted: return .appPrimary
         case .cooking: return .appAccent
         case .ready: return .appSuccess
-        case .delivering: return .blue
-        case .completed: return .green
+        case .delivered: return .appPrimary
         case .cancelled: return .appError
         }
     }

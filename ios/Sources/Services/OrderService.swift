@@ -24,6 +24,8 @@ final class OrderService: ObservableObject {
                 shawarmaId: item.shawarma.id,
                 name: item.shawarma.name,
                 quantity: item.quantity,
+                variantId: item.selectedVariant?.id,
+                variantName: item.selectedVariant?.name,
                 selectedAddons: item.selectedAddons.map { addon in
                     CreateOrderAddon(addonId: addon.addonId, quantity: addon.quantity)
                 }

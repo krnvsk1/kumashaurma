@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 // MARK: - Cart Service
 
@@ -34,7 +33,6 @@ final class CartService: ObservableObject {
             item.selectedAddons.map(\.addonId).sorted() == selectedAddons.map(\.addonId).sorted()
         }) {
             var updated = items[index]
-            // Create a new CartItem with incremented quantity
             items[index] = CartItem(
                 shawarma: updated.shawarma,
                 quantity: updated.quantity + quantity,
@@ -88,15 +86,20 @@ final class CartService: ObservableObject {
     // MARK: - Persistence
 
     func load() {
-        if let data = UserDefaults.standard.data(forKey: "cart_items"),
-           let decoded = try? JSONDecoder().decode([CartItem].self, from: data) {
-            items = decoded
-            recalculate()
+        if let data = UserDefaults.standard.data(forKey: "cart_items") {
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+            if let decoded = try? decoder.decode([CartItem].self, from: data) {
+                items = decoded
+                recalculate()
+            }
         }
     }
 
     func save() {
-        if let data = try? JSONEncoder().encode(items) {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        if let data = try? encoder.encode(items) {
             UserDefaults.standard.set(data, forKey: "cart_items")
         }
     }

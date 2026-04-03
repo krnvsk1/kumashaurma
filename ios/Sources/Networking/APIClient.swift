@@ -54,6 +54,7 @@ class APIClient {
     }
 
     // MARK: - Generic Request
+
     private func request<T: Decodable>(
         path: String,
         method: String = "GET",
@@ -75,6 +76,7 @@ class APIClient {
 
         if let body = body {
             let encoder = JSONEncoder()
+            // convertToSnakeCase: camelCase properties → snake_case JSON keys
             encoder.keyEncodingStrategy = .convertToSnakeCase
             request.httpBody = try encoder.encode(body)
         }
@@ -88,6 +90,8 @@ class APIClient {
         switch httpResponse.statusCode {
         case 200...299:
             let decoder = JSONDecoder()
+            // convertFromSnakeCase: snake_case JSON keys → camelCase properties
+            // Models use plain camelCase CodingKeys (auto-synthesized)
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             return try decoder.decode(T.self, from: data)
         case 401:
@@ -113,8 +117,10 @@ class APIClient {
     }
 
     // MARK: - Auth
+
     func sendCode(phone: String) async throws {
-        let _: AuthResponse = try await request(
+        // sendCode returns { success, message, retryAfter? }
+        let _: SendCodeResponse = try await request(
             path: "/auth/send-code",
             method: "POST",
             body: SendCodeRequest(phone: phone)
@@ -192,6 +198,7 @@ class APIClient {
     }
 
     // MARK: - Menu
+
     func getCategories() async throws -> [String] {
         try await request(path: "/shawarma/categories")
     }
@@ -209,12 +216,14 @@ class APIClient {
     }
 
     // MARK: - Images
+
     func getImageURL(_ filePath: String) -> URL? {
         let base = baseURL.replacingOccurrences(of: "/api", with: "")
         return URL(string: base + filePath)
     }
 
     // MARK: - Orders
+
     func createOrder(request: CreateOrderRequest) async throws -> Order {
         try await request(path: "/orders", method: "POST", body: request)
     }
