@@ -310,6 +310,11 @@ struct AuthView: View {
 
     // MARK: - Actions
 
+    /// Backend requires format: +7 (999) 123-45-67
+    private var formattedPhone: String {
+        formatPhone(phone)
+    }
+
     private func sendCode() {
         Task {
             isLoading = true
@@ -317,7 +322,7 @@ struct AuthView: View {
             defer { isLoading = false }
 
             do {
-                _ = try await authService.sendCode(phone: phone)
+                _ = try await authService.sendCode(phone: formattedPhone)
                 withAnimation(.spring(response: 0.3)) {
                     step = .code
                 }
@@ -334,7 +339,7 @@ struct AuthView: View {
             defer { isLoading = false }
 
             do {
-                let isNewUser = try await authService.verifyCode(phone: phone, code: code)
+                let isNewUser = try await authService.verifyCode(phone: formattedPhone, code: code)
                 if isNewUser {
                     withAnimation(.spring(response: 0.3)) {
                         step = .register
@@ -355,7 +360,7 @@ struct AuthView: View {
             defer { isLoading = false }
 
             do {
-                _ = try await authService.sendCode(phone: phone)
+                _ = try await authService.sendCode(phone: formattedPhone)
                 code = ""
             } catch {
                 errorMessage = "Не удалось отправить код"
@@ -371,7 +376,7 @@ struct AuthView: View {
 
             do {
                 try await authService.register(
-                    phone: phone,
+                    phone: formattedPhone,
                     firstName: firstName.trimmingCharacters(in: .whitespaces),
                     lastName: lastName.trimmingCharacters(in: .whitespaces)
                 )
