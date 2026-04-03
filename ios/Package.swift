@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Kumashaurma",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v16), .macOS(.v13)],
     products: [
         .executable(
             name: "Kumashaurma",
