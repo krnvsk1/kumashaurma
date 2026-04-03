@@ -242,11 +242,11 @@ struct MenuView: View {
         defer { isLoading = false }
 
         do {
-            async let categoriesTask = try await APIClient.shared.getCategories()
-            async let menuTask = try await APIClient.shared.getMenu()
+            async let categoriesTask = APIClient.shared.getCategories()
+            async let menuTask = APIClient.shared.getMenu()
 
-            categories = await categoriesTask
-            shawarmas = await menuTask
+            categories = try await categoriesTask
+            shawarmas = try await menuTask
         } catch {
             errorMessage = "Не удалось загрузить меню. Проверьте подключение."
             showError = true
