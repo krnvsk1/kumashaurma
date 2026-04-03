@@ -14,12 +14,12 @@ struct AdminDashboardView: View {
                 if isLoading {
                     ProgressView("Загрузка...")
                         .padding(.top, 60)
-                } else if let error = errorMessage, !error.isEmpty {
+                } else if !errorMessage.isEmpty {
                     VStack(spacing: 12) {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.largeTitle)
                             .foregroundColor(.appError)
-                        Text(error)
+                        Text(errorMessage)
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
