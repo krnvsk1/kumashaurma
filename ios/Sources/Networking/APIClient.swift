@@ -28,16 +28,21 @@ enum APIError: LocalizedError {
     }
 }
 
-class APIClient {
+final class APIClient: @unchecked Sendable {
     static let shared = APIClient()
+    private let lock = NSLock()
 
     private let baseURL: String
     private let session: URLSession
+    private var _accessToken: String?
     private var accessToken: String? {
-        didSet { UserDefaults.standard.set(accessToken, forKey: "accessToken") }
+        get { lock.withLock { _accessToken } }
+        set { lock.withLock { _accessToken = newValue; UserDefaults.standard.set(newValue, forKey: "accessToken") } }
     }
+    private var _refreshToken: String?
     private var refreshToken: String? {
-        didSet { UserDefaults.standard.set(refreshToken, forKey: "refreshToken") }
+        get { lock.withLock { _refreshToken } }
+        set { lock.withLock { _refreshToken = newValue; UserDefaults.standard.set(newValue, forKey: "refreshToken") } }
     }
 
     var isAuthenticated: Bool { accessToken != nil }
@@ -49,8 +54,10 @@ class APIClient {
         config.timeoutIntervalForResource = 60
         self.session = URLSession(configuration: config)
 
-        self.accessToken = UserDefaults.standard.string(forKey: "accessToken")
-        self.refreshToken = UserDefaults.standard.string(forKey: "refreshToken")
+        lock.withLock {
+            _accessToken = UserDefaults.standard.string(forKey: "accessToken")
+            _refreshToken = UserDefaults.standard.string(forKey: "refreshToken")
+        }
     }
 
     // MARK: - Generic Request
@@ -62,7 +69,7 @@ class APIClient {
         queryItems: [URLQueryItem]? = nil
     ) async throws -> T {
         guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
-        var components = URLComponents(url: url)
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
         if let items = queryItems { components.queryItems = items }
         guard let finalURL = components.url else { throw APIError.invalidURL }
 
@@ -70,7 +77,7 @@ class APIClient {
         request.httpMethod = method
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
-        if let token = accessToken {
+        if let token = self.accessToken {
             request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
@@ -168,18 +175,18 @@ class APIClient {
     }
 
     func logout() async throws {
-        guard let refresh = refreshToken else { return }
-        let _: APIResponse<EmptyResponse> = try await request(
+        guard let refresh = self.refreshToken else { return }
+        let _: APIResponse<EmptyResponse> = try await self.request(
             path: "/auth/logout",
             method: "POST",
             body: RefreshRequest(refreshToken: refresh)
         )
-        accessToken = nil
-        refreshToken = nil
+        self.accessToken = nil
+        self.refreshToken = nil
     }
 
     private func refreshTokens() async throws -> Bool {
-        guard let refresh = refreshToken else { return false }
+        guard let refresh = self.refreshToken else { return false }
 
         let response: AuthResponse = try await request(
             path: "/auth/refresh",
@@ -224,8 +231,8 @@ class APIClient {
 
     // MARK: - Orders
 
-    func createOrder(request: CreateOrderRequest) async throws -> Order {
-        try await request(path: "/orders", method: "POST", body: request)
+    func createOrder(orderRequest: CreateOrderRequest) async throws -> Order {
+        try await self.request(path: "/orders", method: "POST", body: orderRequest)
     }
 
     func getMyOrders() async throws -> [Order] {

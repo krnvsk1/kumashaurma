@@ -256,7 +256,7 @@ struct CartItem: Identifiable, Sendable, Codable {
 
 // MARK: - SelectedAddon (Codable for UserDefaults persistence)
 
-struct SelectedAddon: Identifiable, Sendable, Codable {
+struct SelectedAddon: Identifiable, Hashable, Sendable, Codable {
     let id: UUID
     let addonId: Int
     let name: String
