@@ -118,11 +118,11 @@ struct AdminDashboardView: View {
         isLoading = true
         errorMessage = ""
 
-        async let statsTask: () = { stats = try? await APIClient.shared.getOrderStats() }()
-        async let ordersTask: () = { recentOrders = (try? await APIClient.shared.getAllOrders()) ?? [] }()
+        async let statsTask = APIClient.shared.getOrderStats()
+        async let ordersTask = APIClient.shared.getAllOrders()
 
-        await statsTask
-        await ordersTask
+        stats = (try? await statsTask)
+        recentOrders = (try? await ordersTask) ?? []
 
         isLoading = false
         if stats == nil && recentOrders.isEmpty {

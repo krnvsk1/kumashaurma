@@ -36,9 +36,9 @@ struct AdminUserManagementView: View {
                 Spacer()
                 ProgressView("Загрузка пользователей...")
                 Spacer()
-            } else if let error = errorMessage, !error.isEmpty, users.isEmpty {
+            } else if !errorMessage.isEmpty, users.isEmpty {
                 Spacer()
-                errorView(error)
+                errorView(errorMessage)
                 Spacer()
             } else if filteredUsers.isEmpty && !searchText.isEmpty {
                 Spacer()

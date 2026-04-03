@@ -109,7 +109,7 @@ struct AdminAddonManagementView: View {
             AddonCategoryFormView(
                 category: editingCategory,
                 onSave: { request in
-                    await saveCategory(request: request)
+                    Task { await saveCategory(request: request) }
                 }
             )
         }
@@ -120,7 +120,7 @@ struct AdminAddonManagementView: View {
                     addon: editingAddon,
                     categoryId: categoryId,
                     onSave: { request in
-                        await saveAddon(request: request)
+                        Task { await saveAddon(request: request) }
                     }
                 )
             }
