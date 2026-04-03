@@ -75,22 +75,22 @@ final class APIClient: @unchecked Sendable {
         if let items = queryItems { components.queryItems = items }
         guard let finalURL = components.url else { throw APIError.invalidURL }
 
-        var request = URLRequest(url: finalURL)
-        request.httpMethod = method
-        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        var urlRequest = URLRequest(url: finalURL)
+        urlRequest.httpMethod = method
+        urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         if let token = self.accessToken {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         }
 
         if let body = body {
             let encoder = JSONEncoder()
             // convertToSnakeCase: camelCase properties → snake_case JSON keys
             encoder.keyEncodingStrategy = .convertToSnakeCase
-            request.httpBody = try encoder.encode(body)
+            urlRequest.httpBody = try encoder.encode(body)
         }
 
-        let (data, response) = try await session.data(for: request)
+        let (data, response) = try await session.data(for: urlRequest)
 
         guard let httpResponse = response as? HTTPURLResponse else {
             throw APIError.invalidResponse
