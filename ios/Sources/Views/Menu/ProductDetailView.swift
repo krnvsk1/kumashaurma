@@ -539,7 +539,7 @@ struct ProductDetailView: View {
     }
 
     private func loadAddons() {
-        guard let id = shawarma.id else { return }
+        let id = shawarma.id
         isLoadingAddons = true
         Task {
             do {
