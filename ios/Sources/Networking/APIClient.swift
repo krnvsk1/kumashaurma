@@ -69,7 +69,9 @@ final class APIClient: @unchecked Sendable {
         queryItems: [URLQueryItem]? = nil
     ) async throws -> T {
         guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
-        var components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
         if let items = queryItems { components.queryItems = items }
         guard let finalURL = components.url else { throw APIError.invalidURL }
 

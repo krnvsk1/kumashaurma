@@ -40,7 +40,7 @@ final class OrderService: ObservableObject {
             items: items
         )
 
-        return try await api.createOrder(request: request)
+        return try await api.createOrder(orderRequest: request)
     }
 
     // MARK: - Fetch Orders
