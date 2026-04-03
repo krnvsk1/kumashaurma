@@ -553,23 +553,4 @@ struct VariantFormData: Identifiable {
     }
 }
 
-// MARK: - Error Banner
 
-private struct ErrorBanner: View {
-    let message: String
-
-    var body: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "exclamationmark.triangle.fill")
-                .font(.caption)
-            Text(message)
-                .font(.caption)
-                .lineLimit(3)
-        }
-        .foregroundColor(.appError)
-        .padding(12)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.appError.opacity(0.1))
-        .cornerRadius(10)
-    }
-}
