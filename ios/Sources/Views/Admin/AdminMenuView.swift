@@ -6,6 +6,9 @@ struct AdminMenuView: View {
     @State private var shawarmas: [Shawarma] = []
     @State private var isLoading = true
     @State private var errorMessage: String = ""
+    @State private var showCreateSheet = false
+    @State private var editingShawarma: Shawarma? = nil
+    @State private var shawarmaToDelete: Shawarma? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -22,17 +25,41 @@ struct AdminMenuView: View {
                     Text("Меню пусто")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
+                    Button("Добавить блюдо") {
+                        showCreateSheet = true
+                    }
+                    .foregroundColor(.appPrimary)
                 }
                 Spacer()
             } else {
                 List {
                     ForEach(shawarmas) { shawarma in
-                        AdminMenuItemRow(shawarma: shawarma) { newValue in
-                            Task { await toggleAvailability(id: shawarma.id, isAvailable: newValue) }
+                        NavigationLink {
+                            AdminCreateEditItemView(shawarma: shawarma) {
+                                Task { await loadMenu() }
+                            }
+                        } label: {
+                            AdminMenuItemRow(shawarma: shawarma) { newValue in
+                                Task { await toggleAvailability(id: shawarma.id, isAvailable: newValue) }
+                            }
                         }
                         .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
                         .listRowSeparator(.hidden)
                         .listRowBackground(Color.clear)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button(role: .destructive) {
+                                shawarmaToDelete = shawarma
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
+                            }
+
+                            Button {
+                                editingShawarma = shawarma
+                            } label: {
+                                Label("Изменить", systemImage: "pencil")
+                            }
+                            .tint(.appPrimary)
+                        }
                     }
                 }
                 .listStyle(.plain)
@@ -43,15 +70,54 @@ struct AdminMenuView: View {
         .toolbarBackground(.visible, for: .navigationBar)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
-                Button {
-                    Task { await loadMenu() }
-                } label: {
-                    Image(systemName: "arrow.clockwise")
+                HStack(spacing: 12) {
+                    Button {
+                        showCreateSheet = true
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+
+                    Button {
+                        Task { await loadMenu() }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                    }
                 }
             }
         }
         .task { await loadMenu() }
         .refreshable { await loadMenu() }
+        .sheet(isPresented: $showCreateSheet) {
+            NavigationStack {
+                AdminCreateEditItemView(shawarma: nil) {
+                    showCreateSheet = false
+                    Task { await loadMenu() }
+                }
+            }
+        }
+        .sheet(item: $editingShawarma) { shawarma in
+            NavigationStack {
+                AdminCreateEditItemView(shawarma: shawarma) {
+                    editingShawarma = nil
+                    Task { await loadMenu() }
+                }
+            }
+        }
+        .alert("Удалить блюдо?", isPresented: Binding(
+            get: { shawarmaToDelete != nil },
+            set: { if !$0 { shawarmaToDelete = nil } }
+        )) {
+            Button("Отмена", role: .cancel) { shawarmaToDelete = nil }
+            Button("Удалить", role: .destructive) {
+                if let item = shawarmaToDelete {
+                    Task { await deleteShawarma(item) }
+                }
+            }
+        } message: {
+            if let item = shawarmaToDelete {
+                Text("«\(item.name)» будет удалено безвозвратно")
+            }
+        }
     }
 
     private func loadMenu() async {
@@ -68,13 +134,19 @@ struct AdminMenuView: View {
     private func toggleAvailability(id: Int, isAvailable: Bool) async {
         do {
             try await APIClient.shared.updateShawarmaAvailability(id: id, isAvailable: isAvailable)
-            // Update local state
-            if let index = shawarmas.firstIndex(where: { $0.id == id }) {
-                // Since Shawarma properties are let, we need to refetch
-                await loadMenu()
-            }
+            await loadMenu()
         } catch {
-            await loadMenu() // Refresh to revert UI state
+            await loadMenu()
+        }
+    }
+
+    private func deleteShawarma(_ shawarma: Shawarma) async {
+        do {
+            try await APIClient.shared.deleteShawarma(id: shawarma.id)
+            shawarmaToDelete = nil
+            await loadMenu()
+        } catch {
+            errorMessage = error.localizedDescription
         }
     }
 }

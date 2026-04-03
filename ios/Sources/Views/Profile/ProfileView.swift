@@ -61,6 +61,46 @@ struct ProfileView: View {
                 }
             }
 
+            // Admin section
+            if authService.isAdmin {
+                Section("Администрирование") {
+                    NavigationLink {
+                        AdminDashboardView()
+                    } label: {
+                        Label("Панель управления", systemImage: "chart.bar.fill")
+                            .font(.subheadline)
+                    }
+
+                    NavigationLink {
+                        AdminMenuView()
+                    } label: {
+                        Label("Управление меню", systemImage: "square.grid.2x2")
+                            .font(.subheadline)
+                    }
+
+                    NavigationLink {
+                        AdminOrdersView()
+                    } label: {
+                        Label("Управление заказами", systemImage: "list.clipboard")
+                            .font(.subheadline)
+                    }
+
+                    NavigationLink {
+                        AdminUserManagementView()
+                    } label: {
+                        Label("Пользователи", systemImage: "person.2")
+                            .font(.subheadline)
+                    }
+
+                    NavigationLink {
+                        AdminAddonManagementView()
+                    } label: {
+                        Label("Добавки и дополнения", systemImage: "puzzlepiece.extension")
+                            .font(.subheadline)
+                    }
+                }
+            }
+
             // Role badge
             if authService.currentUser?.roles?.contains("admin") == true
                 || authService.currentUser?.roles?.contains("manager") == true {

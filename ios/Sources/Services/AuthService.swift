@@ -24,6 +24,26 @@ final class AuthService: ObservableObject {
 
     private init() {
         isAuthenticated = APIClient.shared.isAuthenticated
+        // Validate saved token on app launch
+        if isAuthenticated {
+            Task { await validateSession() }
+        }
+    }
+
+    // MARK: - Session Validation
+
+    /// Validates the current token by calling /auth/me.
+    /// Called on app launch — if token is invalid, redirects to auth.
+    private func validateSession() async {
+        do {
+            let user = try await APIClient.shared.getMe()
+            currentUser = user
+            isAuthenticated = true
+        } catch {
+            // Token invalid or expired — redirect to auth
+            currentUser = nil
+            isAuthenticated = false
+        }
     }
 
     // MARK: - Auth Methods
@@ -85,13 +105,12 @@ final class AuthService: ObservableObject {
         do {
             let user = try await APIClient.shared.getMe()
             currentUser = user
-            isAuthenticated = true
         } catch APIError.unauthorized {
-            // Only reset auth on actual 401 — token expired or revoked
+            // Don't redirect to auth — just clear user data
+            // The session will be re-validated on next app launch
             currentUser = nil
-            isAuthenticated = false
         } catch {
-            // Network error, server error — don't log out, keep session
+            // Network error, server error — keep session
         }
     }
 }

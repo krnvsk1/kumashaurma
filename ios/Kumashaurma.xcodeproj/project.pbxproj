@@ -27,6 +27,9 @@
                 A10018 /* AdminOrderDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10024; };
                 A10019 /* AdminOrdersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10025; };
                 A10020 /* AdminMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10026; };
+                A10021 /* AdminCreateEditItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
+                A10022 /* AdminUserManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10028; };
+                A10023 /* AdminAddonManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -53,6 +56,9 @@
                 B10024 /* AdminOrderDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminOrderDetailView.swift; sourceTree = "<group>"; };
                 B10025 /* AdminOrdersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminOrdersView.swift; sourceTree = "<group>"; };
                 B10026 /* AdminMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminMenuView.swift; sourceTree = "<group>"; };
+                B10027 /* AdminCreateEditItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminCreateEditItemView.swift; sourceTree = "<group>"; };
+                B10028 /* AdminUserManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminUserManagementView.swift; sourceTree = "<group>"; };
+                B10029 /* AdminAddonManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAddonManagementView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -144,6 +150,9 @@
                                 B10024 /* AdminOrderDetailView.swift */,
                                 B10025 /* AdminOrdersView.swift */,
                                 B10026 /* AdminMenuView.swift */,
+                                B10027 /* AdminCreateEditItemView.swift */,
+                                B10028 /* AdminUserManagementView.swift */,
+                                B10029 /* AdminAddonManagementView.swift */,
                         );
                         path = Admin;
                         sourceTree = "<group>";
@@ -296,6 +305,9 @@
                                 A10018 /* AdminOrderDetailView.swift in Sources */,
                                 A10019 /* AdminOrdersView.swift in Sources */,
                                 A10020 /* AdminMenuView.swift in Sources */,
+                                A10021 /* AdminCreateEditItemView.swift in Sources */,
+                                A10022 /* AdminUserManagementView.swift in Sources */,
+                                A10023 /* AdminAddonManagementView.swift in Sources */,
                         );
                         runOnlyForDeploymentPostprocessing = 0;
                 };

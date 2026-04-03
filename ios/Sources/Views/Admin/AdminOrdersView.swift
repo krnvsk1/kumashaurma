@@ -7,6 +7,7 @@ struct AdminOrdersView: View {
     @State private var isLoading = true
     @State private var errorMessage: String = ""
     @State private var selectedStatus: String? = nil
+    @State private var searchText: String = ""
 
     private let statusFilters: [String?] = [nil, "Новый", "Готовится", "Готов", "Доставлен", "Отменён"]
 
@@ -34,18 +35,30 @@ struct AdminOrdersView: View {
                 .padding(.vertical, 12)
             }
 
+            // Orders count
+            if !isLoading && !orders.isEmpty {
+                HStack {
+                    Text("Показано: \(filteredOrders.count) из \(orders.count)")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                    Spacer()
+                }
+                .padding(.horizontal, 16)
+                .padding(.bottom, 4)
+            }
+
             // Orders list
             if isLoading {
                 Spacer()
                 ProgressView("Загрузка заказов...")
                 Spacer()
-            } else if orders.isEmpty {
+            } else if filteredOrders.isEmpty {
                 Spacer()
                 VStack(spacing: 12) {
-                    Image(systemName: "tray")
+                    Image(systemName: searchText.isEmpty ? "tray" : "magnifyingglass")
                         .font(.title2)
                         .foregroundColor(.secondary)
-                    Text("Заказов пока нет")
+                    Text(searchText.isEmpty ? "Заказов пока нет" : "Ничего не найдено")
                         .font(.subheadline)
                         .foregroundColor(.secondary)
                 }
@@ -69,6 +82,7 @@ struct AdminOrdersView: View {
         .navigationTitle("Все заказы")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
+        .searchable(text: $searchText, prompt: "Поиск по ID, имени, телефону")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -83,8 +97,24 @@ struct AdminOrdersView: View {
     }
 
     private var filteredOrders: [Order] {
-        guard let status = selectedStatus else { return orders }
-        return orders.filter { $0.status == status }
+        var result = orders
+
+        // Filter by status
+        if let status = selectedStatus {
+            result = result.filter { $0.status == status }
+        }
+
+        // Filter by search text
+        if !searchText.isEmpty {
+            let query = searchText.lowercased()
+            result = result.filter { order in
+                order.customerName.lowercased().contains(query) ||
+                order.phone.lowercased().contains(query) ||
+                "\(order.id)".contains(query)
+            }
+        }
+
+        return result
     }
 
     private func loadOrders() async {

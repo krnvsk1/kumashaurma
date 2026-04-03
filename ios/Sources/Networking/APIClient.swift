@@ -85,7 +85,6 @@ final class APIClient: @unchecked Sendable {
 
         if let body = body {
             let encoder = JSONEncoder()
-            // convertToSnakeCase: camelCase properties → snake_case JSON keys
             encoder.keyEncodingStrategy = .convertToSnakeCase
             urlRequest.httpBody = try encoder.encode(body)
         }
@@ -99,8 +98,6 @@ final class APIClient: @unchecked Sendable {
         switch httpResponse.statusCode {
         case 200...299:
             let decoder = JSONDecoder()
-            // convertFromSnakeCase: snake_case JSON keys → camelCase properties
-            // Models use plain camelCase CodingKeys (auto-synthesized)
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             return try decoder.decode(T.self, from: data)
         case 401:
@@ -125,10 +122,46 @@ final class APIClient: @unchecked Sendable {
         }
     }
 
+    // MARK: - Raw Request (for multipart / special cases)
+
+    private func rawRequest(
+        path: String,
+        method: String = "GET",
+        body: Data? = nil,
+        contentType: String = "application/json",
+        queryItems: [URLQueryItem]? = nil
+    ) async throws -> (Data, HTTPURLResponse) {
+        guard let url = URL(string: baseURL + path) else { throw APIError.invalidURL }
+        guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            throw APIError.invalidURL
+        }
+        if let items = queryItems { components.queryItems = items }
+        guard let finalURL = components.url else { throw APIError.invalidURL }
+
+        var urlRequest = URLRequest(url: finalURL)
+        urlRequest.httpMethod = method
+        urlRequest.setValue(contentType, forHTTPHeaderField: "Content-Type")
+
+        if let token = self.accessToken {
+            urlRequest.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+
+        if let body = body {
+            urlRequest.httpBody = body
+        }
+
+        let (data, response) = try await session.data(for: urlRequest)
+
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw APIError.invalidResponse
+        }
+
+        return (data, httpResponse)
+    }
+
     // MARK: - Auth
 
     func sendCode(phone: String) async throws {
-        // sendCode returns { success, message, retryAfter? }
         let _: SendCodeResponse = try await request(
             path: "/auth/send-code",
             method: "POST",
@@ -224,11 +257,83 @@ final class APIClient: @unchecked Sendable {
         try await request(path: "/addons/shawarma/\(shawarmaId)")
     }
 
+    // MARK: - Admin: Menu CRUD
+
+    func createShawarma(request: CreateShawarmaRequest) async throws -> Shawarma {
+        try await request(path: "/shawarma", method: "POST", body: request)
+    }
+
+    func updateShawarma(id: Int, request: UpdateShawarmaRequest) async throws -> Shawarma {
+        try await request(path: "/shawarma/\(id)", method: "PUT", body: request)
+    }
+
+    func deleteShawarma(id: Int) async throws {
+        let _: APIResponse<EmptyResponse> = try await request(path: "/shawarma/\(id)", method: "DELETE")
+    }
+
+    func updateShawarmaAvailability(id: Int, isAvailable: Bool) async throws {
+        struct AvailabilityRequest: Encodable {
+            let isAvailable: Bool
+        }
+        let _: APIResponse<Shawarma> = try await request(path: "/shawarma/\(id)", method: "PUT", body: AvailabilityRequest(isAvailable: isAvailable))
+    }
+
     // MARK: - Images
 
     func getImageURL(_ filePath: String) -> URL? {
         let base = baseURL.replacingOccurrences(of: "/api", with: "")
         return URL(string: base + filePath)
+    }
+
+    func getShawarmaImages(shawarmaId: Int) async throws -> [ImageInfo] {
+        try await request(path: "/image/shawarma/\(shawarmaId)")
+    }
+
+    func uploadImage(shawarmaId: Int, imageData: Data, fileName: String) async throws -> ImageUploadResponse {
+        let boundary = UUID().uuidString
+        let contentType = "multipart/form-data; boundary=\(boundary)"
+
+        var body = Data()
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileName)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: image/jpeg\r\n\r\n".data(using: .utf8)!)
+        body.append(imageData)
+        body.append("\r\n".data(using: .utf8)!)
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        let (data, response) = try await rawRequest(
+            path: "/image/upload/\(shawarmaId)",
+            method: "POST",
+            body: body,
+            contentType: contentType
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка загрузки")
+        }
+
+        let decoder = JSONDecoder()
+        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        return try decoder.decode(ImageUploadResponse.self, from: data)
+    }
+
+    func deleteImage(id: Int) async throws {
+        let (data, response) = try await rawRequest(
+            path: "/image/\(id)",
+            method: "DELETE"
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка удаления")
+        }
     }
 
     // MARK: - Orders
@@ -262,19 +367,123 @@ final class APIClient: @unchecked Sendable {
         return try await request(path: "/orders/\(orderId)/status", method: "PATCH", body: StatusRequest(status: status))
     }
 
+    func updateOrder(orderId: Int, request: UpdateOrderRequest) async throws -> Order {
+        try await request(path: "/orders/\(orderId)", method: "PUT", body: request)
+    }
+
     func deleteOrder(orderId: Int) async throws {
-        struct EmptyResponse: Decodable {}
         let _: APIResponse<EmptyResponse> = try await request(path: "/orders/\(orderId)", method: "DELETE")
     }
 
-    // MARK: - Admin: Menu
+    // MARK: - Admin: Users
 
-    func updateShawarmaAvailability(id: Int, isAvailable: Bool) async throws {
-        struct AvailabilityRequest: Encodable {
-            let isAvailable: Bool
+    func getUsers() async throws -> [UserListItem] {
+        try await request(path: "/users")
+    }
+
+    func assignRole(userId: Int, role: String) async throws {
+        struct RoleRequest: Encodable {
+            let role: String
         }
-        // The PUT endpoint for shawarma takes a full update, we just send isAvailable
-        let _: APIResponse<Shawarma> = try await request(path: "/shawarma/\(id)", method: "PUT", body: AvailabilityRequest(isAvailable: isAvailable))
+        let _: APIResponse<EmptyResponse> = try await request(
+            path: "/users/\(userId)/roles",
+            method: "POST",
+            body: RoleRequest(role: role)
+        )
+    }
+
+    func removeRole(userId: Int, role: String) async throws {
+        let (data, response) = try await rawRequest(
+            path: "/users/\(userId)/roles/\(role)",
+            method: "DELETE"
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка")
+        }
+    }
+
+    // MARK: - Admin: Addons
+
+    func getAddonCategories() async throws -> [AddonCategory] {
+        try await request(path: "/addons/categories")
+    }
+
+    func createAddonCategory(request: CreateAddonCategoryRequest) async throws -> AddonCategory {
+        try await request(path: "/addons/categories", method: "POST", body: request)
+    }
+
+    func updateAddonCategory(id: Int, request: UpdateAddonCategoryRequest) async throws -> AddonCategory {
+        try await request(path: "/addons/categories/\(id)", method: "PUT", body: request)
+    }
+
+    func deleteAddonCategory(id: Int) async throws {
+        let (data, response) = try await rawRequest(
+            path: "/addons/categories/\(id)",
+            method: "DELETE"
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка")
+        }
+    }
+
+    func createAddon(request: CreateAddonRequest) async throws -> Addon {
+        try await request(path: "/addons", method: "POST", body: request)
+    }
+
+    func updateAddon(id: Int, request: UpdateAddonRequest) async throws -> Addon {
+        try await request(path: "/addons/\(id)", method: "PUT", body: request)
+    }
+
+    func deleteAddon(id: Int) async throws {
+        let (data, response) = try await rawRequest(
+            path: "/addons/\(id)",
+            method: "DELETE"
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка")
+        }
+    }
+
+    func linkAddonToShawarma(request: LinkAddonRequest) async throws {
+        let _: APIResponse<EmptyResponse> = try await request(
+            path: "/addons/link-to-shawarma",
+            method: "POST",
+            body: request
+        )
+    }
+
+    func unlinkAddonFromShawarma(shawarmaId: Int, addonId: Int) async throws {
+        let (data, response) = try await rawRequest(
+            path: "/addons/unlink-from-shawarma",
+            method: "DELETE",
+            queryItems: [
+                URLQueryItem(name: "shawarmaId", value: "\(shawarmaId)"),
+                URLQueryItem(name: "addonId", value: "\(addonId)")
+            ]
+        )
+
+        guard (200...299).contains(response.statusCode) else {
+            if let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+               let message = json["message"] as? String {
+                throw APIError.serverError(code: response.statusCode, message: message)
+            }
+            throw APIError.serverError(code: response.statusCode, message: "Ошибка")
+        }
     }
 }
 

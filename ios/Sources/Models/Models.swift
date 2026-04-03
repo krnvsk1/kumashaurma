@@ -351,3 +351,123 @@ struct CreateOrderAddon: Encodable {
     let addonId: Int
     let quantity: Int
 }
+
+// MARK: - Admin: Shawarma CRUD DTOs
+
+struct CreateShawarmaRequest: Encodable {
+    let name: String
+    let price: Double
+    let description: String?
+    let category: String?
+    let isSpicy: Bool?
+    let hasCheese: Bool?
+    let isAvailable: Bool?
+    let isPromo: Bool?
+    let variants: [VariantRequest]?
+}
+
+struct UpdateShawarmaRequest: Encodable {
+    let name: String?
+    let price: Double?
+    let description: String?
+    let category: String?
+    let isSpicy: Bool?
+    let hasCheese: Bool?
+    let isAvailable: Bool?
+    let isPromo: Bool?
+    let variants: [VariantRequest]?
+}
+
+struct VariantRequest: Encodable {
+    let name: String
+    let price: Double
+}
+
+// MARK: - Admin: Order Update DTO
+
+struct UpdateOrderRequest: Encodable {
+    let status: String?
+    let total: Double?
+}
+
+// MARK: - Admin: User Management DTOs
+
+struct UserListItem: Codable, Identifiable, Sendable {
+    let id: Int
+    let phone: String
+    let firstName: String?
+    let lastName: String?
+    let phoneVerified: Bool?
+    let roles: [String]?
+    let createdAt: String?
+
+    var displayName: String {
+        if let first = firstName, !first.isEmpty {
+            if let last = lastName, !last.isEmpty {
+                return "\(first) \(last)"
+            }
+            return first
+        }
+        return phone
+    }
+}
+
+// MARK: - Admin: Addon CRUD DTOs
+
+struct CreateAddonCategoryRequest: Encodable {
+    let name: String
+    let description: String?
+    let displayOrder: Int?
+    let isRequired: Bool?
+    let minSelections: Int?
+    let maxSelections: Int?
+}
+
+struct UpdateAddonCategoryRequest: Encodable {
+    let name: String
+    let description: String?
+    let isRequired: Bool?
+    let minSelections: Int?
+    let maxSelections: Int?
+    let displayOrder: Int?
+}
+
+struct CreateAddonRequest: Encodable {
+    let name: String
+    let description: String?
+    let price: Double
+    let addonCategoryId: Int
+    let isAvailable: Bool?
+    let displayOrder: Int?
+}
+
+struct UpdateAddonRequest: Encodable {
+    let name: String?
+    let description: String?
+    let price: Double?
+    let displayOrder: Int?
+    let isAvailable: Bool?
+}
+
+struct LinkAddonRequest: Encodable {
+    let shawarmaId: Int
+    let addonId: Int
+    let customPrice: Double?
+    let isDefault: Bool?
+    let maxQuantity: Int?
+}
+
+// MARK: - Admin: Image DTOs
+
+struct ImageInfo: Codable, Identifiable, Sendable {
+    let id: Int
+    let filePath: String
+    let isPrimary: Bool
+    let createdAt: String?
+}
+
+struct ImageUploadResponse: Codable {
+    let message: String?
+    let imagePath: String?
+    let isPrimary: Bool?
+}
