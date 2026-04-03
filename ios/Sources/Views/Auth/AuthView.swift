@@ -147,7 +147,7 @@ struct AuthView: View {
                 .focused($phoneFocused)
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
-                .onChange(of: phone) { _, newValue in
+                .onChange(of: phone) { newValue in
                     let filtered = newValue.filter { $0.isNumber || $0 == "+" }
                     if filtered != newValue {
                         phone = filtered
@@ -203,7 +203,7 @@ struct AuthView: View {
             // 4-digit code input
             OTPInputView(code: $code, maxLength: 4)
                 .focused($codeFocused)
-                .onChange(of: code) { _, newValue in
+                .onChange(of: code) { newValue in
                     if newValue.count == 4 && !isLoading {
                         verifyCode()
                     }
