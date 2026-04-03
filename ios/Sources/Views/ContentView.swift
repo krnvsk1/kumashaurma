@@ -7,23 +7,29 @@ struct ContentView: View {
 
     var body: some View {
         TabView(selection: $selectedTab) {
-            Tab("Меню", systemImage: "fork.knife", value: 0) {
-                NavigationStack {
-                    MenuView()
-                }
+            NavigationStack {
+                MenuView()
             }
+            .tabItem {
+                Label("Меню", systemImage: "fork.knife")
+            }
+            .tag(0)
 
-            Tab("Заказы", systemImage: "bag", value: 1) {
-                NavigationStack {
-                    OrdersView()
-                }
+            NavigationStack {
+                OrdersView()
             }
+            .tabItem {
+                Label("Заказы", systemImage: "bag")
+            }
+            .tag(1)
 
-            Tab("Профиль", systemImage: "person.crop.circle", value: 2) {
-                NavigationStack {
-                    ProfileView()
-                }
+            NavigationStack {
+                ProfileView()
             }
+            .tabItem {
+                Label("Профиль", systemImage: "person.crop.circle")
+            }
+            .tag(2)
         }
         .tint(.appPrimary)
     }
