@@ -244,6 +244,38 @@ final class APIClient: @unchecked Sendable {
     func getOrder(id: Int) async throws -> Order {
         try await request(path: "/orders/\(id)")
     }
+
+    // MARK: - Admin: Orders
+
+    func getAllOrders() async throws -> [Order] {
+        try await request(path: "/orders")
+    }
+
+    func getOrderStats() async throws -> OrderStats {
+        try await request(path: "/orders/stats")
+    }
+
+    func updateOrderStatus(orderId: Int, status: String) async throws -> Order {
+        struct StatusRequest: Encodable {
+            let status: String
+        }
+        return try await request(path: "/orders/\(orderId)/status", method: "PATCH", body: StatusRequest(status: status))
+    }
+
+    func deleteOrder(orderId: Int) async throws {
+        struct EmptyResponse: Decodable {}
+        let _: APIResponse<EmptyResponse> = try await request(path: "/orders/\(orderId)", method: "DELETE")
+    }
+
+    // MARK: - Admin: Menu
+
+    func updateShawarmaAvailability(id: Int, isAvailable: Bool) async throws {
+        struct AvailabilityRequest: Encodable {
+            let isAvailable: Bool
+        }
+        // The PUT endpoint for shawarma takes a full update, we just send isAvailable
+        let _: APIResponse<Shawarma> = try await request(path: "/shawarma/\(id)", method: "PUT", body: AvailabilityRequest(isAvailable: isAvailable))
+    }
 }
 
 private struct EmptyResponse: Codable {}

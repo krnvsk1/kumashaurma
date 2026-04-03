@@ -17,6 +17,11 @@ final class AuthService: ObservableObject {
         currentUser?.displayName ?? ""
     }
 
+    var isAdmin: Bool {
+        guard let roles = currentUser?.roles else { return false }
+        return roles.contains("admin") || roles.contains("manager")
+    }
+
     private init() {
         isAuthenticated = APIClient.shared.isAuthenticated
     }
@@ -81,9 +86,12 @@ final class AuthService: ObservableObject {
             let user = try await APIClient.shared.getMe()
             currentUser = user
             isAuthenticated = true
-        } catch {
+        } catch APIError.unauthorized {
+            // Only reset auth on actual 401 — token expired or revoked
             currentUser = nil
             isAuthenticated = false
+        } catch {
+            // Network error, server error — don't log out, keep session
         }
     }
 }

@@ -3,7 +3,16 @@ import SwiftUI
 // MARK: - Content View (Main Tab Navigation)
 
 struct ContentView: View {
+    @StateObject private var authService = AuthService.shared
     @State private var selectedTab = 0
+
+    private var isAdmin: Bool { authService.isAdmin }
+
+    // Adjust tab tags when admin tab is present
+    private var menuTag: Int { 0 }
+    private var ordersTag: Int { 1 }
+    private var profileTag: Int { isAdmin ? 3 : 2 }
+    private var adminTag: Int { 2 }
 
     var body: some View {
         TabView(selection: $selectedTab) {
@@ -13,15 +22,25 @@ struct ContentView: View {
             .tabItem {
                 Label("Меню", systemImage: "takeoutbag.and.cup.and.straw")
             }
-            .tag(0)
+            .tag(menuTag)
 
             NavigationStack {
-                OrdersView()
+                isAdmin ? AdminOrdersView() : OrdersView()
             }
             .tabItem {
                 Label("Заказы", systemImage: "bag")
             }
-            .tag(1)
+            .tag(ordersTag)
+
+            if isAdmin {
+                NavigationStack {
+                    AdminMenuView()
+                }
+                .tabItem {
+                    Label("Товары", systemImage: "square.grid.2x2")
+                }
+                .tag(adminTag)
+            }
 
             NavigationStack {
                 ProfileView()
@@ -29,7 +48,7 @@ struct ContentView: View {
             .tabItem {
                 Label("Профиль", systemImage: "person.crop.circle")
             }
-            .tag(2)
+            .tag(profileTag)
         }
         .tint(.appPrimary)
     }

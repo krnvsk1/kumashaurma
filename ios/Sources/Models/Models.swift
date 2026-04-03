@@ -280,6 +280,15 @@ struct APIResponse<T: Codable>: Codable {
     let data: T?
 }
 
+// MARK: - Order Stats
+
+struct OrderStats: Codable, Sendable {
+    let totalOrders: Int
+    let totalRevenue: Double
+    let todayOrders: Int
+    let averageOrderValue: Double
+}
+
 // MARK: - Auth DTOs (Response)
 
 struct AuthResponse: Codable {
