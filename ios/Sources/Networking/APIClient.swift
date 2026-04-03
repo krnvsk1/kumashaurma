@@ -62,7 +62,7 @@ final class APIClient: @unchecked Sendable {
 
     // MARK: - Generic Request
 
-    private func request<T: Decodable>(
+    private func performRequest<T: Decodable>(
         path: String,
         method: String = "GET",
         body: Encodable? = nil,
@@ -105,7 +105,7 @@ final class APIClient: @unchecked Sendable {
             let refreshed = try await refreshTokens()
             if refreshed {
                 // Retry the original request
-                return try await request(
+                return try await performRequest(
                     path: path,
                     method: method,
                     body: body,
@@ -162,7 +162,7 @@ final class APIClient: @unchecked Sendable {
     // MARK: - Auth
 
     func sendCode(phone: String) async throws {
-        let _: SendCodeResponse = try await request(
+        let _: SendCodeResponse = try await performRequest(
             path: "/auth/send-code",
             method: "POST",
             body: SendCodeRequest(phone: phone)
@@ -170,7 +170,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func verifyCode(phone: String, code: String) async throws -> AuthResponse {
-        let response: AuthResponse = try await request(
+        let response: AuthResponse = try await performRequest(
             path: "/auth/verify",
             method: "POST",
             body: VerifyRequest(phone: phone, code: code)
@@ -187,7 +187,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func register(firstName: String, lastName: String, phone: String) async throws -> AuthResponse {
-        let response: AuthResponse = try await request(
+        let response: AuthResponse = try await performRequest(
             path: "/auth/register",
             method: "POST",
             body: RegisterRequest(phone: phone, firstName: firstName, lastName: lastName)
@@ -204,14 +204,14 @@ final class APIClient: @unchecked Sendable {
     }
 
     func getMe() async throws -> User {
-        let response: APIResponse<User> = try await request(path: "/auth/me")
+        let response: APIResponse<User> = try await performRequest(path: "/auth/me")
         guard let user = response.data else { throw APIError.invalidResponse }
         return user
     }
 
     func logout() async throws {
         guard let refresh = self.refreshToken else { return }
-        let _: APIResponse<EmptyResponse> = try await self.request(
+        let _: APIResponse<EmptyResponse> = try await performRequest(
             path: "/auth/logout",
             method: "POST",
             body: RefreshRequest(refreshToken: refresh)
@@ -223,7 +223,7 @@ final class APIClient: @unchecked Sendable {
     private func refreshTokens() async throws -> Bool {
         guard let refresh = self.refreshToken else { return false }
 
-        let response: AuthResponse = try await request(
+        let response: AuthResponse = try await performRequest(
             path: "/auth/refresh",
             method: "POST",
             body: RefreshRequest(refreshToken: refresh)
@@ -242,40 +242,40 @@ final class APIClient: @unchecked Sendable {
     // MARK: - Menu
 
     func getCategories() async throws -> [String] {
-        try await request(path: "/shawarma/categories")
+        try await performRequest(path: "/shawarma/categories")
     }
 
     func getMenu() async throws -> [Shawarma] {
-        try await request(path: "/shawarma")
+        try await performRequest(path: "/shawarma")
     }
 
     func getShawarma(id: Int) async throws -> Shawarma {
-        try await request(path: "/shawarma/\(id)")
+        try await performRequest(path: "/shawarma/\(id)")
     }
 
     func getShawarmaAddons(shawarmaId: Int) async throws -> [AddonCategory] {
-        try await request(path: "/addons/shawarma/\(shawarmaId)")
+        try await performRequest(path: "/addons/shawarma/\(shawarmaId)")
     }
 
     // MARK: - Admin: Menu CRUD
 
     func createShawarma(request: CreateShawarmaRequest) async throws -> Shawarma {
-        try await request(path: "/shawarma", method: "POST", body: request)
+        try await performRequest(path: "/shawarma", method: "POST", body: request)
     }
 
     func updateShawarma(id: Int, request: UpdateShawarmaRequest) async throws -> Shawarma {
-        try await request(path: "/shawarma/\(id)", method: "PUT", body: request)
+        try await performRequest(path: "/shawarma/\(id)", method: "PUT", body: request)
     }
 
     func deleteShawarma(id: Int) async throws {
-        let _: APIResponse<EmptyResponse> = try await request(path: "/shawarma/\(id)", method: "DELETE")
+        let _: APIResponse<EmptyResponse> = try await performRequest(path: "/shawarma/\(id)", method: "DELETE")
     }
 
     func updateShawarmaAvailability(id: Int, isAvailable: Bool) async throws {
         struct AvailabilityRequest: Encodable {
             let isAvailable: Bool
         }
-        let _: APIResponse<Shawarma> = try await request(path: "/shawarma/\(id)", method: "PUT", body: AvailabilityRequest(isAvailable: isAvailable))
+        let _: APIResponse<Shawarma> = try await performRequest(path: "/shawarma/\(id)", method: "PUT", body: AvailabilityRequest(isAvailable: isAvailable))
     }
 
     // MARK: - Images
@@ -286,7 +286,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func getShawarmaImages(shawarmaId: Int) async throws -> [ImageInfo] {
-        try await request(path: "/image/shawarma/\(shawarmaId)")
+        try await performRequest(path: "/image/shawarma/\(shawarmaId)")
     }
 
     func uploadImage(shawarmaId: Int, imageData: Data, fileName: String) async throws -> ImageUploadResponse {
@@ -339,53 +339,53 @@ final class APIClient: @unchecked Sendable {
     // MARK: - Orders
 
     func createOrder(orderRequest: CreateOrderRequest) async throws -> Order {
-        try await self.request(path: "/orders", method: "POST", body: orderRequest)
+        try await performRequest(path: "/orders", method: "POST", body: orderRequest)
     }
 
     func getMyOrders() async throws -> [Order] {
-        try await request(path: "/orders/my")
+        try await performRequest(path: "/orders/my")
     }
 
     func getOrder(id: Int) async throws -> Order {
-        try await request(path: "/orders/\(id)")
+        try await performRequest(path: "/orders/\(id)")
     }
 
     // MARK: - Admin: Orders
 
     func getAllOrders() async throws -> [Order] {
-        try await request(path: "/orders")
+        try await performRequest(path: "/orders")
     }
 
     func getOrderStats() async throws -> OrderStats {
-        try await request(path: "/orders/stats")
+        try await performRequest(path: "/orders/stats")
     }
 
     func updateOrderStatus(orderId: Int, status: String) async throws -> Order {
         struct StatusRequest: Encodable {
             let status: String
         }
-        return try await request(path: "/orders/\(orderId)/status", method: "PATCH", body: StatusRequest(status: status))
+        return try await performRequest(path: "/orders/\(orderId)/status", method: "PATCH", body: StatusRequest(status: status))
     }
 
     func updateOrder(orderId: Int, request: UpdateOrderRequest) async throws -> Order {
-        try await request(path: "/orders/\(orderId)", method: "PUT", body: request)
+        try await performRequest(path: "/orders/\(orderId)", method: "PUT", body: request)
     }
 
     func deleteOrder(orderId: Int) async throws {
-        let _: APIResponse<EmptyResponse> = try await request(path: "/orders/\(orderId)", method: "DELETE")
+        let _: APIResponse<EmptyResponse> = try await performRequest(path: "/orders/\(orderId)", method: "DELETE")
     }
 
     // MARK: - Admin: Users
 
     func getUsers() async throws -> [UserListItem] {
-        try await request(path: "/users")
+        try await performRequest(path: "/users")
     }
 
     func assignRole(userId: Int, role: String) async throws {
         struct RoleRequest: Encodable {
             let role: String
         }
-        let _: APIResponse<EmptyResponse> = try await request(
+        let _: APIResponse<EmptyResponse> = try await performRequest(
             path: "/users/\(userId)/roles",
             method: "POST",
             body: RoleRequest(role: role)
@@ -410,15 +410,15 @@ final class APIClient: @unchecked Sendable {
     // MARK: - Admin: Addons
 
     func getAddonCategories() async throws -> [AddonCategory] {
-        try await request(path: "/addons/categories")
+        try await performRequest(path: "/addons/categories")
     }
 
     func createAddonCategory(request: CreateAddonCategoryRequest) async throws -> AddonCategory {
-        try await request(path: "/addons/categories", method: "POST", body: request)
+        try await performRequest(path: "/addons/categories", method: "POST", body: request)
     }
 
     func updateAddonCategory(id: Int, request: UpdateAddonCategoryRequest) async throws -> AddonCategory {
-        try await request(path: "/addons/categories/\(id)", method: "PUT", body: request)
+        try await performRequest(path: "/addons/categories/\(id)", method: "PUT", body: request)
     }
 
     func deleteAddonCategory(id: Int) async throws {
@@ -437,11 +437,11 @@ final class APIClient: @unchecked Sendable {
     }
 
     func createAddon(request: CreateAddonRequest) async throws -> Addon {
-        try await request(path: "/addons", method: "POST", body: request)
+        try await performRequest(path: "/addons", method: "POST", body: request)
     }
 
     func updateAddon(id: Int, request: UpdateAddonRequest) async throws -> Addon {
-        try await request(path: "/addons/\(id)", method: "PUT", body: request)
+        try await performRequest(path: "/addons/\(id)", method: "PUT", body: request)
     }
 
     func deleteAddon(id: Int) async throws {
@@ -460,7 +460,7 @@ final class APIClient: @unchecked Sendable {
     }
 
     func linkAddonToShawarma(request: LinkAddonRequest) async throws {
-        let _: APIResponse<EmptyResponse> = try await request(
+        let _: APIResponse<EmptyResponse> = try await performRequest(
             path: "/addons/link-to-shawarma",
             method: "POST",
             body: request
