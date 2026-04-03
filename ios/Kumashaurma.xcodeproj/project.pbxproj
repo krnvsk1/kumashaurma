@@ -167,7 +167,7 @@
                         children = (
                                 B10020 /* Assets.xcassets */,
                         );
-                        path = Resources;
+                        path = Kumashaurma/Resources;
                         sourceTree = "<group>";
                 };
                 E10003 /* Supporting Files */ = {
@@ -176,7 +176,7 @@
                                 B10021 /* Kumashaurma.entitlements */,
                                 B10022 /* Info.plist */,
                         );
-                        path = SupportingFiles;
+                        path = Kumashaurma/SupportingFiles;
                         sourceTree = "<group>";
                 };
                 E10004 /* Products */ = {
