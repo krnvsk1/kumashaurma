@@ -85,7 +85,6 @@ final class APIClient: @unchecked Sendable {
 
         if let body = body {
             let encoder = JSONEncoder()
-            encoder.keyEncodingStrategy = .convertToSnakeCase
             urlRequest.httpBody = try encoder.encode(body)
         }
 
