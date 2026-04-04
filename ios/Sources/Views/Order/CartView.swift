@@ -291,6 +291,7 @@ struct CartItemRow: View {
                     .font(.callout)
                     .foregroundColor(.appPrimary)
             }
+            .buttonStyle(.plain)
         }
     }
 }

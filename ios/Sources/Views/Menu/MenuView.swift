@@ -409,7 +409,7 @@ struct MenuProductCard: View {
     private var priceText: String {
         if let variants = shawarma.variants, !variants.isEmpty {
             let minPrice = variants.map(\.price).min() ?? 0
-            return "\(Int(minPrice)) ₽"
+            return "от \(Int(minPrice)) ₽"
         }
         return "\(Int(shawarma.price)) ₽"
     }

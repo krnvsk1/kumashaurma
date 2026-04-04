@@ -203,13 +203,6 @@ struct ProductDetailView: View {
                     Text(shawarma.name)
                         .font(.appTitle)
 
-                    if let variants = shawarma.variants, !variants.isEmpty {
-                        let minPrice = variants.map(\.price).min() ?? 0
-                        Text("\(Int(minPrice)) ₽")
-                            .font(.title3)
-                            .fontWeight(.semibold)
-                            .foregroundColor(.secondary)
-                    }
                 }
 
                 Spacer()
@@ -228,8 +221,15 @@ struct ProductDetailView: View {
                 .font(.title3)
             }
 
-            Text("\(Int(effectivePrice)) ₽")
-                .font(.appPrice)
+            // Price: show "от" only if variants exist, otherwise exact price
+            if let variants = shawarma.variants, !variants.isEmpty {
+                Text("от \(Int(variants.map(\.price).min() ?? 0)) ₽")
+                    .font(.appPrice)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("\(Int(shawarma.price)) ₽")
+                    .font(.appPrice)
+            }
 
             // Category tag
             if !shawarma.category.isEmpty {
