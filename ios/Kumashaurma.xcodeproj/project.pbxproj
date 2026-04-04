@@ -30,6 +30,8 @@
                 A10021 /* AdminCreateEditItemView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10027; };
                 A10022 /* AdminUserManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10028; };
                 A10023 /* AdminAddonManagementView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10029; };
+                A10024 /* ThemeManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10030; };
+                A10025 /* SideMenuView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B10031; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -59,6 +61,8 @@
                 B10027 /* AdminCreateEditItemView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminCreateEditItemView.swift; sourceTree = "<group>"; };
                 B10028 /* AdminUserManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminUserManagementView.swift; sourceTree = "<group>"; };
                 B10029 /* AdminAddonManagementView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdminAddonManagementView.swift; sourceTree = "<group>"; };
+                B10030 /* ThemeManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThemeManager.swift; sourceTree = "<group>"; };
+                B10031 /* SideMenuView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SideMenuView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +104,7 @@
                         children = (
                                 B10015 /* RootView.swift */,
                                 B10009 /* ContentView.swift */,
+                                B10031 /* SideMenuView.swift */,
                                 E10014 /* Admin */,
                                 E10006 /* Auth */,
                                 E10007 /* Menu */,
@@ -160,6 +165,7 @@
                 E10010 /* Theme */ = {
                         isa = PBXGroup;
                         children = (
+                                B10030 /* ThemeManager.swift */,
                                 B10007 /* AppTheme.swift */,
                         );
                         path = Theme;
@@ -308,6 +314,8 @@
                                 A10021 /* AdminCreateEditItemView.swift in Sources */,
                                 A10022 /* AdminUserManagementView.swift in Sources */,
                                 A10023 /* AdminAddonManagementView.swift in Sources */,
+                                A10024 /* ThemeManager.swift in Sources */,
+                                A10025 /* SideMenuView.swift in Sources */,
                         );
                         runOnlyForDeploymentPostprocessing = 0;
                 };
