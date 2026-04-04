@@ -76,10 +76,34 @@ struct CartView: View {
     // MARK: - Cart List View
 
     private var cartListView: some View {
-        VStack(spacing: 0) {
-            // Items count
+        List {
+            ForEach(cartService.items) { item in
+                CartItemRow(item: item) {
+                    // Tap to edit quantity (future: navigate to product detail)
+                }
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                .listRowSeparator(.hidden)
+                .listRowBackground(Color.clear)
+            }
+            .onDelete { indexSet in
+                for index in indexSet {
+                    withAnimation { cartService.removeItem(id: cartService.items[index].id) }
+                }
+            }
+        }
+        .listStyle(.plain)
+        .safeAreaInset(edge: .bottom) {
+            bottomTotalBar
+        }
+    }
+
+    // MARK: - Bottom Total Bar
+
+    private var bottomTotalBar: some View {
+        VStack(spacing: 12) {
+            // Items count & clear
             HStack {
-                Text("\(cartService.totalItems) \(cartService.totalItems == 1 ? "товар" : "товара")")
+                Text("\(cartService.totalItems) \(pluralItemText)")
                     .font(.subheadline)
                     .foregroundColor(.secondary)
                 Spacer()
@@ -89,71 +113,51 @@ struct CartView: View {
                 .font(.subheadline)
                 .foregroundColor(.appError)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
 
-            // Cart items list
-            List {
-                ForEach(cartService.items) { item in
-                    CartItemRow(item: item) {
-                        // Tap to edit quantity (future: navigate to product detail)
-                    }
-                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                    .listRowSeparator(.hidden)
-                    .listRowBackground(Color.clear)
-                }
-                .onDelete { indexSet in
-                    for index in indexSet {
-                        withAnimation { cartService.removeItem(id: cartService.items[index].id) }
-                    }
-                }
-            }
-            .listStyle(.plain)
-
-            // Bottom total bar
-            bottomTotalBar
-        }
-    }
-
-    // MARK: - Bottom Total Bar
-
-    private var bottomTotalBar: some View {
-        VStack(spacing: 0) {
             Divider()
 
-            VStack(spacing: 12) {
-                HStack {
-                    Text("Итого")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
+            HStack {
+                Text("Итого")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
 
-                    Spacer()
+                Spacer()
 
-                    Text("\(Int(cartService.totalPrice)) ₽")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                        .foregroundColor(.primary)
-                }
-
-                Button {
-                    showOrderSheet = true
-                } label: {
-                    HStack {
-                        Image(systemName: "paperplane.fill")
-                        Text("Оформить заказ")
-                            .fontWeight(.semibold)
-                    }
-                    .foregroundColor(.white)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(Color.appPrimary)
-                    .cornerRadius(14)
-                }
+                Text("\(Int(cartService.totalPrice)) ₽")
+                    .font(.title2)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
-            .background(.ultraThinMaterial)
+
+            Button {
+                showOrderSheet = true
+            } label: {
+                HStack {
+                    Image(systemName: "paperplane.fill")
+                    Text("Оформить заказ")
+                        .fontWeight(.semibold)
+                }
+                .foregroundColor(.white)
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 16)
+                .background(Color.appPrimary)
+                .cornerRadius(14)
+            }
         }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 16)
+        .background(.ultraThinMaterial)
+    }
+
+    private var pluralItemText: String {
+        let n = cartService.totalItems
+        let absN = abs(n)
+        let lastTwo = absN % 100
+        let lastOne = absN % 10
+        if lastTwo >= 11 && lastTwo <= 19 { return "товаров" }
+        if lastOne == 1 { return "товар" }
+        if lastOne >= 2 && lastOne <= 4 { return "товара" }
+        return "товаров"
     }
 }
 

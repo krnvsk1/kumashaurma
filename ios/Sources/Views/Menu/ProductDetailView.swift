@@ -204,7 +204,8 @@ struct ProductDetailView: View {
                         .font(.appTitle)
 
                     if let variants = shawarma.variants, !variants.isEmpty {
-                        Text("от \(Int(variants.map(\.price).min() ?? 0)) ₽")
+                        let minPrice = variants.map(\.price).min() ?? 0
+                        Text("\(Int(minPrice)) ₽")
                             .font(.title3)
                             .fontWeight(.semibold)
                             .foregroundColor(.secondary)
@@ -227,10 +228,8 @@ struct ProductDetailView: View {
                 .font(.title3)
             }
 
-            if selectedVariant != nil || shawarma.variants?.isEmpty != false {
-                Text("\(Int(effectivePrice)) ₽")
-                    .font(.appPrice)
-            }
+            Text("\(Int(effectivePrice)) ₽")
+                .font(.appPrice)
 
             // Category tag
             if !shawarma.category.isEmpty {
@@ -262,6 +261,7 @@ struct ProductDetailView: View {
                             variantChip(variant)
                         }
                     }
+                    .padding(.horizontal, 2)
                 }
             }
 
@@ -277,18 +277,19 @@ struct ProductDetailView: View {
                 selectedVariant = variant
             }
         } label: {
-            VStack(spacing: 4) {
+            VStack(spacing: 6) {
                 Text(variant.name)
                     .font(.subheadline)
-                    .fontWeight(isSelected ? .semibold : .regular)
+                    .fontWeight(isSelected ? .bold : .regular)
                     .foregroundColor(isSelected ? .white : .primary)
 
                 Text("\(Int(variant.price)) ₽")
                     .font(.caption)
+                    .fontWeight(isSelected ? .semibold : .regular)
                     .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
             .background(isSelected ? Color.appPrimary : Color(.systemGray6))
             .cornerRadius(12)
             .overlay(
@@ -298,6 +299,7 @@ struct ProductDetailView: View {
                         lineWidth: isSelected ? 2 : 1
                     )
             )
+            .scaleEffect(isSelected ? 1.03 : 1.0)
         }
         .buttonStyle(.plain)
     }
