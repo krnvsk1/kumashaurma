@@ -4,56 +4,71 @@ import SwiftUI
 
 struct ContentView: View {
     @StateObject private var authService = AuthService.shared
+    @StateObject private var themeManager = ThemeManager.shared
     @State private var selectedTab = 0
-
-    private var isAdmin: Bool { authService.isAdmin }
-
-    // Adjust tab tags when admin tab is present
-    private var menuTag: Int { 0 }
-    private var ordersTag: Int { 1 }
-    private var profileTag: Int { isAdmin ? 3 : 2 }
-    private var adminTag: Int { 2 }
+    @State private var showSideMenu = false
 
     var body: some View {
         TabView(selection: $selectedTab) {
+            // Tab 1: Меню
             NavigationStack {
                 MenuView()
             }
             .tabItem {
                 Label("Меню", systemImage: "takeoutbag.and.cup.and.straw")
             }
-            .tag(menuTag)
+            .tag(0)
 
+            // Tab 2: Корзина
             NavigationStack {
-                if isAdmin {
-                    AdminOrdersView()
-                } else {
-                    OrdersView()
-                }
+                CartView()
             }
             .tabItem {
-                Label("Заказы", systemImage: "bag")
+                Label("Корзина", systemImage: "cart.fill")
             }
-            .tag(ordersTag)
+            .tag(1)
 
-            if isAdmin {
-                NavigationStack {
-                    AdminMenuView()
-                }
-                .tabItem {
-                    Label("Товары", systemImage: "square.grid.2x2")
-                }
-                .tag(adminTag)
-            }
-
+            // Tab 3: Профиль
             NavigationStack {
                 ProfileView()
             }
             .tabItem {
                 Label("Профиль", systemImage: "person.crop.circle")
             }
-            .tag(profileTag)
+            .tag(2)
         }
         .tint(.appPrimary)
+        .preferredColorScheme(themeManager.colorScheme)
+        .sheet(isPresented: $showSideMenu) {
+            SideMenuView(isPresented: $showSideMenu)
+                .presentationDetents([.medium, .large])
+                .presentationDragIndicator(.visible)
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .openSideMenu)) { _ in
+            showSideMenu = true
+        }
+    }
+}
+
+// MARK: - Notification for opening side menu
+
+extension Notification.Name {
+    static let openSideMenu = Notification.Name("openSideMenu")
+}
+
+// MARK: - Open Side Menu Helper View
+
+struct OpenSideMenuButton: View {
+    var body: some View {
+        Button {
+            NotificationCenter.default.post(name: .openSideMenu, object: nil)
+        } label: {
+            Image(systemName: "line.3.horizontal")
+                .font(.body)
+                .foregroundColor(.primary)
+                .padding(10)
+                .background(Color.appPrimary.opacity(0.08))
+                .clipShape(Circle())
+        }
     }
 }

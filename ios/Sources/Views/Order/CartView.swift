@@ -18,6 +18,11 @@ struct CartView: View {
         .navigationTitle("Корзина")
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.visible, for: .navigationBar)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                OpenSideMenuButton()
+            }
+        }
         .sheet(isPresented: $showOrderSheet) {
             OrderSheetView { result in
                 showOrderSheet = false
@@ -60,20 +65,9 @@ struct CartView: View {
                     .foregroundColor(.secondary)
             }
 
-            NavigationLink {
-                MenuView()
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "takeoutbag.and.cup.and.straw")
-                    Text("Перейти в меню")
-                        .fontWeight(.semibold)
-                }
-                .foregroundColor(.white)
-                .padding(.horizontal, 24)
-                .padding(.vertical, 14)
-                .background(Color.appPrimary)
-                .cornerRadius(12)
-            }
+            Text("Перейдите на вкладку Меню")
+                .font(.subheadline)
+                .foregroundColor(.secondary)
 
             Spacer()
         }

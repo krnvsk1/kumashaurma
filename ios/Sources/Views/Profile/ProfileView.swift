@@ -4,6 +4,7 @@ import SwiftUI
 
 struct ProfileView: View {
     @StateObject private var authService = AuthService.shared
+    @StateObject private var themeManager = ThemeManager.shared
     @State private var showLogoutAlert: Bool = false
     @State private var isLoading: Bool = false
 
@@ -21,7 +22,7 @@ struct ProfileView: View {
                     infoRow(title: "Телефон", value: user.phone, icon: "phone.fill")
                     infoRow(
                         title: "Имя",
-                        value: [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " ") ,
+                        value: [user.firstName, user.lastName].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: " "),
                         icon: "person.fill"
                     )
 
@@ -38,65 +39,12 @@ struct ProfileView: View {
                 }
             }
 
-            // Stats section
-            Section {
-                NavigationLink {
-                    OrdersView()
-                } label: {
-                    Label("Мои заказы", systemImage: "bag.fill")
-                        .font(.subheadline)
-                }
-
-                NavigationLink {
-                    CartView()
-                } label: {
-                    HStack {
-                        Label("Корзина", systemImage: "cart.fill")
-                            .font(.subheadline)
-                        Spacer()
-                        Text("Открыть")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                }
-            }
-
-            // Admin section
-            if authService.isAdmin {
-                Section("Администрирование") {
-                    NavigationLink {
-                        AdminDashboardView()
-                    } label: {
-                        Label("Панель управления", systemImage: "chart.bar.fill")
-                            .font(.subheadline)
-                    }
-
-                    NavigationLink {
-                        AdminMenuView()
-                    } label: {
-                        Label("Управление меню", systemImage: "square.grid.2x2")
-                            .font(.subheadline)
-                    }
-
-                    NavigationLink {
-                        AdminOrdersView()
-                    } label: {
-                        Label("Управление заказами", systemImage: "list.clipboard")
-                            .font(.subheadline)
-                    }
-
-                    NavigationLink {
-                        AdminUserManagementView()
-                    } label: {
-                        Label("Пользователи", systemImage: "person.2")
-                            .font(.subheadline)
-                    }
-
-                    NavigationLink {
-                        AdminAddonManagementView()
-                    } label: {
-                        Label("Добавки и дополнения", systemImage: "puzzlepiece.extension")
-                            .font(.subheadline)
+            // Settings section
+            Section("Настройки") {
+                Picker("Оформление", selection: $themeManager.themeMode) {
+                    ForEach(ThemeMode.allCases) { mode in
+                        Label(mode.displayName, systemImage: mode.icon)
+                            .tag(mode)
                     }
                 }
             }
@@ -150,6 +98,11 @@ struct ProfileView: View {
         }
         .navigationTitle("Профиль")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                OpenSideMenuButton()
+            }
+        }
         .onAppear {
             refreshProfile()
         }

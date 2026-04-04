@@ -60,6 +60,10 @@ struct MenuView: View {
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                OpenSideMenuButton()
+            }
+
             ToolbarItem(placement: .principal) {
                 Text("Меню")
                     .font(.appTitle)
@@ -67,25 +71,17 @@ struct MenuView: View {
             }
 
             ToolbarItem(placement: .navigationBarTrailing) {
-                HStack(spacing: 8) {
-                    Button {
-                        withAnimation(.spring(response: 0.3)) {
-                            showSearch.toggle()
-                        }
-                    } label: {
-                        Image(systemName: "magnifyingglass")
-                            .font(.body)
-                            .foregroundColor(.primary)
-                            .padding(10)
-                            .background(Color.appPrimary.opacity(0.08))
-                            .clipShape(Circle())
+                Button {
+                    withAnimation(.spring(response: 0.3)) {
+                        showSearch.toggle()
                     }
-
-                    NavigationLink {
-                        CartView()
-                    } label: {
-                        CartBadgeView()
-                    }
+                } label: {
+                    Image(systemName: "magnifyingglass")
+                        .font(.body)
+                        .foregroundColor(.primary)
+                        .padding(10)
+                        .background(Color.appPrimary.opacity(0.08))
+                        .clipShape(Circle())
                 }
             }
         }

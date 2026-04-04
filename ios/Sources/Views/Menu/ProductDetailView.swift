@@ -73,15 +73,6 @@ struct ProductDetailView: View {
         .ignoresSafeArea(.container, edges: .top)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .toolbar {
-            ToolbarItem(placement: .navigationBarTrailing) {
-                NavigationLink {
-                    CartView()
-                } label: {
-                    CartBadgeView()
-                }
-            }
-        }
         .overlay(alignment: .bottom) {
             bottomBar
         }
