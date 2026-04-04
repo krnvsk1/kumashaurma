@@ -73,7 +73,7 @@ struct ProductDetailView: View {
         .ignoresSafeArea(.container, edges: .top)
         .navigationBarTitleDisplayMode(.inline)
         .toolbarBackground(.hidden, for: .navigationBar)
-        .overlay(alignment: .bottom) {
+        .safeAreaInset(edge: .bottom) {
             bottomBar
         }
         .onAppear {
@@ -221,12 +221,8 @@ struct ProductDetailView: View {
                 .font(.title3)
             }
 
-            // Price: show "от" only if variants exist, otherwise exact price
-            if let variants = shawarma.variants, !variants.isEmpty {
-                Text("от \(Int(variants.map(\.price).min() ?? 0)) ₽")
-                    .font(.appPrice)
-                    .foregroundColor(.secondary)
-            } else {
+            // Price: only show if NO variants (prices are on variant chips)
+            if shawarma.variants?.isEmpty != false {
                 Text("\(Int(shawarma.price)) ₽")
                     .font(.appPrice)
             }
@@ -261,7 +257,6 @@ struct ProductDetailView: View {
                             variantChip(variant)
                         }
                     }
-                    .padding(.horizontal, 2)
                 }
             }
 
@@ -288,7 +283,8 @@ struct ProductDetailView: View {
                     .fontWeight(isSelected ? .semibold : .regular)
                     .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
             }
-            .frame(maxWidth: .infinity)
+            .frame(maxWidth: .infinity, minHeight: 58)
+            .padding(.horizontal, 16)
             .padding(.vertical, 14)
             .background(isSelected ? Color.appPrimary : Color(.systemGray6))
             .cornerRadius(12)

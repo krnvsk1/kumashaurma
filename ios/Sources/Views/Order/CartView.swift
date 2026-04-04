@@ -78,17 +78,10 @@ struct CartView: View {
     private var cartListView: some View {
         List {
             ForEach(cartService.items) { item in
-                CartItemRow(item: item) {
-                    // Tap to edit quantity (future: navigate to product detail)
-                }
-                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
-                .listRowSeparator(.hidden)
-                .listRowBackground(Color.clear)
-            }
-            .onDelete { indexSet in
-                for index in indexSet {
-                    withAnimation { cartService.removeItem(id: cartService.items[index].id) }
-                }
+                CartItemRow(item: item)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
             }
         }
         .listStyle(.plain)
@@ -165,7 +158,6 @@ struct CartView: View {
 
 struct CartItemRow: View {
     let item: CartItem
-    let onTap: () -> Void
 
     @ObservedObject private var cartService = CartService.shared
 
