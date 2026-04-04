@@ -358,7 +358,7 @@ struct OrderSheetView: View {
             .onAppear {
                 prefillUserData()
             }
-            .onChange(of: authService.currentUser) { _ in
+            .onChange(of: authService.currentUser?.id) { _ in
                 prefillUserData()
             }
         }
