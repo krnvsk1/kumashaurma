@@ -358,7 +358,7 @@ struct OrderSheetView: View {
             .onAppear {
                 prefillUserData()
             }
-            .onChange(of: authService.currentUser?.displayName) { _ in
+            .onChange(of: authService.currentUser) { _ in
                 prefillUserData()
             }
         }
@@ -532,12 +532,9 @@ struct OrderSheetView: View {
     }
 
     private func prefillUserData() {
-        if customerName.isEmpty {
-            customerName = authService.currentUser?.firstName ?? authService.currentUser?.displayName ?? ""
-        }
-        if customerPhone.isEmpty {
-            customerPhone = authService.currentUser?.phone ?? ""
-        }
+        let user = authService.currentUser
+        customerName = user?.firstName ?? ""
+        customerPhone = user?.phone ?? ""
     }
 
     private func placeOrder() {
