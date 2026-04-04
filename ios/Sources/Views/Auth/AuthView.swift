@@ -148,7 +148,7 @@ struct AuthView: View {
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .onChange(of: phone) { newValue in
-                    let digits = newValue.filter(\0.isNumber)
+                    let digits = newValue.filter(\.isNumber)
                     // Keep only +7 prefix + 10 digits max
                     var raw = "+7"
                     let relevant = digits.hasPrefix("7") ? String(digits.dropFirst()) : digits
