@@ -11,7 +11,7 @@ struct AuthView: View {
 
     // MARK: - State
 
-    @State private var phone: String = ""
+    @State private var phone: String = "+7"
     @State private var code: String = ""
     @State private var firstName: String = ""
     @State private var lastName: String = ""
@@ -148,9 +148,14 @@ struct AuthView: View {
                 .autocorrectionDisabled()
                 .textInputAutocapitalization(.never)
                 .onChange(of: phone) { newValue in
-                    let filtered = newValue.filter { $0.isNumber || $0 == "+" }
-                    if filtered != newValue {
-                        phone = filtered
+                    let digits = newValue.filter(\0.isNumber)
+                    // Keep only +7 prefix + 10 digits max
+                    var raw = "+7"
+                    let relevant = digits.hasPrefix("7") ? String(digits.dropFirst()) : digits
+                    let capped = String(relevant.prefix(10))
+                    raw += formatDigits(capped)
+                    if raw != newValue {
+                        phone = raw
                     }
                 }
                 .padding(16)
@@ -184,7 +189,22 @@ struct AuthView: View {
     }
 
     private var phoneDigitsCount: Int {
-        phone.filter(\.isNumber).count
+        let digits = phone.filter(\.isNumber)
+        return digits.hasPrefix("7") ? digits.count - 1 : digits.count
+    }
+
+    /// Format 10 digits into " (999) 123-45-67"
+    private func formatDigits(_ digits: String) -> String {
+        let chars = Array(digits)
+        var result = ""
+        for (i, char) in chars.enumerated() {
+            if i == 0 { result += " (\(char)" }
+            else if i == 2 { result += "\(char)) " }
+            else if i == 5 { result += "\(char)-" }
+            else if i == 7 { result += "\(char)-" }
+            else { result += "\(char)" }
+        }
+        return result
     }
 
     // MARK: - Code Step
@@ -419,11 +439,15 @@ struct OTPInputView: UIViewRepresentable {
         stack.axis = .horizontal
         stack.spacing = 12
         stack.distribution = .fillEqually
+        stack.alignment = .fill
+        NSLayoutConstraint.activate([
+            stack.heightAnchor.constraint(equalToConstant: 56)
+        ])
 
         for i in 0..<maxLength {
             let field = UITextField()
             field.textAlignment = .center
-            field.font = .systemFont(ofSize: 28, weight: .bold)
+            field.font = .systemFont(ofSize: 24, weight: .bold)
             field.keyboardType = .numberPad
             field.backgroundColor = UIColor.systemGray6
             field.layer.cornerRadius = 12
