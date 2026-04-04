@@ -162,62 +162,68 @@ struct CartItemRow: View {
     @ObservedObject private var cartService = CartService.shared
 
     var body: some View {
-        HStack(spacing: 14) {
-            // Thumbnail
-            productThumbnail
+        NavigationLink {
+            ProductDetailView(shawarma: item.shawarma)
+        } label: {
+            HStack(spacing: 14) {
+                // Thumbnail
+                productThumbnail
 
-            // Info
-            VStack(alignment: .leading, spacing: 4) {
-                Text(item.shawarma.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .lineLimit(1)
+                // Info + price
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.shawarma.name)
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                        .lineLimit(1)
+                        .foregroundColor(.primary)
 
-                if let variantName = item.variantName {
-                    Text(variantName)
-                        .font(.caption)
-                        .foregroundColor(.appPrimary)
-                }
+                    if let variantName = item.variantName {
+                        Text(variantName)
+                            .font(.caption)
+                            .foregroundColor(.appPrimary)
+                    }
 
-                if !item.selectedAddons.isEmpty {
-                    Text(item.selectedAddons.map(\.name).joined(separator: ", "))
+                    if !item.selectedAddons.isEmpty {
+                        Text(item.selectedAddons.map(\.name).joined(separator: ", "))
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                    }
+
+                    Text("\(Int(item.unitPrice)) ₽/шт")
                         .font(.caption2)
                         .foregroundColor(.secondary)
-                        .lineLimit(1)
                 }
+
+                Spacer()
 
                 // Quantity controls
                 quantityControls
 
-                Text("\(Int(item.unitPrice)) ₽/шт")
-                    .font(.caption2)
-                    .foregroundColor(.secondary)
-            }
+                // Total price
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text("\(Int(item.totalPrice)) ₽")
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .foregroundColor(.primary)
 
-            Spacer()
-
-            // Price
-            VStack(alignment: .trailing) {
-                Text("\(Int(item.totalPrice)) ₽")
-                    .font(.subheadline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-
-                // Remove button
-                Button {
-                    withAnimation { cartService.removeItem(id: item.id) }
-                } label: {
-                    Image(systemName: "trash")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
+                    // Remove button
+                    Button {
+                        withAnimation { cartService.removeItem(id: item.id) }
+                    } label: {
+                        Image(systemName: "trash")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
                 }
-                .padding(.top, 4)
             }
+            .padding(12)
+            .background(Color(.systemBackground))
+            .cornerRadius(14)
+            .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
         }
-        .padding(12)
-        .background(Color(.systemBackground))
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+        .buttonStyle(.plain)
     }
 
     // MARK: - Product Thumbnail
@@ -261,7 +267,7 @@ struct CartItemRow: View {
     // MARK: - Quantity Controls
 
     private var quantityControls: some View {
-        HStack(spacing: 8) {
+        HStack(spacing: 4) {
             Button {
                 cartService.updateQuantity(id: item.id, quantity: item.quantity - 1)
             } label: {
@@ -269,6 +275,7 @@ struct CartItemRow: View {
                     .font(.callout)
                     .foregroundColor(item.quantity > 1 ? .appPrimary : .gray.opacity(0.4))
             }
+            .buttonStyle(.plain)
             .disabled(item.quantity <= 1)
 
             Text("\(item.quantity)")
@@ -349,6 +356,9 @@ struct OrderSheetView: View {
                 bottomButton
             }
             .onAppear {
+                prefillUserData()
+            }
+            .onChange(of: authService.currentUser?.displayName) { _ in
                 prefillUserData()
             }
         }
@@ -522,8 +532,12 @@ struct OrderSheetView: View {
     }
 
     private func prefillUserData() {
-        customerName = authService.currentUser?.displayName ?? ""
-        customerPhone = authService.currentUser?.phone ?? ""
+        if customerName.isEmpty {
+            customerName = authService.currentUser?.firstName ?? authService.currentUser?.displayName ?? ""
+        }
+        if customerPhone.isEmpty {
+            customerPhone = authService.currentUser?.phone ?? ""
+        }
     }
 
     private func placeOrder() {
