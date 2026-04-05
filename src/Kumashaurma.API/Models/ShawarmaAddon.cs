@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -14,12 +15,14 @@ namespace Kumashaurma.API.Models
         public int ShawarmaId { get; set; }
         
         [ForeignKey("ShawarmaId")]
+        [JsonIgnore]
         public Shawarma Shawarma { get; set; } = null!;
         
         [Column("addon_id")]
         public int AddonId { get; set; }
         
         [ForeignKey("AddonId")]
+        [JsonIgnore]
         public Addon Addon { get; set; } = null!;
         
         [Column("custom_price", TypeName = "decimal(10,2)")]

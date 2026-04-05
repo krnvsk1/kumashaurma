@@ -344,10 +344,19 @@ namespace Kumashaurma.API.Controllers
 
         public class LinkAddonRequest
         {
+            [System.Text.Json.Serialization.JsonPropertyName("shawarmaId")]
             public int ShawarmaId { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("addonId")]
             public int AddonId { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("customPrice")]
             public decimal? CustomPrice { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("isDefault")]
             public bool IsDefault { get; set; }
+
+            [System.Text.Json.Serialization.JsonPropertyName("maxQuantity")]
             public int MaxQuantity { get; set; } = 1;
         }
 
@@ -415,7 +424,14 @@ namespace Kumashaurma.API.Controllers
                     addon.Name, shawarma.Name,
                     duplicatedCount > 0 ? $" (+ дублирована на {duplicatedCount} дочерних)" : "");
 
-                return Ok(shawarmaAddon);
+                return Ok(new
+                {
+                    Message = duplicatedCount > 0
+                        ? $"Добавка привязана к карточке и дублирована на {duplicatedCount} дочерних"
+                        : "Добавка привязана к товару",
+                    ShawarmaAddonId = shawarmaAddon.Id,
+                    DuplicatedCount = duplicatedCount
+                });
             }
             catch (Exception ex)
             {
