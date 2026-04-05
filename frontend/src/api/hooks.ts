@@ -166,6 +166,9 @@ export const useUpdateOrderStatus = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['points-history'] });
     },
   });
 };
@@ -180,6 +183,9 @@ export const useUpdateOrder = () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['order-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['points-history'] });
     },
   });
 };

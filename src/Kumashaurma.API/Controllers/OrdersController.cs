@@ -332,6 +332,40 @@ namespace Kumashaurma.API.Controllers
                     if ((request.Status == "Доставлен" || request.Status == "Выполнен") && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
+
+                        // Начисляем бонусные баллы при доставке заказа (1 балл за 100 рублей)
+                        if (order.UserId.HasValue)
+                        {
+                            var user = await _context.Users.FindAsync(order.UserId.Value);
+                            if (user != null)
+                            {
+                                var alreadyAwarded = await _context.UserPointsTransactions
+                                    .AnyAsync(t => t.OrderId == order.Id && t.Type == "earned");
+
+                                if (!alreadyAwarded)
+                                {
+                                    var pointsEarned = (int)Math.Floor(order.Total / 100);
+                                    if (pointsEarned > 0)
+                                    {
+                                        user.PointsBalance += pointsEarned;
+
+                                        var transaction = new UserPointsTransaction
+                                        {
+                                            UserId = user.Id,
+                                            Type = "earned",
+                                            Amount = pointsEarned,
+                                            Description = $"Начисление за заказ #{order.Id}",
+                                            OrderId = order.Id,
+                                            CreatedAt = DateTime.UtcNow
+                                        };
+
+                                        _context.UserPointsTransactions.Add(transaction);
+                                        _logger.LogInformation("💰 Начислено {Points} баллов пользователю {UserId} за заказ {OrderId}",
+                                            pointsEarned, user.Id, order.Id);
+                                    }
+                                }
+                            }
+                        }
                     }
                     else if ((oldStatus == "Доставлен" || oldStatus == "Выполнен") && request.Status != "Доставлен" && request.Status != "Выполнен")
                     {
