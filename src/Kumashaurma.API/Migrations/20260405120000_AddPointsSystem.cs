@@ -40,7 +40,7 @@ namespace Kumashaurma.API.Migrations
                         name: "FK_user_points_transactions_users_performed_by",
                         column: x => x.performed_by,
                         principalTable: "users",
-                        principalColumn: "id",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                     table.ForeignKey(
                         name: "FK_user_points_transactions_orders_order_id",
@@ -52,7 +52,7 @@ namespace Kumashaurma.API.Migrations
                         name: "FK_user_points_transactions_users_user_id",
                         column: x => x.user_id,
                         principalTable: "users",
-                        principalColumn: "id",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.Cascade);
                 });
 

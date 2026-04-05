@@ -38,7 +38,7 @@ namespace Kumashaurma.API.Migrations
                         name: "FK_promo_codes_users_created_by",
                         column: x => x.created_by,
                         principalTable: "users",
-                        principalColumn: "id",
+                        principalColumn: "Id",
                         onDelete: ReferentialAction.SetNull);
                 });
 
