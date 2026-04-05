@@ -264,8 +264,12 @@ const OrderModal: React.FC<OrderModalProps> = ({
           ) : (
             <List sx={{ mb: 3 }}>
               {cartItems.map((item) => {
+                const basePrice = item.selectedChild?.price ?? item.price;
                 const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
-                const itemTotal = (item.price + addonsTotal) * item.quantity;
+                const itemTotal = (basePrice + addonsTotal) * item.quantity;
+                const displayName = item.selectedChild
+                  ? `${item.name} — ${item.selectedChild.name}`
+                  : item.name;
 
                 return (
                   <Paper
@@ -313,7 +317,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                       <ListItemText
                         primary={
                           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {item.name}
+                            {displayName}
                           </Typography>
                         }
                         secondary={
@@ -336,7 +340,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
                               <Typography variant="body2" color="text.secondary">
-                                {item.quantity} × {item.price} ₽
+                                {item.quantity} × {basePrice} ₽
                               </Typography>
                               <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 {itemTotal} ₽

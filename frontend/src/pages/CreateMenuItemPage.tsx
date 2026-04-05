@@ -243,7 +243,8 @@ const CreateMenuItemPage: React.FC = () => {
       showSnackbar('Введите название товара', 'error');
       return false;
     }
-    if (!formData.price || formData.price <= 0) {
+    // Для дочерней позиции цена обязательна, для карточки-родителя — нет
+    if (formData.parentId !== null && (!formData.price || formData.price <= 0)) {
       showSnackbar('Введите корректную цену', 'error');
       return false;
     }
@@ -633,7 +634,8 @@ const CreateMenuItemPage: React.FC = () => {
                       ),
                       inputProps: { min: 0, step: 10 },
                     }}
-                    required
+                    required={formData.parentId !== null}
+                    helperText={formData.parentId === null ? 'Необязательно для карточки (вычисляется из дочерних)' : undefined}
                     sx={fieldSx}
                   />
 
