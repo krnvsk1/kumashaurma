@@ -43,6 +43,14 @@ namespace Kumashaurma.API.Migrations
                 });
 
             // Добавляем колонки в orders
+            migrationBuilder.AddColumn<string>(
+                name: "delivery_type",
+                table: "orders",
+                type: "character varying(30)",
+                maxLength: 30,
+                nullable: false,
+                defaultValue: "Доставка");
+
             migrationBuilder.AddColumn<int>(
                 name: "promo_code_id",
                 table: "orders",
@@ -88,6 +96,10 @@ namespace Kumashaurma.API.Migrations
 
             migrationBuilder.DropColumn(
                 name: "discount_amount",
+                table: "orders");
+
+            migrationBuilder.DropColumn(
+                name: "delivery_type",
                 table: "orders");
 
             migrationBuilder.DropTable(

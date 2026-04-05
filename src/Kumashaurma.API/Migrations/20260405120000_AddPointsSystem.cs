@@ -1,16 +1,14 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace Kumashaurma.API.Migrations
 {
-    /// <inheritdoc />
     public partial class AddPointsSystem : Migration
     {
-        /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            // Добавляем колонку points_balance в таблицу users
             migrationBuilder.AddColumn<int>(
                 name: "points_balance",
                 table: "users",
@@ -18,13 +16,12 @@ namespace Kumashaurma.API.Migrations
                 nullable: false,
                 defaultValue: 0);
 
-            // Создаём таблицу user_points_transactions
             migrationBuilder.CreateTable(
                 name: "user_points_transactions",
                 columns: table => new
                 {
                     id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", Npgsql.EntityFrameworkCore.PostgreSQL.Metadata.NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
                     user_id = table.Column<int>(type: "integer", nullable: false),
                     type = table.Column<string>(type: "character varying(30)", maxLength: 30, nullable: false, defaultValue: "earned"),
                     amount = table.Column<int>(type: "integer", nullable: false),
@@ -56,7 +53,6 @@ namespace Kumashaurma.API.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            // Индексы
             migrationBuilder.CreateIndex(
                 name: "IX_user_points_transactions_user_id",
                 table: "user_points_transactions",
@@ -71,9 +67,13 @@ namespace Kumashaurma.API.Migrations
                 name: "IX_user_points_transactions_created_at",
                 table: "user_points_transactions",
                 column: "created_at");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_user_points_transactions_performed_by",
+                table: "user_points_transactions",
+                column: "performed_by");
         }
 
-        /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropTable(

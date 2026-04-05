@@ -15,7 +15,6 @@ namespace Kumashaurma.API.Migrations
     [Migration("20260405120000_AddPointsSystem")]
     partial class AddPointsSystem
     {
-        /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
@@ -261,15 +260,15 @@ namespace Kumashaurma.API.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("customer_name");
 
-                    b.Property<decimal>("DiscountAmount")
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("discount_amount");
-
                     b.Property<string>("DeliveryType")
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("character varying(30)")
                         .HasColumnName("delivery_type");
+
+                    b.Property<decimal>("DiscountAmount")
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("discount_amount");
 
                     b.Property<string>("Notes")
                         .HasColumnType("text")
@@ -453,15 +452,19 @@ namespace Kumashaurma.API.Migrations
                         .HasColumnType("character varying(30)")
                         .HasColumnName("code");
 
-                    b.Property<int?>("CreatedBy")
-                        .HasColumnType("integer")
-                        .HasColumnName("created_by");
-
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
                         .HasColumnName("created_at")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                    b.Property<int?>("CreatedBy")
+                        .HasColumnType("integer")
+                        .HasColumnName("created_by");
+
+                    b.Property<int>("CurrentUses")
+                        .HasColumnType("integer")
+                        .HasColumnName("current_uses");
 
                     b.Property<string>("DiscountType")
                         .IsRequired()
@@ -477,7 +480,7 @@ namespace Kumashaurma.API.Migrations
                         .HasColumnType("boolean")
                         .HasColumnName("is_active");
 
-                    b.Property<decimal>("MaxDiscountAmount")
+                    b.Property<decimal?>("MaxDiscountAmount")
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("max_discount_amount");
 
@@ -488,10 +491,6 @@ namespace Kumashaurma.API.Migrations
                     b.Property<decimal>("MinOrderAmount")
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("min_order_amount");
-
-                    b.Property<int>("CurrentUses")
-                        .HasColumnType("integer")
-                        .HasColumnName("current_uses");
 
                     b.Property<DateTime?>("ValidFrom")
                         .HasColumnType("timestamp with time zone")
@@ -835,11 +834,11 @@ namespace Kumashaurma.API.Migrations
                         .HasColumnType("character varying(200)")
                         .HasColumnName("description");
 
-                    b.Property<int>("OrderId")
+                    b.Property<int?>("OrderId")
                         .HasColumnType("integer")
                         .HasColumnName("order_id");
 
-                    b.Property<int>("PerformedBy")
+                    b.Property<int?>("PerformedBy")
                         .HasColumnType("integer")
                         .HasColumnName("performed_by");
 
@@ -858,6 +857,8 @@ namespace Kumashaurma.API.Migrations
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("OrderId");
+
+                    b.HasIndex("PerformedBy");
 
                     b.HasIndex("UserId");
 
@@ -1009,19 +1010,19 @@ namespace Kumashaurma.API.Migrations
 
             modelBuilder.Entity("Kumashaurma.API.Models.Order", b =>
                 {
-                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
-                        .WithMany("Orders")
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
                     b.HasOne("Kumashaurma.API.Models.PromoCode", "PromoCode")
                         .WithMany("Orders")
                         .HasForeignKey("PromoCodeId")
                         .OnDelete(DeleteBehavior.SetNull);
 
-                    b.Navigation("User");
+                    b.HasOne("Kumashaurma.API.Models.AppUser", "User")
+                        .WithMany("Orders")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("PromoCode");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Kumashaurma.API.Models.OrderItem", b =>
@@ -1046,16 +1047,6 @@ namespace Kumashaurma.API.Migrations
                     b.Navigation("OrderItem");
                 });
 
-            modelBuilder.Entity("Kumashaurma.API.Models.PromoCode", b =>
-                {
-                    b.HasOne("Kumashaurma.API.Models.AppUser", "Creator")
-                        .WithMany()
-                        .HasForeignKey("CreatedBy")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Creator");
-                });
-
             modelBuilder.Entity("Kumashaurma.API.Models.ProductVariant", b =>
                 {
                     b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
@@ -1065,6 +1056,16 @@ namespace Kumashaurma.API.Migrations
                         .IsRequired();
 
                     b.Navigation("Shawarma");
+                });
+
+            modelBuilder.Entity("Kumashaurma.API.Models.PromoCode", b =>
+                {
+                    b.HasOne("Kumashaurma.API.Models.AppUser", "Creator")
+                        .WithMany()
+                        .HasForeignKey("CreatedBy")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Creator");
                 });
 
             modelBuilder.Entity("Kumashaurma.API.Models.RefreshToken", b =>
@@ -1234,15 +1235,6 @@ namespace Kumashaurma.API.Migrations
                     b.Navigation("Images");
 
                     b.Navigation("Variants");
-                });
-
-            modelBuilder.Entity("Kumashaurma.API.Models.UserPointsTransaction", b =>
-                {
-                    b.Navigation("Order");
-
-                    b.Navigation("PerformedByUser");
-
-                    b.Navigation("User");
                 });
 #pragma warning restore 612, 618
         }
