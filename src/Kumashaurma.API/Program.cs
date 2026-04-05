@@ -10,6 +10,9 @@ using Kumashaurma.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// PostgreSQL: разрешить DateTime с Kind=Unspecified (преобразует в UTC)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 if (!builder.Environment.IsDevelopment())
 {
     var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
