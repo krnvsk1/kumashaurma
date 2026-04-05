@@ -250,12 +250,14 @@ namespace Kumashaurma.API.Controllers
                 }
 
                 newOrder.DiscountAmount = discountAmount;
-                // Обновляем общую сумму заказа (с учётом скидки)
-                newOrder.Total = total - discountAmount;
+                // Скидка баллами (оплачивается через PointsController redeem)
+                var pointsDiscount = request.PointsDiscountAmount ?? 0;
+                // Обновляем общую сумму заказа (с учётом промокода и баллов)
+                newOrder.Total = Math.Max(0, total - discountAmount - pointsDiscount);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}", 
-                    newOrder.Id, newOrder.CustomerName);
+                _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}, итого: {Total} (скидка промо: {PromoDiscount}, баллы: {PointsDiscount})", 
+                    newOrder.Id, newOrder.CustomerName, newOrder.Total, discountAmount, pointsDiscount);
 
                 // Загружаем полный заказ с позициями для ответа
                 var createdOrder = await _context.Orders
@@ -264,7 +266,7 @@ namespace Kumashaurma.API.Controllers
                     .FirstOrDefaultAsync(o => o.Id == newOrder.Id);
 
                 // Рассчитываем баллы, которые будут начислены за заказ (1 балл за 100 рублей)
-                var pointsEarned = (int)(Math.Floor((total - discountAmount) / 100));
+                var pointsEarned = (int)(Math.Floor(newOrder.Total / 100));
 
                 return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, new
                 {
@@ -293,6 +295,7 @@ namespace Kumashaurma.API.Controllers
             public string? Notes { get; set; }
             public string DeliveryType { get; set; } = "Доставка";
             public int? PromoCodeId { get; set; }
+            public decimal? PointsDiscountAmount { get; set; }
             public List<CreateOrderItemRequest> Items { get; set; } = new();
         }
 
@@ -326,11 +329,11 @@ namespace Kumashaurma.API.Controllers
                     var oldStatus = order.Status;
                     order.Status = request.Status;
                     
-                    if (request.Status == "Выполнен" && order.CompletedAt == null)
+                    if ((request.Status == "Доставлен" || request.Status == "Выполнен") && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
                     }
-                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
+                    else if ((oldStatus == "Доставлен" || oldStatus == "Выполнен") && request.Status != "Доставлен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }
@@ -422,11 +425,11 @@ namespace Kumashaurma.API.Controllers
                     var oldStatus = order.Status;
                     order.Status = request.Status;
                     
-                    if (request.Status == "Выполнен" && order.CompletedAt == null)
+                    if ((request.Status == "Доставлен" || request.Status == "Выполнен") && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
 
-                        // Начисляем бонусные баллы при выполнении заказа (1 балл за 100 рублей)
+                        // Начисляем бонусные баллы при доставке заказа (1 балл за 100 рублей)
                         if (order.UserId.HasValue)
                         {
                             var user = await _context.Users.FindAsync(order.UserId.Value);
@@ -461,7 +464,7 @@ namespace Kumashaurma.API.Controllers
                             }
                         }
                     }
-                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
+                    else if ((oldStatus == "Доставлен" || oldStatus == "Выполнен") && request.Status != "Доставлен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }

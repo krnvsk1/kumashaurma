@@ -544,7 +544,7 @@ const CartModal: React.FC<CartModalProps> = ({
               {finalPrice} ₽
             </Typography>
             <Typography variant="body2" color="primary.main" fontWeight={600}>
-              +{Math.round(finalPrice * 0.02)} ₽
+              +{Math.round(finalPrice / 100)} ₽
             </Typography>
           </Box>
         </Paper>

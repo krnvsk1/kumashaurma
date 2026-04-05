@@ -86,8 +86,9 @@ const OrderModal: React.FC<OrderModalProps> = ({
 
   const totalAmount = React.useMemo(() => {
     return cartItems.reduce((sum, item) => {
+      const basePrice = item.selectedChild?.price ?? item.price;
       const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
-      return sum + (item.price + addonsTotal) * item.quantity;
+      return sum + (basePrice + addonsTotal) * item.quantity;
     }, 0);
   }, [cartItems]);
 
@@ -123,6 +124,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
       notes: notes.trim() || null,
       deliveryType: deliveryType,
       promoCodeId: promoInfo?.promoCodeId ?? null,
+      pointsDiscountAmount: pointsDiscount > 0 ? pointsDiscount : undefined,
       items: cartItems.map(item => ({
         shawarmaId: item.selectedChild?.id ?? item.id,
         quantity: item.quantity,

@@ -97,6 +97,7 @@ export interface Shawarma {
     notes?: string | null;      // опционально
     deliveryType?: string;
     promoCodeId?: number | null;
+    pointsDiscountAmount?: number;
     items: {
       shawarmaId: number;
       quantity: number;
