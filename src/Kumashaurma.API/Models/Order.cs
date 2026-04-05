@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -56,10 +57,12 @@ namespace Kumashaurma.API.Models
         [Column("completed_at")]
         public DateTime? CompletedAt { get; set; }
 
-        // Navigation property
+        // Navigation properties
+        [JsonIgnore]
         public AppUser? User { get; set; }
+        [JsonIgnore]
         public PromoCode? PromoCode { get; set; }
-
+        [JsonIgnore]
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 }

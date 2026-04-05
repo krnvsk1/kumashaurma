@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -15,6 +16,7 @@ namespace Kumashaurma.API.Models
         public int OrderItemId { get; set; }
         
         [ForeignKey("OrderItemId")]
+        [JsonIgnore]
         public OrderItem OrderItem { get; set; } = null!;
         
         [Column("addon_id")]

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -45,6 +46,7 @@ namespace Kumashaurma.API.Models
         public DateTime? UpdatedAt { get; set; }
         
         // Связь многие-ко-многим с Shawarma
+        [JsonIgnore]
         public ICollection<ShawarmaAddon> Shawarmas { get; set; } = new List<ShawarmaAddon>();
     }
 }

@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -39,6 +40,7 @@ namespace Kumashaurma.API.Models
         public string? ReplacedByToken { get; set; }
 
         // Navigation property
+        [JsonIgnore]
         public AppUser User { get; set; } = null!;
 
         public bool IsExpired => DateTime.UtcNow >= ExpiresAt;
