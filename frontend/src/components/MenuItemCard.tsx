@@ -16,10 +16,9 @@ import { resolveMediaUrl } from '../utils/media';
 
 interface MenuItemCardProps {
   item: Shawarma;
-  parentName?: string;
 }
 
-const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, parentName }) => {
+const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
   const theme = useTheme();
 
   const imageUrl = item.images && item.images.length > 0
@@ -119,11 +118,6 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, parentName }) => {
           <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.1rem' }, mb: 0.5 }}>
             {item.name}
           </Typography>
-          {parentName && (
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-              {parentName}
-            </Typography>
-          )}
           <Typography
             variant="body2"
             color="text.secondary"
@@ -142,7 +136,9 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, parentName }) => {
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
           <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-            {item.price} ₽
+            {(item.children && item.children.length > 0)
+              ? `от ${Math.min(...item.children.map(c => c.price))} ₽`
+              : `${item.price} ₽`}
           </Typography>
           <IconButton
             size="small"

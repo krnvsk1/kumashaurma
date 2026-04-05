@@ -24,6 +24,10 @@ namespace Kumashaurma.API.Controllers
             var shawarmas = await _context.Shawarmas
                 .Include(s => s.Children)
                     .ThenInclude(c => c.Images)
+                .Include(s => s.Children)
+                    .ThenInclude(c => c.Addons)
+                        .ThenInclude(a => a.Addon)
+                            .ThenInclude(a => a.Category)
                 .Include(s => s.Images)
                 .Include(s => s.Addons)
                     .ThenInclude(a => a.Addon)
@@ -41,10 +45,14 @@ namespace Kumashaurma.API.Controllers
             var shawarma = await _context.Shawarmas
                 .Include(s => s.Children)
                     .ThenInclude(c => c.Images)
+                .Include(s => s.Children)
+                    .ThenInclude(c => c.Addons)
+                        .ThenInclude(a => a.Addon)
+                            .ThenInclude(a => a.Category)
                 .Include(s => s.Images)
                 .Include(s => s.Addons)
                     .ThenInclude(a => a.Addon)
-                    .ThenInclude(a => a.Category)
+                        .ThenInclude(a => a.Category)
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (shawarma == null)

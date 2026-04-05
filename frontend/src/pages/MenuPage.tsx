@@ -117,8 +117,8 @@ const MenuPage: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => {
-    addToCart(product, quantity, selectedAddons, instructions);
+  const handleAddToCart = (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedChild?: Shawarma) => {
+    addToCart(product, quantity, selectedAddons, instructions, selectedChild);
   };
 
   const categoryRefs = useRef<Map<string, HTMLElement>>(new Map());
@@ -251,43 +251,10 @@ const MenuPage: React.FC = () => {
     );
   }
 
-  // Рендер карточки-категории с её дочерними позициями
-  const renderCardSection = (card: Shawarma, categoryId: string) => (
-    <Box key={card.id} sx={{ mb: 5 }}>
-      <Typography
-        ref={(el) => setCategoryRef(categoryId, el)}
-        data-category-id={categoryId}
-        variant={isMobile ? 'h6' : 'h4'}
-        sx={{
-          fontWeight: 700,
-          mb: 3,
-          scrollMarginTop: stickyOffset,
-        }}
-      >
-        {card.name}
-        {!isMobile && (
-          <Typography component="span" variant="body1" color="text.secondary" sx={{ ml: 1, fontWeight: 400 }}>
-            от {card.displayPrice ?? Math.min(...(card.children || []).map(c => c.price))} ₽
-          </Typography>
-        )}
-      </Typography>
-      <Box
-        sx={{
-          display: 'grid',
-          gridTemplateColumns: {
-            xs: 'repeat(2, 1fr)',
-            sm: 'repeat(2, 1fr)',
-            lg: 'repeat(2, 1fr)',
-          },
-          gap: isMobile ? 2 : 3,
-        }}
-      >
-        {(card.children || []).map((child) => (
-          <Box key={child.id} onClick={() => handleProductClick(child)} sx={{ cursor: 'pointer' }}>
-            <MenuItemCard item={child} parentName={card.name} />
-          </Box>
-        ))}
-      </Box>
+  // Рендер одной карточки-родителя в сетке (клик → модалка с выбором варианта)
+  const renderProductCard = (card: Shawarma) => (
+    <Box key={card.id} onClick={() => handleProductClick(card)} sx={{ cursor: 'pointer' }}>
+      <MenuItemCard item={card} />
     </Box>
   );
 
@@ -389,10 +356,19 @@ const MenuPage: React.FC = () => {
                 </Box>
               </Paper>
 
-              {/* Карточки-категории с дочерними позициями */}
-              {filteredCards.map((card) =>
-                renderCardSection(card, `card-${card.id}`)
-              )}
+              <Box
+                sx={{
+                  display: 'grid',
+                  gridTemplateColumns: {
+                    xs: '1fr',
+                    sm: 'repeat(2, 1fr)',
+                    lg: 'repeat(2, 1fr)',
+                  },
+                  gap: 3,
+                }}
+              >
+                {filteredCards.map((card) => renderProductCard(card))}
+              </Box>
 
               {/* Пустой результат */}
               {filteredCards.length === 0 && (
@@ -483,10 +459,15 @@ const MenuPage: React.FC = () => {
             </Box>
           </Paper>
 
-          {/* Карточки-категории с дочерними позициями */}
-          {filteredCards.map((card) =>
-            renderCardSection(card, `card-${card.id}`)
-          )}
+          <Box
+            sx={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, 1fr)',
+              gap: 2,
+            }}
+          >
+            {filteredCards.map((card) => renderProductCard(card))}
+          </Box>
 
           {filteredCards.length === 0 && (
             <Box textAlign="center" py={8}>

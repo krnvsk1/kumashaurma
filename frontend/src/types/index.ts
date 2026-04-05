@@ -50,6 +50,8 @@ export interface Shawarma {
     selectedAddons: SelectedAddon[];
     specialInstructions?: string;
     uniqueKey?: string;
+    // Выбранный дочерний вариант (если товар — карточка с детьми)
+    selectedChild?: Shawarma;
   }
   
   // Для обновления (все опционально, кроме id)

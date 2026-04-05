@@ -267,7 +267,11 @@ const CartModal: React.FC<CartModalProps> = ({
         <List sx={{ mb: 2 }}>
           {items.map((item) => {
             const addonsTotal = item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0;
-            const itemTotal = (item.price + addonsTotal) * item.quantity;
+            const basePrice = item.selectedChild?.price ?? item.price;
+            const itemTotal = (basePrice + addonsTotal) * item.quantity;
+            const displayName = item.selectedChild
+              ? `${item.name} — ${item.selectedChild.name}`
+              : item.name;
 
             return (
               <ListItem key={item.uniqueKey} sx={{ px: 0, alignItems: 'flex-start' }}>
@@ -300,7 +304,7 @@ const CartModal: React.FC<CartModalProps> = ({
                 </ListItemAvatar>
                 <Box sx={{ flex: 1, ml: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, fontSize: isMobile ? '1rem' : '1.25rem' }}>
-                    {item.name}
+                    {displayName}
                   </Typography>
 
                   {item.selectedAddons && item.selectedAddons.length > 0 && (

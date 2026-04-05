@@ -124,9 +124,12 @@ const OrderModal: React.FC<OrderModalProps> = ({
       deliveryType: deliveryType,
       promoCodeId: promoInfo?.promoCodeId ?? null,
       items: cartItems.map(item => ({
-        shawarmaId: item.id,
+        shawarmaId: item.selectedChild?.id ?? item.id,
         quantity: item.quantity,
-        name: item.name,
+        name: item.selectedChild
+          ? `${item.name} — ${item.selectedChild.name}`
+          : item.name,
+        price: item.selectedChild?.price ?? item.price,
         selectedAddons: item.selectedAddons?.map(addon => ({
           addonId: addon.addonId,
           quantity: addon.quantity
