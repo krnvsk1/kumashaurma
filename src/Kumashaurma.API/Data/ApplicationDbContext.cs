@@ -41,7 +41,11 @@ namespace Kumashaurma.API.Data
             base.OnModelCreating(modelBuilder);
 
             // Переименование таблиц Identity
-            modelBuilder.Entity<AppUser>(entity => entity.ToTable("users"));
+            modelBuilder.Entity<AppUser>(entity =>
+            {
+                entity.ToTable("users");
+                entity.Property(u => u.Id).HasColumnName("Id");
+            });
             modelBuilder.Entity<IdentityRole<int>>(entity => entity.ToTable("roles"));
             modelBuilder.Entity<IdentityUserRole<int>>(entity => entity.ToTable("user_roles"));
             modelBuilder.Entity<IdentityUserClaim<int>>(entity => entity.ToTable("user_claims"));
