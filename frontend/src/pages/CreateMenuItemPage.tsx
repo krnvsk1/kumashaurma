@@ -43,7 +43,7 @@ import {
   Close as CloseIcon,
   Add as AddIcon,
 } from '@mui/icons-material';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
 import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma, useShawarmas } from '../api/hooks';
@@ -194,6 +194,10 @@ const CreateMenuItemPage: React.FC = () => {
   const updateShawarma = useUpdateShawarma();
   const deleteShawarma = useDeleteShawarma();
 
+  // Читаем parentId из URL для создания дочерней позиции
+  const [searchParams] = useSearchParams();
+  const urlParentId = searchParams.get('parentId');
+
   const [formData, setFormData] = React.useState<CreateShawarmaDto>({
     name: '',
     price: 0,
@@ -224,6 +228,13 @@ const CreateMenuItemPage: React.FC = () => {
       });
     }
   }, [existingShawarma]);
+
+  // Предзаполняем parentId из URL при создании дочерней позиции
+  React.useEffect(() => {
+    if (!isEditMode && urlParentId) {
+      setFormData(prev => ({ ...prev, parentId: Number(urlParentId) }));
+    }
+  }, [isEditMode, urlParentId]);
 
   const isPending =
     createShawarma.isPending ||
