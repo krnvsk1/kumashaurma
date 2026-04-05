@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -49,6 +50,20 @@ namespace Kumashaurma.API.Models
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
 
+        // Иерархия: parent_id = null → карточка-категория, parent_id = N → дочерняя позиция
+        [Column("parent_id")]
+        public int? ParentId { get; set; }
+
+        [ForeignKey("ParentId")]
+        [JsonIgnore]
+        public Shawarma? Parent { get; set; }
+
+        public ICollection<Shawarma> Children { get; set; } = new List<Shawarma>();
+
+        // Вычисляемое: является ли карточкой-категорией
+        [NotMapped]
+        public bool IsCard => ParentId == null;
+
         public ICollection<ShawarmaImage> Images { get; set; } = new List<ShawarmaImage>();
     
         [NotMapped]
@@ -57,15 +72,13 @@ namespace Kumashaurma.API.Models
         [Column("sort_order")]
         public int SortOrder { get; set; }
         
-        // НОВОЕ: связь с добавками
+        // Связь с добавками
         public ICollection<ShawarmaAddon> Addons { get; set; } = new List<ShawarmaAddon>();
 
-        // Варианты товара (разные размеры, виды мяса и т.д.)
-        public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
-
+        // Минимальная цена среди дочерних позиций или своя цена
         [NotMapped]
-        public decimal DisplayPrice => Variants != null && Variants.Any()
-            ? Variants.OrderBy(v => v.Price).First().Price
+        public decimal DisplayPrice => Children != null && Children.Any()
+            ? Children.OrderBy(c => c.Price).First().Price
             : Price;
     }
 }

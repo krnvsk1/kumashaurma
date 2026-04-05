@@ -396,46 +396,6 @@ namespace Kumashaurma.API.Migrations
                     b.ToTable("order_item_addons");
                 });
 
-            modelBuilder.Entity("Kumashaurma.API.Models.ProductVariant", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("integer")
-                        .HasColumnName("id");
-
-                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<DateTime>("CreatedAt")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("timestamp with time zone")
-                        .HasColumnName("created_at")
-                        .HasDefaultValueSql("CURRENT_TIMESTAMP");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("name");
-
-                    b.Property<decimal>("Price")
-                        .HasColumnType("decimal(10,2)")
-                        .HasColumnName("price");
-
-                    b.Property<int>("ShawarmaId")
-                        .HasColumnType("integer")
-                        .HasColumnName("shawarma_id");
-
-                    b.Property<int>("SortOrder")
-                        .HasColumnType("integer")
-                        .HasColumnName("sort_order");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ShawarmaId");
-
-                    b.ToTable("product_variants");
-                });
-
             modelBuilder.Entity("Kumashaurma.API.Models.PromoCode", b =>
                 {
                     b.Property<int>("Id")
@@ -608,6 +568,10 @@ namespace Kumashaurma.API.Migrations
                         .HasColumnType("character varying(100)")
                         .HasColumnName("name");
 
+                    b.Property<int?>("ParentId")
+                        .HasColumnType("integer")
+                        .HasColumnName("parent_id");
+
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("price");
@@ -624,6 +588,8 @@ namespace Kumashaurma.API.Migrations
 
                     b.HasIndex("Name")
                         .IsUnique();
+
+                    b.HasIndex("ParentId");
 
                     b.ToTable("shawarmas");
                 });
@@ -1046,17 +1012,6 @@ namespace Kumashaurma.API.Migrations
                     b.Navigation("OrderItem");
                 });
 
-            modelBuilder.Entity("Kumashaurma.API.Models.ProductVariant", b =>
-                {
-                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Shawarma")
-                        .WithMany("Variants")
-                        .HasForeignKey("ShawarmaId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Shawarma");
-                });
-
             modelBuilder.Entity("Kumashaurma.API.Models.PromoCode", b =>
                 {
                     b.HasOne("Kumashaurma.API.Models.AppUser", "Creator")
@@ -1076,6 +1031,16 @@ namespace Kumashaurma.API.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("Kumashaurma.API.Models.Shawarma", b =>
+                {
+                    b.HasOne("Kumashaurma.API.Models.Shawarma", "Parent")
+                        .WithMany("Children")
+                        .HasForeignKey("ParentId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.Navigation("Parent");
                 });
 
             modelBuilder.Entity("Kumashaurma.API.Models.ShawarmaAddon", b =>
@@ -1231,9 +1196,9 @@ namespace Kumashaurma.API.Migrations
                 {
                     b.Navigation("Addons");
 
-                    b.Navigation("Images");
+                    b.Navigation("Children");
 
-                    b.Navigation("Variants");
+                    b.Navigation("Images");
                 });
 #pragma warning restore 612, 618
         }

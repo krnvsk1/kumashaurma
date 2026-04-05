@@ -22,7 +22,6 @@ namespace Kumashaurma.API.Data
         public DbSet<AddonCategory> AddonCategories { get; set; } = null!;
         public DbSet<Addon> Addons { get; set; } = null!;
         public DbSet<ShawarmaAddon> ShawarmaAddons { get; set; } = null!;
-        public DbSet<ProductVariant> ProductVariants { get; set; } = null!;
         public DbSet<OrderItemAddon> OrderItemAddons { get; set; } = null!;
 
         // Auth
@@ -136,19 +135,6 @@ namespace Kumashaurma.API.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ProductVariant configuration
-            modelBuilder.Entity<ProductVariant>(entity =>
-            {
-                entity.HasIndex(e => e.ShawarmaId);
-
-                entity.HasOne(e => e.Shawarma)
-                    .WithMany(s => s.Variants)
-                    .HasForeignKey(e => e.ShawarmaId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
             // UserAddress configuration
             modelBuilder.Entity<UserAddress>(entity =>
             {
@@ -223,6 +209,16 @@ namespace Kumashaurma.API.Data
                     .WithMany()
                     .HasForeignKey(e => e.PerformedBy)
                     .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Shawarma self-referencing hierarchy (parent_id)
+            modelBuilder.Entity<Shawarma>(entity =>
+            {
+                entity.HasIndex(e => e.ParentId);
+                entity.HasOne(e => e.Parent)
+                    .WithMany(p => p.Children)
+                    .HasForeignKey(e => e.ParentId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
         }
     }
