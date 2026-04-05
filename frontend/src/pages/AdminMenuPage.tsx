@@ -120,7 +120,7 @@ const AdminMenuPage: React.FC = () => {
 
   // Разделяем на родителей и дочерние
   const parents = useMemo(() => 
-    shawarmas.filter(s => s.parentId === null),
+    shawarmas.filter(s => !s.parentId),
     [shawarmas]
   );
   const { data: categories = [] } = useAddonCategories();

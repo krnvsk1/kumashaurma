@@ -43,6 +43,8 @@ namespace Kumashaurma.API.Models
         // Иерархия: parent_id = null → карточка-категория (заголовок группы, не продаётся),
         // parent_id = N → дочерняя позиция внутри карточки N (продаваемый товар)
         [Column("parent_id")]
+        [JsonPropertyName("parentId")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
         public int? ParentId { get; set; }
 
         [ForeignKey("ParentId")]
