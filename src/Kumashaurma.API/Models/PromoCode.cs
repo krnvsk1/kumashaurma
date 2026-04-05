@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -65,7 +66,9 @@ namespace Kumashaurma.API.Models
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
         // Навигационные свойства
+        [JsonIgnore]
         public ICollection<Order> Orders { get; set; } = new List<Order>();
+        [JsonIgnore]
         public AppUser? Creator { get; set; }
 
         /// <summary>
