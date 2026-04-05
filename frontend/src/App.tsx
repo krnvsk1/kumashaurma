@@ -19,6 +19,7 @@ import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   People as PeopleIcon,
+  LocalOffer as PromoIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
@@ -37,8 +38,10 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
+import OrderSuccessPage from './pages/OrderSuccessPage';
 import AdminMenuPage from './pages/AdminMenuPage';
 import UsersPage from './pages/UserPage';
+import AdminPromoCodesPage from './pages/AdminPromoCodesPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -179,6 +182,7 @@ function App() {
       items.push(
         { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
         { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },
+        { text: 'Промокоды', icon: <PromoIcon />, path: '/admin/promocodes' },
       );
     }
 
@@ -328,6 +332,14 @@ function App() {
                         >
                           Товары
                         </Button>
+                        <Button
+                          component={Link}
+                          to="/admin/promocodes"
+                          startIcon={<PromoIcon />}
+                          sx={{ color: 'text.primary' }}
+                        >
+                          Промокоды
+                        </Button>
                         {isAdminRole && (
                           <Button
                             component={Link}
@@ -425,11 +437,13 @@ function App() {
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
                 <Route path="/order" element={<Navigate to="/" replace />} />
+                <Route path="/order/:id/success" element={<OrderSuccessPage />} />
 
                 {isAdmin && (
                   <>
                     <Route path="/admin/dashboard" element={<DashboardPage />} />
                     <Route path="/admin/menu" element={<AdminMenuPage />} />
+                    <Route path="/admin/promocodes" element={<AdminPromoCodesPage />} />
                   </>
                 )}
 

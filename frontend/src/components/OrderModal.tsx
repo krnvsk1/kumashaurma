@@ -27,6 +27,7 @@ import {
   Close as CloseIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useCreateOrder } from '../api/hooks';
 import type { CreateOrderDto, PromoCodeValidation } from '../types';
 import { useCartStore } from '../store/cartStore';
@@ -68,6 +69,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const createOrder = useCreateOrder();
+  const navigate = useNavigate();
 
   const cartItems = useCartStore(state => state.items);
   const clearCart = useCartStore(state => state.clearCart);
@@ -135,10 +137,11 @@ const OrderModal: React.FC<OrderModalProps> = ({
       showSnackbar(`Заказ #${result.id} создан успешно!`, 'success');
       clearCart();
       setNotes('');
-      onCustomerNameChange(''); // Очищаем поле имени
-      onPhoneChange(''); // Очищаем поле телефона
-      onAddressChange(''); // Очищаем поле адреса
-      setTimeout(() => onClose(), 1500);
+      onCustomerNameChange('');
+      onPhoneChange('');
+      onAddressChange('');
+      onClose();
+      navigate(`/order/${result.id}/success`);
     } catch (error: any) {
       showSnackbar(error.message || 'Ошибка при создании заказа', 'error');
     }

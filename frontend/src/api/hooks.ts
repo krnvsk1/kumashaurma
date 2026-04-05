@@ -367,3 +367,24 @@ export const useCreatePromoCode = () => {
     },
   });
 };
+
+export const useUpdatePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation<PromoCode, Error, { id: number; data: Partial<PromoCode> }>({
+    mutationFn: ({ id, data }) =>
+      apiClient.put(`/api/promocodes/${id}`, data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
+    },
+  });
+};
+
+export const useDeletePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, number>({
+    mutationFn: (id) => apiClient.delete(`/api/promocodes/${id}`).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
+    },
+  });
+};
