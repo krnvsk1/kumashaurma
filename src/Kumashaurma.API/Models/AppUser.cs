@@ -26,6 +26,9 @@ namespace Kumashaurma.API.Models
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
 
+        [Column("points_balance")]
+        public int PointsBalance { get; set; } = 0;
+
         // Navigation properties
         public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
         public ICollection<Order> Orders { get; set; } = new List<Order>();

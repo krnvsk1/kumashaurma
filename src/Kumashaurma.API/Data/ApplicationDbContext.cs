@@ -33,6 +33,9 @@ namespace Kumashaurma.API.Data
         // Promo codes
         public DbSet<PromoCode> PromoCodes { get; set; } = null!;
 
+        // Loyalty points
+        public DbSet<UserPointsTransaction> UserPointsTransactions { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -191,6 +194,30 @@ namespace Kumashaurma.API.Data
                 entity.HasOne(e => e.PromoCode)
                     .WithMany(p => p.Orders)
                     .HasForeignKey(e => e.PromoCodeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // UserPointsTransaction configuration
+            modelBuilder.Entity<UserPointsTransaction>(entity =>
+            {
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.OrderId);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Order)
+                    .WithMany()
+                    .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.PerformedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.PerformedBy)
                     .OnDelete(DeleteBehavior.SetNull);
             });
         }

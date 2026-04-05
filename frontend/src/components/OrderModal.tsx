@@ -50,6 +50,7 @@ interface OrderModalProps {
   phone: string;
   onPhoneChange: (phone: string) => void;
   promoInfo?: PromoCodeValidation | null;
+  pointsDiscount?: number;
 }
 
 const OrderModal: React.FC<OrderModalProps> = ({
@@ -64,6 +65,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
   phone,
   onPhoneChange,
   promoInfo,
+  pointsDiscount = 0,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
@@ -90,7 +92,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
   }, [cartItems]);
 
   const discountAmount = promoInfo?.discountAmount ?? 0;
-  const finalTotal = Math.max(0, totalAmount - discountAmount);
+  const finalTotal = Math.max(0, totalAmount - discountAmount - pointsDiscount);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({ open: true, message, severity });
@@ -383,6 +385,12 @@ const OrderModal: React.FC<OrderModalProps> = ({
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
                 <Typography variant="body2" color="success.main">Скидка по промокоду</Typography>
                 <Typography variant="body2" fontWeight={600} color="success.main">−{discountAmount} ₽</Typography>
+              </Box>
+            )}
+            {pointsDiscount > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <Typography variant="body2" color="warning.main">Скидка баллами</Typography>
+                <Typography variant="body2" fontWeight={600} color="warning.main">−{pointsDiscount} ₽</Typography>
               </Box>
             )}
             {promoInfo && (

@@ -25,12 +25,14 @@ import {
   Remove as RemoveIcon,
   Search as SearchIcon,
   LocalOffer as OfferIcon,
-  Check as CheckIcon
+  Check as CheckIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
 import type { DeliveryType } from '../store/orderFlowStore';
-import { useValidatePromoCode } from '../api/hooks';
+import { useValidatePromoCode, usePointsBalance, useRedeemPoints } from '../api/hooks';
 import type { PromoCodeValidation } from '../types';
+import { useAuthStore } from '../store/authStore';
 import { resolveMediaUrl } from '../utils/media';
 
 interface CartModalProps {
@@ -42,6 +44,7 @@ interface CartModalProps {
   address: string;
   onAddressChange: (addr: string) => void;
   onPromoApplied?: (promo: PromoCodeValidation | null) => void;
+  onPointsApplied?: (discount: number) => void;
 }
 
 const CartModal: React.FC<CartModalProps> = ({
@@ -53,6 +56,7 @@ const CartModal: React.FC<CartModalProps> = ({
   address,
   onAddressChange,
   onPromoApplied,
+  onPointsApplied,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -61,11 +65,20 @@ const CartModal: React.FC<CartModalProps> = ({
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
   const { updateQuantity, removeItem } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
 
   const [promoCode, setPromoCode] = React.useState('');
   const [appliedPromo, setAppliedPromo] = React.useState<PromoCodeValidation | null>(null);
 
+  const [pointsInput, setPointsInput] = React.useState('');
+  const [appliedPointsDiscount, setAppliedPointsDiscount] = React.useState(0);
+  const [pointsError, setPointsError] = React.useState('');
+
   const validatePromo = useValidatePromoCode();
+  const { data: pointsBalanceData } = usePointsBalance();
+  const redeemPoints = useRedeemPoints();
+
+  const pointsBalance = pointsBalanceData?.balance ?? 0;
 
   const MIN_ORDER = 499;
   const deliveryPrice = 0;
@@ -73,7 +86,46 @@ const CartModal: React.FC<CartModalProps> = ({
   const deliveryOptions: DeliveryType[] = ['Доставка', 'Самовывоз', 'В зале'];
 
   const discountAmount = appliedPromo?.discountAmount ?? 0;
-  const finalPrice = Math.max(0, totalPrice - discountAmount);
+  const finalPrice = Math.max(0, totalPrice - discountAmount - appliedPointsDiscount);
+
+  // Reset points when cart changes
+  React.useEffect(() => {
+    if (items.length === 0) {
+      setPointsInput('');
+      setAppliedPointsDiscount(0);
+      setPointsError('');
+      onPointsApplied?.(0);
+    }
+  }, [items.length]);
+
+  const maxPoints = Math.min(pointsBalance, Math.max(0, totalPrice - discountAmount));
+
+  const handleApplyPoints = async () => {
+    const pts = parseInt(pointsInput, 10);
+    if (isNaN(pts) || pts <= 0) {
+      setPointsError('Введите количество баллов');
+      return;
+    }
+    if (pts > maxPoints) {
+      setPointsError(`Максимум ${maxPoints} баллов`);
+      return;
+    }
+    try {
+      const result = await redeemPoints.mutateAsync({ pointsToRedeem: pts });
+      setAppliedPointsDiscount(result.discountAmount);
+      setPointsError('');
+      onPointsApplied?.(result.discountAmount);
+    } catch (err: any) {
+      setPointsError(err?.response?.data?.message || err?.message || 'Ошибка списания баллов');
+    }
+  };
+
+  const handleRemovePoints = () => {
+    setPointsInput('');
+    setAppliedPointsDiscount(0);
+    setPointsError('');
+    onPointsApplied?.(0);
+  };
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
@@ -295,6 +347,83 @@ const CartModal: React.FC<CartModalProps> = ({
           })}
         </List>
 
+        {/* Списать баллы */}
+        {isAuthenticated && pointsBalance > 0 && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              mb: 2,
+              borderRadius: 3,
+              borderColor: appliedPointsDiscount > 0 ? 'warning.main' : theme.palette.divider,
+              bgcolor: appliedPointsDiscount > 0
+                ? (theme.palette.mode === 'light' ? '#fffbeb' : '#3a2a0a')
+                : 'transparent',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <StarIcon sx={{ color: appliedPointsDiscount > 0 ? 'warning.main' : 'text.secondary', fontSize: 20 }} />
+              {appliedPointsDiscount > 0 ? (
+                <>
+                  <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
+                    Списано {pointsInput} баллов
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={handleRemovePoints}
+                    sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                  >
+                    Отмена
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <TextField
+                    fullWidth
+                    placeholder={`Использовать баллы (макс. ${maxPoints})`}
+                    value={pointsInput}
+                    onChange={(e) => {
+                      setPointsInput(e.target.value.replace(/[^0-9]/g, ''));
+                      setPointsError('');
+                    }}
+                    variant="standard"
+                    type="number"
+                    inputProps={{ min: 0, max: maxPoints }}
+                    InputProps={{
+                      disableUnderline: true,
+                      endAdornment: (
+                        <Button
+                          size="small"
+                          onClick={handleApplyPoints}
+                          disabled={redeemPoints.isPending || !pointsInput || items.length === 0}
+                          sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                        >
+                          {redeemPoints.isPending ? <CircularProgress size={16} /> : 'Применить'}
+                        </Button>
+                      ),
+                    }}
+                  />
+                </>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                Доступно: {pointsBalance} баллов
+              </Typography>
+              {appliedPointsDiscount > 0 && (
+                <Typography variant="caption" color="warning.main" fontWeight={600}>
+                  −{appliedPointsDiscount} ₽
+                </Typography>
+              )}
+            </Box>
+            {pointsError && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {pointsError}
+              </Typography>
+            )}
+          </Paper>
+        )}
+
         {/* Промокод */}
         <Paper
           variant="outlined"
@@ -370,6 +499,12 @@ const CartModal: React.FC<CartModalProps> = ({
             <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography color="success.main">Скидка по промокоду</Typography>
               <Typography fontWeight={600} color="success.main">−{discountAmount} ₽</Typography>
+            </Box>
+          )}
+          {appliedPointsDiscount > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography color="warning.main">Скидка баллами</Typography>
+              <Typography fontWeight={600} color="warning.main">−{appliedPointsDiscount} ₽</Typography>
             </Box>
           )}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>

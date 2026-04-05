@@ -16,7 +16,12 @@ import type {
   AssignRoleDto,
   UsersQueryParams,
   PromoCodeValidation,
-  PromoCode
+  PromoCode,
+  PointsBalance,
+  PointsTransaction,
+  RedeemPointsRequest,
+  RedeemPointsResponse,
+  AdminGrantPointsRequest,
 } from '../types';
 
 // ==================== SHAWARMA HOOKS ====================
@@ -386,5 +391,56 @@ export const useDeletePromoCode = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['promocodes'] });
     },
+  });
+};
+
+// ==================== LOYALTY POINTS HOOKS ====================
+
+export const usePointsBalance = () => {
+  return useQuery<PointsBalance>({
+    queryKey: ['points-balance'],
+    queryFn: () => apiClient.get('/api/points/balance').then(res => res.data),
+    enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
+    staleTime: 30 * 1000,
+  });
+};
+
+export const usePointsHistory = (page = 1, pageSize = 20) => {
+  return useQuery<PointsTransaction[]>({
+    queryKey: ['points-history', page, pageSize],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/api/points/history?page=${page}&pageSize=${pageSize}`);
+      return data;
+    },
+    enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
+    staleTime: 30 * 1000,
+  });
+};
+
+export const useUserPointsBalance = (userId: number) => {
+  return useQuery<{ userId: number; balance: number }>({
+    queryKey: ['user-points-balance', userId],
+    queryFn: () => apiClient.get(`/api/points/users/${userId}/balance`).then(res => res.data),
+    enabled: !!userId,
+  });
+};
+
+export const useAdminGrantPoints = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AdminGrantPointsRequest) =>
+      apiClient.post('/api/points/admin/grant', data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user-points-balance'] });
+    },
+  });
+};
+
+export const useRedeemPoints = () => {
+  return useMutation<RedeemPointsResponse, Error, RedeemPointsRequest>({
+    mutationFn: (data) =>
+      apiClient.post('/api/points/redeem', data).then(res => res.data),
   });
 };

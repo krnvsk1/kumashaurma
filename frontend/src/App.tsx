@@ -20,6 +20,7 @@ import {
   Brightness7 as Brightness7Icon,
   People as PeopleIcon,
   LocalOffer as PromoIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
@@ -42,6 +43,7 @@ import OrderSuccessPage from './pages/OrderSuccessPage';
 import AdminMenuPage from './pages/AdminMenuPage';
 import UsersPage from './pages/UserPage';
 import AdminPromoCodesPage from './pages/AdminPromoCodesPage';
+import PointsPage from './pages/PointsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +62,7 @@ function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
   const [promoInfo, setPromoInfo] = useState<PromoCodeValidation | null>(null);
+  const [pointsDiscount, setPointsDiscount] = useState(0);
 
   const cartOpen = useOrderFlowStore((state) => state.cartOpen);
   const deliveryType = useOrderFlowStore((state) => state.deliveryType);
@@ -175,6 +178,7 @@ function App() {
     const items = [
       { text: 'Меню', icon: <HomeIcon />, path: '/' },
       { text: 'Мои заказы', icon: <ListAltIcon />, path: '/orders' },
+      { text: 'Мои баллы', icon: <StarIcon />, path: '/points' },
       { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
     ];
 
@@ -436,6 +440,7 @@ function App() {
               <Routes>
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/points" element={<PointsPage />} />
                 <Route path="/order" element={<Navigate to="/" replace />} />
                 <Route path="/order/:id/success" element={<OrderSuccessPage />} />
 
@@ -471,6 +476,7 @@ function App() {
               address={address}
               onAddressChange={setAddress}
               onPromoApplied={setPromoInfo}
+              onPointsApplied={setPointsDiscount}
             />
 
             <OrderModal
@@ -485,6 +491,7 @@ function App() {
               phone={phone}
               onPhoneChange={setPhone}
               promoInfo={promoInfo}
+              pointsDiscount={pointsDiscount}
             />
 
             <AuthModal

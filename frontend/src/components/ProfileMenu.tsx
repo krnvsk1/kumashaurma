@@ -15,6 +15,7 @@ import {
   Logout as LogoutIcon,
   ShoppingBag as OrdersIcon,
   AdminPanelSettings as AdminIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
@@ -44,6 +45,11 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
 
   const handleMyOrders = () => {
     navigate('/orders');
+    handleClose();
+  };
+
+  const handleMyPoints = () => {
+    navigate('/points');
     handleClose();
   };
 
@@ -154,6 +160,13 @@ export default function ProfileMenu({ onLoginClick }: ProfileMenuProps) {
             <OrdersIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText>Мои заказы</ListItemText>
+        </MenuItem>
+
+        <MenuItem onClick={handleMyPoints} sx={{ borderRadius: 1, mx: 0.5 }}>
+          <ListItemIcon>
+            <StarIcon fontSize="small" sx={{ color: '#f59e0b' }} />
+          </ListItemIcon>
+          <ListItemText>Мои баллы</ListItemText>
         </MenuItem>
 
         {isAdmin && (

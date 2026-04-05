@@ -279,3 +279,35 @@ export interface Shawarma {
     createdBy?: number | null;
     createdAt: string;
   }
+
+  // ==================== LOYALTY POINTS (Баллы) ====================
+
+  export interface PointsBalance {
+    balance: number;
+  }
+
+  export interface PointsTransaction {
+    id: number;
+    userId: number;
+    type: 'earned' | 'spent' | 'admin_grant' | 'admin_deduct' | 'expired';
+    amount: number;
+    description?: string | null;
+    orderId?: number | null;
+    performedBy?: number | null;
+    createdAt: string;
+  }
+
+  export interface RedeemPointsRequest {
+    pointsToRedeem: number;
+  }
+
+  export interface RedeemPointsResponse {
+    pointsRedeemed: number;
+    discountAmount: number;
+  }
+
+  export interface AdminGrantPointsRequest {
+    userId: number;
+    amount: number;
+    description: string;
+  }
