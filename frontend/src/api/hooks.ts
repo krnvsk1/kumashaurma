@@ -14,7 +14,9 @@ import type {
   User,
   UserDetail,
   AssignRoleDto,
-  UsersQueryParams
+  UsersQueryParams,
+  PromoCodeValidation,
+  PromoCode
 } from '../types';
 
 // ==================== SHAWARMA HOOKS ====================
@@ -334,6 +336,34 @@ export const useRemoveRole = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
+    },
+  });
+};
+
+// ==================== PROMO CODE HOOKS ====================
+
+export const useValidatePromoCode = () => {
+  return useMutation<PromoCodeValidation, Error, { code: string; orderAmount: number }>({
+    mutationFn: ({ code, orderAmount }) =>
+      apiClient.post('/api/promocodes/validate', { code, orderAmount }).then(res => res.data),
+  });
+};
+
+export const usePromoCodes = () => {
+  return useQuery<PromoCode[]>({
+    queryKey: ['promocodes'],
+    queryFn: () => apiClient.get('/api/promocodes').then(res => res.data),
+    enabled: false, // Only for admin, enabled manually
+  });
+};
+
+export const useCreatePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<PromoCode>) =>
+      apiClient.post('/api/promocodes', data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
     },
   });
 };

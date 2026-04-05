@@ -156,6 +156,16 @@ namespace Kumashaurma.API.Controllers
                     userId = parsedUserId;
                 }
 
+                // Валидация промокода
+                decimal discountAmount = 0;
+                PromoCode? promoCode = null;
+                if (request.PromoCodeId.HasValue)
+                {
+                    promoCode = await _context.PromoCodes.FindAsync(request.PromoCodeId.Value);
+                    if (promoCode == null || !promoCode.IsActive)
+                        return BadRequest(new { Message = "Промокод не найден или неактивен" });
+                }
+
                 // Создаем заказ
                 var newOrder = new Order
                 {
@@ -166,6 +176,9 @@ namespace Kumashaurma.API.Controllers
                     Total = 0,
                     Status = "Новый",
                     Notes = request.Notes,
+                    DeliveryType = !string.IsNullOrEmpty(request.DeliveryType) ? request.DeliveryType : "Доставка",
+                    PromoCodeId = request.PromoCodeId,
+                    DiscountAmount = 0,
                     CreatedAt = DateTime.UtcNow,
                     CompletedAt = null
                 };
@@ -225,8 +238,20 @@ namespace Kumashaurma.API.Controllers
                     total += (basePrice + addonsTotal) * itemRequest.Quantity;
                 }
 
-                // Обновляем общую сумму заказа
-                newOrder.Total = total;
+                // Применяем промокод
+                if (promoCode != null)
+                {
+                    discountAmount = promoCode.CalculateDiscount(total);
+                    if (discountAmount > 0)
+                    {
+                        promoCode.CurrentUses++;
+                        _context.PromoCodes.Update(promoCode);
+                    }
+                }
+
+                newOrder.DiscountAmount = discountAmount;
+                // Обновляем общую сумму заказа (с учётом скидки)
+                newOrder.Total = total - discountAmount;
                 await _context.SaveChangesAsync();
 
                 _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}", 
@@ -259,6 +284,8 @@ namespace Kumashaurma.API.Controllers
             public string Phone { get; set; } = string.Empty;
             public string Address { get; set; } = string.Empty;
             public string? Notes { get; set; }
+            public string DeliveryType { get; set; } = "Доставка";
+            public int? PromoCodeId { get; set; }
             public List<CreateOrderItemRequest> Items { get; set; } = new();
         }
 

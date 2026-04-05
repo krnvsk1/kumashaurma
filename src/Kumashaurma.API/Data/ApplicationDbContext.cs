@@ -30,6 +30,9 @@ namespace Kumashaurma.API.Data
         public DbSet<SmsVerificationCode> SmsVerificationCodes { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
+        // Promo codes
+        public DbSet<PromoCode> PromoCodes { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -166,6 +169,29 @@ namespace Kumashaurma.API.Data
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // PromoCode configuration
+            modelBuilder.Entity<PromoCode>(entity =>
+            {
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(e => e.Creator)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreatedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Order -> PromoCode configuration
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.HasIndex(e => e.PromoCodeId);
+
+                entity.HasOne(e => e.PromoCode)
+                    .WithMany(p => p.Orders)
+                    .HasForeignKey(e => e.PromoCodeId)
+                    .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }

@@ -89,6 +89,9 @@ export interface Shawarma {
     createdAt: string;          // ISO date
     completedAt: string | null; // Может быть null
     orderItems: OrderItem[];    // Связь с элементами заказа
+    deliveryType?: string;
+    discountAmount?: number;
+    promoCodeId?: number | null;
   }
   
   // Для создания заказа (то, что отправляем на бэкенд)
@@ -97,12 +100,14 @@ export interface Shawarma {
     phone: string;
     address: string;
     notes?: string | null;      // опционально
+    deliveryType?: string;
+    promoCodeId?: number | null;
     items: {
       shawarmaId: number;
       quantity: number;
       name?: string;            // опционально, бэкенд сам подставит
       price?: number;
-      selectedAddons?: {              // 👈 НОВОЕ
+      selectedAddons?: {
         addonId: number;
         quantity: number;
       }[];
@@ -245,4 +250,32 @@ export interface Shawarma {
     role?: UserRole;
     page?: number;
     pageSize?: number;
+  }
+
+  // ==================== PROMO CODES (Промокоды) ====================
+
+  export interface PromoCodeValidation {
+    valid: boolean;
+    message: string;
+    promoCodeId?: number | null;
+    code?: string;
+    discountType?: string;
+    discountValue?: number;
+    discountAmount?: number;
+  }
+
+  export interface PromoCode {
+    id: number;
+    code: string;
+    discountType: string; // "percent" or "fixed"
+    discountValue: number;
+    minOrderAmount: number;
+    maxDiscountAmount?: number | null;
+    maxUses?: number | null;
+    currentUses: number;
+    validFrom?: string | null;
+    validUntil?: string | null;
+    isActive: boolean;
+    createdBy?: number | null;
+    createdAt: string;
   }

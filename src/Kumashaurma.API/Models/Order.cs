@@ -38,6 +38,17 @@ namespace Kumashaurma.API.Models
         [Column("notes")]
         public string? Notes { get; set; }
 
+        [Column("delivery_type")]
+        [MaxLength(30)]
+        public string DeliveryType { get; set; } = "Доставка";
+
+        // Промокод
+        [Column("promo_code_id")]
+        public int? PromoCodeId { get; set; }
+
+        [Column("discount_amount", TypeName = "decimal(10,2)")]
+        public decimal DiscountAmount { get; set; }
+
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -47,6 +58,7 @@ namespace Kumashaurma.API.Models
 
         // Navigation property
         public AppUser? User { get; set; }
+        public PromoCode? PromoCode { get; set; }
 
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }

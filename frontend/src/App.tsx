@@ -23,6 +23,7 @@ import {
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTheme } from './hooks/useTheme';
+import type { PromoCodeValidation } from './types';
 import { useCartStore, useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
 import { useOrderFlowStore } from './store/orderFlowStore';
@@ -55,6 +56,7 @@ function App() {
   const { theme: themeMode, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [promoInfo, setPromoInfo] = useState<PromoCodeValidation | null>(null);
 
   const cartOpen = useOrderFlowStore((state) => state.cartOpen);
   const deliveryType = useOrderFlowStore((state) => state.deliveryType);
@@ -454,6 +456,7 @@ function App() {
               onDeliveryTypeChange={setDeliveryType}
               address={address}
               onAddressChange={setAddress}
+              onPromoApplied={setPromoInfo}
             />
 
             <OrderModal
@@ -467,6 +470,7 @@ function App() {
               onCustomerNameChange={setCustomerName}
               phone={phone}
               onPhoneChange={setPhone}
+              promoInfo={promoInfo}
             />
 
             <AuthModal

@@ -17,7 +17,9 @@ import {
   alpha,
   useTheme,
   useMediaQuery,
-  Grid
+  Grid,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -48,6 +50,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [selectedAddons, setSelectedAddons] = useState<Map<number, SelectedAddon[]>>(new Map());
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
+  const [addedToast, setAddedToast] = useState(false);
   
   const { data: addonCategories, isLoading } = useShawarmaAddons(product?.id);
 
@@ -152,7 +155,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
     });
     
     onAddToCart(product, quantity, allSelectedAddons, specialInstructions, selectedVariant || undefined);
-    onClose();
+    setAddedToast(true);
+    setTimeout(() => {
+      setAddedToast(false);
+      onClose();
+    }, 800);
   };
 
   const allAddons = addonCategories?.flatMap(c => c.addons) || [];
@@ -552,6 +559,17 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </Button>
         </Box>
       </DialogActions>
+
+      <Snackbar
+        open={addedToast}
+        autoHideDuration={800}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 80, sm: 40 } }}
+      >
+        <Alert severity="success" variant="filled" sx={{ borderRadius: 3 }}>
+          🥙 Добавлено в корзину!
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 };
