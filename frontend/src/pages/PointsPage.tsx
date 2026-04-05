@@ -99,7 +99,8 @@ const PointsPage: React.FC = () => {
   const { isAuthenticated } = useAuthStore();
 
   const { data: balanceData, isLoading: balanceLoading } = usePointsBalance();
-  const { data: transactions = [], isLoading: historyLoading } = usePointsHistory(1, 50);
+  const { data: transactionsData, isLoading: historyLoading } = usePointsHistory(1, 50);
+  const transactions = Array.isArray(transactionsData) ? transactionsData : [];
 
   const balance = balanceData?.balance ?? 0;
 
