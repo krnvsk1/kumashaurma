@@ -185,12 +185,23 @@ namespace Kumashaurma.API.Controllers
                     .Include(s => s.Addons)
                         .ThenInclude(sa => sa.Addon)
                         .ThenInclude(a => a.Category)
+                    .Include(s => s.Parent)
+                        .ThenInclude(p => p.Addons)
+                            .ThenInclude(sa => sa.Addon)
+                                .ThenInclude(a => a.Category)
                     .FirstOrDefaultAsync(s => s.Id == shawarmaId);
 
                 if (shawarma == null)
                     return NotFound(new { Message = "Шаурма не найдена" });
 
-                var categories = shawarma.Addons
+                // Если у шаурмы нет своих добавок и она — ребёнок, берём добавки родителя
+                var addonsSource = shawarma.Addons;
+                if (!shawarma.Addons.Any() && shawarma.Parent != null)
+                {
+                    addonsSource = shawarma.Parent.Addons;
+                }
+
+                var categories = addonsSource
                     .Where(sa => sa.Addon.IsAvailable && sa.Addon.Category.IsActive)
                     .GroupBy(sa => sa.Addon.Category)
                     .Select(g => new
@@ -347,7 +358,9 @@ namespace Kumashaurma.API.Controllers
         {
             try
             {
-                var shawarma = await _context.Shawarmas.FindAsync(request.ShawarmaId);
+                var shawarma = await _context.Shawarmas
+                    .Include(s => s.Children)
+                    .FirstOrDefaultAsync(s => s.Id == request.ShawarmaId);
                 if (shawarma == null)
                     return NotFound(new { Message = "Шаурма не найдена" });
 
@@ -371,10 +384,36 @@ namespace Kumashaurma.API.Controllers
                 };
 
                 _context.ShawarmaAddons.Add(shawarmaAddon);
+
+                // Если привязываем к карточке-родителю — дублируем на всех дочерних
+                int duplicatedCount = 0;
+                if (shawarma.ParentId == null && shawarma.Children.Any())
+                {
+                    foreach (var child in shawarma.Children)
+                    {
+                        var childExisting = await _context.ShawarmaAddons
+                            .FirstOrDefaultAsync(sa => sa.ShawarmaId == child.Id && sa.AddonId == request.AddonId);
+
+                        if (childExisting == null)
+                        {
+                            _context.ShawarmaAddons.Add(new ShawarmaAddon
+                            {
+                                ShawarmaId = child.Id,
+                                AddonId = request.AddonId,
+                                CustomPrice = request.CustomPrice,
+                                IsDefault = request.IsDefault,
+                                MaxQuantity = request.MaxQuantity
+                            });
+                            duplicatedCount++;
+                        }
+                    }
+                }
+
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("🔗 Добавка {AddonName} привязана к товару {ShawarmaName}", 
-                    addon.Name, shawarma.Name);
+                _logger.LogInformation("🔗 Добавка {AddonName} привязана к товару {ShawarmaName}{Duplicated}",
+                    addon.Name, shawarma.Name,
+                    duplicatedCount > 0 ? $" (+ дублирована на {duplicatedCount} дочерних)" : "");
 
                 return Ok(shawarmaAddon);
             }
@@ -392,16 +431,34 @@ namespace Kumashaurma.API.Controllers
         {
             try
             {
-                var link = await _context.ShawarmaAddons
-                    .FirstOrDefaultAsync(sa => sa.ShawarmaId == shawarmaId && sa.AddonId == addonId);
+                var linksToRemove = await _context.ShawarmaAddons
+                    .Where(sa => sa.ShawarmaId == shawarmaId && sa.AddonId == addonId)
+                    .ToListAsync();
 
-                if (link == null)
+                if (!linksToRemove.Any())
                     return NotFound(new { Message = "Связь не найдена" });
 
-                _context.ShawarmaAddons.Remove(link);
+                // Если отвязываем от карточки-родителя — отвязать и от всех дочерних
+                var shawarma = await _context.Shawarmas
+                    .Include(s => s.Children)
+                    .FirstOrDefaultAsync(s => s.Id == shawarmaId);
+
+                if (shawarma != null && shawarma.ParentId == null && shawarma.Children.Any())
+                {
+                    foreach (var child in shawarma.Children)
+                    {
+                        var childLinks = await _context.ShawarmaAddons
+                            .Where(sa => sa.ShawarmaId == child.Id && sa.AddonId == addonId)
+                            .ToListAsync();
+
+                        _context.ShawarmaAddons.RemoveRange(childLinks);
+                    }
+                }
+
+                _context.ShawarmaAddons.RemoveRange(linksToRemove);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("🔓 Добавка {AddonId} отвязана от товара {ShawarmaId}", addonId, shawarmaId);
+                _logger.LogInformation("🔓 Добавка {AddonId} отвязана от товара {ShawarmaId} (+ дочерних)", addonId, shawarmaId);
 
                 return Ok(new { Message = "Добавка отвязана от товара" });
             }
