@@ -305,7 +305,7 @@ const AdminMenuPage: React.FC = () => {
               <TableHead>
                 <TableRow>
                   <TableCell>Название</TableCell>
-                  <TableCell>Категория</TableCell>
+                  <TableCell>Тип</TableCell>
                   <TableCell>Цена</TableCell>
                   <TableCell>Доступность</TableCell>
                   <TableCell>Группы добавок</TableCell>
@@ -318,7 +318,14 @@ const AdminMenuPage: React.FC = () => {
                     <TableCell>
                       <Typography fontWeight={600}>{product.name}</Typography>
                     </TableCell>
-                    <TableCell>{product.category}</TableCell>
+                    <TableCell>
+                      <Chip
+                        label={product.isCard || product.parentId === null ? 'Карточка' : 'Позиция'}
+                        size="small"
+                        variant="outlined"
+                        color={product.isCard || product.parentId === null ? 'primary' : 'default'}
+                      />
+                    </TableCell>
                     <TableCell>{product.price} ₽</TableCell>
                     <TableCell>
                       <Switch

@@ -26,7 +26,7 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
-import type { Shawarma, Addon, SelectedAddon, AddonCategory, ProductVariant } from '../types';
+import type { Shawarma, Addon, SelectedAddon, AddonCategory } from '../types';
 import { useShawarmaAddons } from '../hooks/useAddons';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -34,7 +34,7 @@ interface ProductModalProps {
   open: boolean;
   onClose: () => void;
   product: Shawarma | null;
-  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedVariant?: ProductVariant) => void;
+  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string) => void;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({
@@ -49,7 +49,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<Map<number, SelectedAddon[]>>(new Map());
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
   const [addedToast, setAddedToast] = useState(false);
   
   const { data: addonCategories, isLoading } = useShawarmaAddons(product?.id);
@@ -59,7 +58,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
       setQuantity(1);
       setSelectedAddons(new Map());
       setSpecialInstructions('');
-      setSelectedVariant(null);
     }
   }, [open, product]);
 
@@ -96,6 +94,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
   const handleAddonQuantityChange = (addonId: number, delta: number) => {
     const newSelected = new Map(selectedAddons);
+    const allAddons = addonCategories?.flatMap(c => c.addons) || [];
     const addonDef = allAddons.find((a: Addon) => a.id === addonId);
     const categoryId = addonDef?.addonCategoryId || 0;
     const categorySelections = [...(newSelected.get(categoryId) || [])];
@@ -104,9 +103,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
     if (addonIndex >= 0) {
       const addon = categorySelections[addonIndex];
       const newQuantity = Math.max(1, addon.quantity + delta);
-      
-      const allAddons = addonCategories?.flatMap(c => c.addons) || [];
-      const addonDef = allAddons.find((a: Addon) => a.id === addonId);
       
       if (addonDef?.maxQuantity && newQuantity > addonDef.maxQuantity) {
         return;
@@ -138,23 +134,11 @@ const ProductModal: React.FC<ProductModalProps> = ({
       alert(`Пожалуйста, выберите ${missingRequired.join(', ')}`);
       return;
     }
-
-    if (product.variants && product.variants.length > 0 && !selectedVariant) {
-      alert('Пожалуйста, выберите вариант товара');
-      return;
-    }
   
     // Собираем все выбранные добавки в один массив
     const allSelectedAddons = Array.from(selectedAddons.values()).flat();
     
-    console.log('🛒 Отправка в корзину:', {
-      product,
-      quantity,
-      allSelectedAddons,
-      specialInstructions
-    });
-    
-    onAddToCart(product, quantity, allSelectedAddons, specialInstructions, selectedVariant || undefined);
+    onAddToCart(product, quantity, allSelectedAddons, specialInstructions);
     setAddedToast(true);
     setTimeout(() => {
       setAddedToast(false);
@@ -168,7 +152,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
     .flat()
     .reduce((sum: number, addon: SelectedAddon) => sum + addon.price * addon.quantity, 0);
   
-  const basePrice = selectedVariant ? selectedVariant.price : product.price;
+  const basePrice = product.price;
   const totalPrice = (basePrice + addonsTotal) * quantity;
 
   return (
@@ -244,39 +228,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 <Grid size={{ xs: 7 }}>
                   {/* Цена и вес */}
                   <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                    {basePrice} ₽ • 300 г
+                    {basePrice} ₽
                   </Typography>
-
-                  {/* Варианты товара */}
-                  {product.variants && product.variants.length > 0 && (
-                    <Box sx={{ mb: 2 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                        Выберите вариант:
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {product.variants
-                          .sort((a, b) => a.sortOrder - b.sortOrder)
-                          .map((variant) => (
-                            <Chip
-                              key={variant.id}
-                              label={`${variant.name} — ${variant.price} ₽`}
-                              clickable
-                              onClick={() => setSelectedVariant(variant)}
-                              variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
-                              sx={{
-                                fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
-                                borderRadius: 2.5,
-                                borderColor: selectedVariant?.id === variant.id
-                                  ? 'primary.main'
-                                  : theme.palette.divider,
-                                borderWidth: 1.5,
-                                borderStyle: 'solid',
-                              }}
-                            />
-                          ))}
-                      </Box>
-                    </Box>
-                  )}
 
                   {/* Описание */}
                   <Typography variant="body1" color="text.secondary" paragraph>
@@ -287,10 +240,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   {(product.isSpicy || product.hasCheese) && (
                     <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
                       {product.isSpicy && (
-                        <Chip label="🌶️ Острая" size="small" color="error" variant="outlined" />
+                        <Chip label="Острая" size="small" color="error" variant="outlined" />
                       )}
                       {product.hasCheese && (
-                        <Chip label="🧀 С сыром" size="small" color="warning" variant="outlined" />
+                        <Chip label="С сыром" size="small" color="warning" variant="outlined" />
                       )}
                     </Box>
                   )}
@@ -398,39 +351,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
                 )}
                 
                 <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                  {basePrice} ₽ • 300 г
+                  {basePrice} ₽
                 </Typography>
-
-                {/* Варианты товара (мобильная версия) */}
-                {product.variants && product.variants.length > 0 && (
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
-                      Выберите вариант:
-                    </Typography>
-                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {product.variants
-                        .sort((a, b) => a.sortOrder - b.sortOrder)
-                        .map((variant) => (
-                          <Chip
-                            key={variant.id}
-                            label={`${variant.name} — ${variant.price} ₽`}
-                            clickable
-                            onClick={() => setSelectedVariant(variant)}
-                            variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
-                            sx={{
-                              fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
-                              borderRadius: 2.5,
-                              borderColor: selectedVariant?.id === variant.id
-                                ? 'primary.main'
-                                : theme.palette.divider,
-                              borderWidth: 1.5,
-                              borderStyle: 'solid',
-                            }}
-                          />
-                        ))}
-                    </Box>
-                  </Box>
-                )}
 
                 <Typography variant="body1" color="text.secondary" paragraph>
                   {product.description || 'Нет описания'}
@@ -438,8 +360,8 @@ const ProductModal: React.FC<ProductModalProps> = ({
 
                 {(product.isSpicy || product.hasCheese) && (
                   <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-                    {product.isSpicy && <Chip label="🌶️ Острая" size="small" />}
-                    {product.hasCheese && <Chip label="🧀 С сыром" size="small" />}
+                    {product.isSpicy && <Chip label="Острая" size="small" />}
+                    {product.hasCheese && <Chip label="С сыром" size="small" />}
                   </Box>
                 )}
 
@@ -567,7 +489,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
         sx={{ bottom: { xs: 80, sm: 40 } }}
       >
         <Alert severity="success" variant="filled" sx={{ borderRadius: 3 }}>
-          🥙 Добавлено в корзину!
+          Добавлено в корзину!
         </Alert>
       </Snackbar>
     </Dialog>

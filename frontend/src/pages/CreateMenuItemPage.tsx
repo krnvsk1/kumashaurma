@@ -46,8 +46,8 @@ import {
 import { useNavigate, useParams } from 'react-router-dom';
 import ReactCrop, { type Crop, type PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma, useCategories } from '../api/hooks';
-import type { CreateShawarmaDto, ShawarmaImage, ProductVariant } from '../types';
+import { useShawarma, useCreateShawarma, useUpdateShawarma, useDeleteShawarma, useShawarmas } from '../api/hooks';
+import type { CreateShawarmaDto, ShawarmaImage, Shawarma } from '../types';
 import { useUploadImage, useShawarmaImages, useDeleteImage } from '../api/hooks';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -184,7 +184,9 @@ const CreateMenuItemPage: React.FC = () => {
   const deleteImage = useDeleteImage();
 
   // Основные данные товара
-  const { data: categoryOptions = [] } = useCategories();
+  // Получаем список карточек-категорий (parent_id = null) для привязки
+  const { data: allShawarmas = [] } = useShawarmas();
+  const parentCards = allShawarmas.filter(s => s.parentId === null || s.isCard);
   const { data: existingShawarma, isLoading: isLoadingShawarma } = useShawarma(
     isEditMode ? Number(id) : 0
   );
@@ -196,13 +198,11 @@ const CreateMenuItemPage: React.FC = () => {
     name: '',
     price: 0,
     description: '',
-    category: '',
     isSpicy: false,
     hasCheese: false,
     isAvailable: true,
+    parentId: null,
   });
-
-  const [variants, setVariants] = React.useState<{ name: string; price: number }[]>([]);
 
   const [snackbar, setSnackbar] = React.useState({
     open: false,
@@ -217,20 +217,11 @@ const CreateMenuItemPage: React.FC = () => {
         name: existingShawarma.name,
         price: existingShawarma.price,
         description: existingShawarma.description,
-        category: existingShawarma.category,
         isSpicy: existingShawarma.isSpicy,
         hasCheese: existingShawarma.hasCheese,
         isAvailable: existingShawarma.isAvailable,
+        parentId: existingShawarma.parentId ?? null,
       });
-
-      // Заполняем варианты при редактировании
-      if (existingShawarma.variants && existingShawarma.variants.length > 0) {
-        setVariants(
-          existingShawarma.variants
-            .sort((a: ProductVariant, b: ProductVariant) => a.sortOrder - b.sortOrder)
-            .map(v => ({ name: v.name, price: v.price }))
-        );
-      }
     }
   }, [existingShawarma]);
 
@@ -258,10 +249,6 @@ const CreateMenuItemPage: React.FC = () => {
     }
     if (!formData.description?.trim()) {
       showSnackbar('Введите описание товара', 'error');
-      return false;
-    }
-    if (!formData.category) {
-      showSnackbar('Выберите категорию', 'error');
       return false;
     }
     return true;
@@ -463,7 +450,6 @@ const CreateMenuItemPage: React.FC = () => {
         await updateShawarma.mutateAsync({
           id: Number(id),
           ...formData,
-          variants: variants.length > 0 ? variants : undefined,
         });
 
         for (const tempImage of tempImages) {
@@ -478,7 +464,6 @@ const CreateMenuItemPage: React.FC = () => {
       } else {
         const result = await createShawarma.mutateAsync({
           ...formData,
-          variants: variants.length > 0 ? variants : undefined,
         });
 
         for (const tempImage of tempImages) {
@@ -653,29 +638,23 @@ const CreateMenuItemPage: React.FC = () => {
                   />
 
                   <Autocomplete
-                    freeSolo
-                    options={categoryOptions}
-                    value={formData.category || ''}
-                    onInputChange={(e, value) => handleChange('category', value)}
+                    options={parentCards}
+                    value={formData.parentId ? parentCards.find(c => c.id === formData.parentId) || null : null}
+                    onChange={(e, value) => handleChange('parentId', value?.id ?? null)}
                     disabled={isPending}
+                    getOptionLabel={(option) => option.name}
                     renderInput={(params) => (
                       <TextField
                         {...params}
-                        label="Категория"
-                        placeholder="Выберите или введите"
-                        required
+                        label="Родительская карточка"
+                        placeholder="Не выбрана = карточка-категория"
                         sx={fieldSx}
                         slotProps={{
                           inputLabel: { shrink: true },
                         }}
                       />
                     )}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props} sx={{ '& > img': { mr: 2, flexShrink: 0 } }}>
-                        {option}
-                      </Box>
-                    )}
-                    isOptionEqualToValue={(option, value) => option === value}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
                     sx={{
                       '& .MuiAutocomplete-inputRoot': {
                         borderRadius: 3,
@@ -700,140 +679,11 @@ const CreateMenuItemPage: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Секция 2: Варианты */}
+          {/* Секция 2: Характеристики */}
           <Card sx={sectionCardSx}>
             <CardContent sx={{ p: 3 }}>
               <SectionLabel
                 number={2}
-                icon={<CategoryIcon sx={{ fontSize: 20, color: 'primary.main' }} />}
-                label="Варианты"
-                hint="Разные размеры, виды начинки и цены"
-              />
-
-              <Box sx={{ mt: 1 }}>
-                {variants.length > 0 && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mb: 2 }}>
-                    {variants.map((variant, index) => (
-                      <Box
-                        key={index}
-                        sx={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1.5,
-                          p: 1.5,
-                          borderRadius: 2.5,
-                          border: `1px solid ${theme.palette.divider}`,
-                          bgcolor: theme.palette.mode === 'light'
-                            ? alpha(theme.palette.primary.main, 0.02)
-                            : alpha(theme.palette.primary.main, 0.04),
-                        }}
-                      >
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontWeight: 700,
-                            color: 'text.secondary',
-                            minWidth: 20,
-                            textAlign: 'center',
-                            fontSize: '0.7rem',
-                          }}
-                        >
-                          {index + 1}
-                        </Typography>
-                        <TextField
-                          size="small"
-                          placeholder="Например: Свинина, 33 см..."
-                          value={variant.name}
-                          onChange={(e) => {
-                            const updated = [...variants];
-                            updated[index] = { ...updated[index], name: e.target.value };
-                            setVariants(updated);
-                          }}
-                          disabled={isPending}
-                          sx={{
-                            flex: 1,
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2,
-                              fontSize: '0.85rem',
-                            },
-                          }}
-                        />
-                        <TextField
-                          size="small"
-                          type="number"
-                          placeholder="0"
-                          value={variant.price || ''}
-                          onChange={(e) => {
-                            const updated = [...variants];
-                            updated[index] = { ...updated[index], price: parseFloat(e.target.value) || 0 };
-                            setVariants(updated);
-                          }}
-                          disabled={isPending}
-                          InputProps={{
-                            startAdornment: (
-                              <InputAdornment position="start" sx={{ color: 'text.secondary' }}>
-                                <PriceIcon sx={{ fontSize: 16 }} />
-                              </InputAdornment>
-                            ),
-                            inputProps: { min: 0, step: 10 },
-                          }}
-                          sx={{
-                            width: 140,
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: 2,
-                              fontSize: '0.85rem',
-                            },
-                          }}
-                        />
-                        <IconButton
-                          size="small"
-                          onClick={() => setVariants(variants.filter((_, i) => i !== index))}
-                          disabled={isPending || variants.length <= 1}
-                          sx={{
-                            color: 'error.main',
-                            opacity: variants.length <= 1 ? 0.3 : 1,
-                            '&:hover': { bgcolor: alpha(theme.palette.error.main, 0.08) },
-                          }}
-                        >
-                          <DeleteIcon sx={{ fontSize: 18 }} />
-                        </IconButton>
-                      </Box>
-                    ))}
-                  </Box>
-                )}
-
-                <Button
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setVariants([...variants, { name: '', price: 0 }])}
-                  disabled={isPending}
-                  sx={{
-                    borderRadius: 2.5,
-                    borderWidth: 1.5,
-                    borderStyle: 'dashed',
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    fontSize: '0.85rem',
-                    '&:hover': { borderWidth: 1.5, borderStyle: 'dashed' },
-                  }}
-                >
-                  Добавить вариант
-                </Button>
-
-                {variants.length > 0 && (
-                  <Typography variant="caption" sx={{ display: 'block', mt: 1.5, color: 'text.secondary', opacity: 0.7 }}>
-                    Цена товара автоматически = минимальная из вариантов
-                  </Typography>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
-
-          {/* Секция 3: Характеристики */}
-          <Card sx={sectionCardSx}>
-            <CardContent sx={{ p: 3 }}>
-              <SectionLabel
-                number={3}
                 icon={<SettingsIcon sx={{ fontSize: 20, color: 'primary.main' }} />}
                 label="Характеристики"
                 hint="Дополнительные свойства товара"
@@ -871,7 +721,7 @@ const CreateMenuItemPage: React.FC = () => {
           <Card sx={sectionCardSx}>
             <CardContent sx={{ p: 3 }}>
               <SectionLabel
-                number={4}
+                number={3}
                 icon={<ImageIcon sx={{ fontSize: 20, color: 'primary.main' }} />}
                 label="Фотографии"
                 hint="Загрузите одно или несколько изображений"

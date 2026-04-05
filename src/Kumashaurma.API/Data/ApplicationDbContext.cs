@@ -78,7 +78,8 @@ namespace Kumashaurma.API.Data
             // Shawarma configuration
             modelBuilder.Entity<Shawarma>(entity =>
             {
-                entity.HasIndex(e => e.Name).IsUnique();
+                // Имя уникально в рамках одного родителя (или среди карточек)
+                entity.HasIndex(e => new { e.ParentId, e.Name }).IsUnique();
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 

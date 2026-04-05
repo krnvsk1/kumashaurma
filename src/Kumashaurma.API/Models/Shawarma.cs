@@ -29,7 +29,7 @@ namespace Kumashaurma.API.Models
         
         [MaxLength(50)]
         [Column("category")]
-        public string Category { get; set; } = "Курица";
+        public string Category { get; set; } = string.Empty;
         
         [Column("is_spicy")]
         public bool IsSpicy { get; set; }
@@ -40,17 +40,8 @@ namespace Kumashaurma.API.Models
         [Column("is_available")]
         public bool IsAvailable { get; set; } = true;
 
-        [Column("is_promo")]
-        public bool IsPromo { get; set; } = false;
-        
-        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
-        [Column("created_at")]
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        
-        [Column("updated_at")]
-        public DateTime? UpdatedAt { get; set; }
-
-        // Иерархия: parent_id = null → карточка-категория, parent_id = N → дочерняя позиция
+        // Иерархия: parent_id = null → карточка-категория (заголовок группы, не продаётся),
+        // parent_id = N → дочерняя позиция внутри карточки N (продаваемый товар)
         [Column("parent_id")]
         public int? ParentId { get; set; }
 
@@ -63,6 +54,16 @@ namespace Kumashaurma.API.Models
         // Вычисляемое: является ли карточкой-категорией
         [NotMapped]
         public bool IsCard => ParentId == null;
+
+        [Column("is_promo")]
+        public bool IsPromo { get; set; } = false;
+        
+        [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
+        [Column("created_at")]
+        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+        
+        [Column("updated_at")]
+        public DateTime? UpdatedAt { get; set; }
 
         public ICollection<ShawarmaImage> Images { get; set; } = new List<ShawarmaImage>();
     

@@ -17,14 +17,17 @@ namespace Kumashaurma.API.Controllers
         }
 
         // GET: api/shawarma
+        // Возвращает все позиции с дочерними (для клиентского меню)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Shawarma>>> GetAll()
         {
             var shawarmas = await _context.Shawarmas
                 .Include(s => s.Children)
                     .ThenInclude(c => c.Images)
+                .Include(s => s.Images)
                 .Include(s => s.Addons)
                     .ThenInclude(a => a.Addon)
+                        .ThenInclude(a => a.Category)
                 .OrderBy(s => s.SortOrder)
                 .ToListAsync();
 
@@ -75,7 +78,6 @@ namespace Kumashaurma.API.Controllers
                 Name = dto.Name,
                 Price = dto.Price,
                 Description = dto.Description ?? string.Empty,
-                Category = dto.Category ?? "Курица",
                 IsSpicy = dto.IsSpicy,
                 HasCheese = dto.HasCheese,
                 IsAvailable = dto.IsAvailable,
@@ -105,7 +107,6 @@ namespace Kumashaurma.API.Controllers
             if (dto.Name != null) shawarma.Name = dto.Name;
             if (dto.Price.HasValue) shawarma.Price = dto.Price.Value;
             if (dto.Description != null) shawarma.Description = dto.Description;
-            if (dto.Category != null) shawarma.Category = dto.Category;
             if (dto.IsSpicy.HasValue) shawarma.IsSpicy = dto.IsSpicy.Value;
             if (dto.HasCheese.HasValue) shawarma.HasCheese = dto.HasCheese.Value;
             if (dto.IsAvailable.HasValue) shawarma.IsAvailable = dto.IsAvailable.Value;
@@ -159,7 +160,6 @@ namespace Kumashaurma.API.Controllers
         public string Name { get; set; } = string.Empty;
         public decimal Price { get; set; }
         public string? Description { get; set; }
-        public string? Category { get; set; }
         public bool IsSpicy { get; set; }
         public bool HasCheese { get; set; }
         public bool IsAvailable { get; set; } = true;
@@ -173,7 +173,6 @@ namespace Kumashaurma.API.Controllers
         public string? Name { get; set; }
         public decimal? Price { get; set; }
         public string? Description { get; set; }
-        public string? Category { get; set; }
         public bool? IsSpicy { get; set; }
         public bool? HasCheese { get; set; }
         public bool? IsAvailable { get; set; }

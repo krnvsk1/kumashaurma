@@ -16,9 +16,10 @@ import { resolveMediaUrl } from '../utils/media';
 
 interface MenuItemCardProps {
   item: Shawarma;
+  parentName?: string;
 }
 
-const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
+const MenuItemCard: React.FC<MenuItemCardProps> = ({ item, parentName }) => {
   const theme = useTheme();
 
   const imageUrl = item.images && item.images.length > 0
@@ -31,7 +32,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
     <Card
       sx={{
         display: 'flex',
-        flexDirection: { xs: 'column', md: 'row' }, // на мобильных колонка, на десктопе ряд
+        flexDirection: { xs: 'column', md: 'row' },
         borderRadius: { xs: 2, md: 3 },
         border: `1px solid ${theme.palette.divider}`,
         boxShadow: theme.palette.mode === 'light' ? '0 2px 8px rgba(0,0,0,0.08)' : '0 2px 8px rgba(0,0,0,0.3)',
@@ -49,7 +50,7 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
       <Box
         sx={{
           width: { xs: '100%', md: '35%' },
-          height: { xs: 140, md: 'auto' }, // фиксированная высота на мобильных
+          height: { xs: 140, md: 'auto' },
           position: 'relative',
         }}
       >
@@ -118,6 +119,11 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.1rem' }, mb: 0.5 }}>
             {item.name}
           </Typography>
+          {parentName && (
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              {parentName}
+            </Typography>
+          )}
           <Typography
             variant="body2"
             color="text.secondary"
@@ -132,17 +138,11 @@ const MenuItemCard: React.FC<MenuItemCardProps> = ({ item }) => {
           >
             {item.description || 'Без описания'}
           </Typography>
-          {/* Размер/вес (заглушка) */}
-          <Typography variant="caption" color="text.secondary" display="block">
-            33 см / 700 г
-          </Typography>
         </Box>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 1 }}>
           <Typography variant="h6" color="primary.main" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-            {item.variants && item.variants.length > 0
-              ? `от ${Math.min(...item.variants.map(v => v.price))} ₽`
-              : `${item.price} ₽`}
+            {item.price} ₽
           </Typography>
           <IconButton
             size="small"
