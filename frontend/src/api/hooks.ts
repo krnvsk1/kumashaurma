@@ -399,7 +399,9 @@ export const useDeletePromoCode = () => {
 export const usePointsBalance = () => {
   return useQuery<PointsBalance>({
     queryKey: ['points-balance'],
-    queryFn: () => apiClient.get('/api/points/balance').then(res => res.data),
+    queryFn: () => apiClient.get('/api/points/balance').then(res => ({
+      balance: res.data.balance ?? res.data.Balance ?? 0
+    })),
     enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
     staleTime: 30 * 1000,
   });
@@ -410,7 +412,7 @@ export const usePointsHistory = (page = 1, pageSize = 20) => {
     queryKey: ['points-history', page, pageSize],
     queryFn: async () => {
       const { data } = await apiClient.get(`/api/points/history?page=${page}&pageSize=${pageSize}`);
-      return data;
+      return data.transactions || data.Transactions || [];
     },
     enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
     staleTime: 30 * 1000,
