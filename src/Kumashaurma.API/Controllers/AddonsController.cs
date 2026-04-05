@@ -186,7 +186,7 @@ namespace Kumashaurma.API.Controllers
                         .ThenInclude(sa => sa.Addon)
                         .ThenInclude(a => a.Category)
                     .Include(s => s.Parent)
-                        .ThenInclude(p => p.Addons)
+                        .ThenInclude(p => p!.Addons)
                             .ThenInclude(sa => sa.Addon)
                                 .ThenInclude(a => a.Category)
                     .FirstOrDefaultAsync(s => s.Id == shawarmaId);
