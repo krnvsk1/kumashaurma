@@ -46,6 +46,24 @@ namespace Kumashaurma.API.Services
                 var now = DateTime.UtcNow;
                 var createdAt = AsUtc(existingCode.CreatedAt);
 
+                // Если CreatedAt в будущем — запись повреждена (timezone mismatch при EnableLegacyTimestampBehavior).
+                // Удаляем и создаём новый код без блокировки.
+                if (createdAt > now)
+                {
+                    _logger.LogWarning(
+                        "Stale sms_verification_codes record for {Phone}: CreatedAt={CreatedAt} is in the future (now={Now}). Removing corrupted record.",
+                        normalizedPhone, createdAt, now);
+                    _context.SmsVerificationCodes.Remove(existingCode);
+                    await _context.SaveChangesAsync();
+                    existingCode = null;
+                }
+            }
+
+            if (existingCode != null)
+            {
+                var now = DateTime.UtcNow;
+                var createdAt = AsUtc(existingCode.CreatedAt);
+
                 if (existingCode.IsBlocked)
                 {
                     var blockedUntil = AsUtc(existingCode.BlockedUntil!.Value);
@@ -56,18 +74,23 @@ namespace Kumashaurma.API.Services
                             $"Too many attempts. Try again in {(int)remainingBlock.TotalMinutes + 1} min",
                             Math.Max(0, (int)remainingBlock.TotalSeconds));
                     }
+                    // Блок истёк — удаляем старую запись
+                    _context.SmsVerificationCodes.Remove(existingCode);
+                    await _context.SaveChangesAsync();
                 }
-
-                var timeSinceCreation = now - createdAt;
-                if (timeSinceCreation.TotalSeconds < ResendCooldownSeconds)
+                else
                 {
-                    var retryAfter = ResendCooldownSeconds - (int)timeSinceCreation.TotalSeconds;
-                    return (false,
-                        $"Wait {retryAfter} seconds before resending",
-                        Math.Max(0, retryAfter));
-                }
+                    var timeSinceCreation = now - createdAt;
+                    if (timeSinceCreation.TotalSeconds < ResendCooldownSeconds)
+                    {
+                        var retryAfter = ResendCooldownSeconds - (int)timeSinceCreation.TotalSeconds;
+                        return (false,
+                            $"Wait {retryAfter} seconds before resending",
+                            Math.Max(0, retryAfter));
+                    }
 
-                _context.SmsVerificationCodes.Remove(existingCode);
+                    _context.SmsVerificationCodes.Remove(existingCode);
+                }
             }
 
             var code = GenerateCode();
@@ -171,9 +194,8 @@ namespace Kumashaurma.API.Services
         }
 
         /// <summary>
-        /// PostgreSQL + EnableLegacyTimestampBehavior returns DateTime with Kind=Unspecified.
-        /// Subtracting Unspecified from Utc treats Unspecified as Local time, causing huge offsets.
-        /// Force Unspecified → Utc to fix arithmetic.
+        /// PostgreSQL может возвращать DateTime с Kind=Unspecified.
+        /// Для корректных арифметических операций с DateTime.UtcNow приводим к UTC.
         /// </summary>
         private static DateTime AsUtc(DateTime dt) =>
             dt.Kind == DateTimeKind.Unspecified
