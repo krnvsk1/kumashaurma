@@ -90,7 +90,11 @@ final class CartService: ObservableObject {
             let decoder = JSONDecoder()
             decoder.keyDecodingStrategy = .convertFromSnakeCase
             if let decoded = try? decoder.decode([CartItem].self, from: data) {
-                items = decoded
+                // Remove invalid items (parent cards without selected child)
+                items = decoded.filter { $0.isValid }
+                if items.count != decoded.count {
+                    save() // persist cleaned cart
+                }
                 recalculate()
             }
         }

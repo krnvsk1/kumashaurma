@@ -19,9 +19,15 @@ final class OrderService: ObservableObject {
         notes: String?,
         cartItems: [CartItem]
     ) async throws -> Order {
-        let items = cartItems.map { item in
+        let validItems = cartItems.filter { $0.isValid }
+
+        guard !validItems.isEmpty else {
+            throw APIError.serverError(code: 400, message: "Нет валидных товаров в корзине")
+        }
+
+        let items = validItems.map { item in
             CreateOrderItem(
-                shawarmaId: item.selectedChild?.id ?? item.shawarma.id,
+                shawarmaId: item.orderShawarmaId,
                 name: item.selectedChild?.name ?? item.shawarma.name,
                 quantity: item.quantity,
                 variantId: item.selectedChild?.id,

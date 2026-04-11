@@ -262,6 +262,19 @@ struct CartItem: Identifiable, Sendable, Codable {
         selectedChild?.name
     }
 
+    /// Valid item: parent card must have a selected child
+    var isValid: Bool {
+        if shawarma.isParentCard && shawarma.availableChildren != nil {
+            return selectedChild != nil
+        }
+        return true
+    }
+
+    /// The shawarma ID to send to the backend (child if selected, parent otherwise)
+    var orderShawarmaId: Int {
+        selectedChild?.id ?? shawarma.id
+    }
+
     init(
         shawarma: Shawarma,
         quantity: Int,
@@ -276,6 +289,18 @@ struct CartItem: Identifiable, Sendable, Codable {
         self.unitPrice = selectedChild?.price ?? shawarma.displayPrice
         let addonsPrice = selectedAddons.reduce(0.0) { $0 + $1.price * Double($1.quantity) }
         self.totalPrice = (unitPrice + addonsPrice) * Double(quantity)
+    }
+
+    // Safe decoder — handles missing keys gracefully
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        shawarma = try container.decode(Shawarma.self, forKey: .shawarma)
+        quantity = try container.decodeIfPresent(Int.self, forKey: .quantity) ?? 1
+        selectedChild = try? container.decodeIfPresent(Shawarma.self, forKey: .selectedChild)
+        selectedAddons = try container.decodeIfPresent([SelectedAddon].self, forKey: .selectedAddons) ?? []
+        unitPrice = try container.decodeIfPresent(Double.self, forKey: .unitPrice) ?? (selectedChild?.price ?? shawarma.displayPrice)
+        totalPrice = try container.decodeIfPresent(Double.self, forKey: .totalPrice) ?? 0
     }
 }
 
