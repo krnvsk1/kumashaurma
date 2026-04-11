@@ -20,7 +20,7 @@ namespace Kumashaurma.API.Services
         private const int CodeLifetimeMinutes = 3;
         private const int MaxAttempts = 3;
         private const int BlockDurationMinutes = 5;
-        private const int ResendCooldownSeconds = 60;
+        private const int ResendCooldownSeconds = 30;
 
         public VerificationService(
             ApplicationDbContext context,
