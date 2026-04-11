@@ -249,7 +249,7 @@ struct CartItem: Identifiable, Sendable, Codable {
         self.selectedAddons = selectedAddons
         self.unitPrice = selectedVariant?.price ?? shawarma.displayPrice
         self.variantName = selectedVariant?.name
-        let addonsPrice = selectedAddons.reduce(0) { $0 + $1.price * Double($1.quantity) }
+        let addonsPrice = selectedAddons.reduce(0.0) { $0 + $1.price * Double($1.quantity) }
         self.totalPrice = (unitPrice + addonsPrice) * Double(quantity)
     }
 }

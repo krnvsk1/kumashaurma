@@ -26,7 +26,7 @@ struct ProductDetailView: View {
     }
 
     private var addonsTotal: Double {
-        selectedAddons.reduce(0) { $0 + $1.price * Double($1.quantity) }
+        selectedAddons.reduce(0.0) { $0 + $1.price * Double($1.quantity) }
     }
 
     private var totalPrice: Double {

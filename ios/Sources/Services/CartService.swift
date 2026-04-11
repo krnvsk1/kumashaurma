@@ -108,6 +108,6 @@ final class CartService: ObservableObject {
 
     private func recalculate() {
         totalItems = items.reduce(0) { $0 + $1.quantity }
-        totalPrice = items.reduce(0) { $0 + $1.totalPrice }
+        totalPrice = items.reduce(0.0) { $0 + $1.totalPrice }
     }
 }
