@@ -325,7 +325,7 @@ const OrderCard: React.FC<{
               }}
             >
               <List dense>
-              {order.orderItems.map((item, index) => (
+              {(order.orderItems || []).map((item, index) => (
                 <React.Fragment key={item.id}>
                   <ListItem>
                     <ListItemText
@@ -359,7 +359,7 @@ const OrderCard: React.FC<{
                       {item.subtotal} ₽
                     </Typography>
                   </ListItem>
-                  {index < order.orderItems.length - 1 && <Divider />}
+                  {index < (order.orderItems || []).length - 1 && <Divider />}
                 </React.Fragment>
               ))}
               <Divider />

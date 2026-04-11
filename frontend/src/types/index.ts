@@ -83,7 +83,7 @@ export interface Shawarma {
     notes: string | null;       // Может быть null
     createdAt: string;          // ISO date
     completedAt: string | null; // Может быть null
-    orderItems: OrderItem[];    // Связь с элементами заказа
+    orderItems?: OrderItem[];   // Связь с элементами заказа (может отсутствовать при обновлении статуса)
     deliveryType?: string;
     discountAmount?: number;
     promoCodeId?: number | null;

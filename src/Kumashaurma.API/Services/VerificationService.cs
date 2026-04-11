@@ -194,7 +194,7 @@ namespace Kumashaurma.API.Services
         }
 
         /// <summary>
-        /// PostgreSQL может возвращать DateTime с Kind=Unspecified.
+        /// PostgreSQL может возвращать DateTime с Kind=Unspecified (legacy behavior).
         /// Для корректных арифметических операций с DateTime.UtcNow приводим к UTC.
         /// </summary>
         private static DateTime AsUtc(DateTime dt) =>

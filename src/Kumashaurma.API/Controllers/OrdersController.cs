@@ -319,7 +319,10 @@ namespace Kumashaurma.API.Controllers
         {
             try
             {
-                var order = await _context.Orders.FindAsync(id);
+                var order = await _context.Orders
+                    .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
+                    .FirstOrDefaultAsync(o => o.Id == id);
                 if (order == null)
                     return NotFound(new { Message = $"Заказ с ID {id} не найден" });
 
@@ -462,7 +465,10 @@ namespace Kumashaurma.API.Controllers
         {
             try
             {
-                var order = await _context.Orders.FindAsync(id);
+                var order = await _context.Orders
+                    .Include(o => o.OrderItems)
+                        .ThenInclude(oi => oi.SelectedAddons)
+                    .FirstOrDefaultAsync(o => o.Id == id);
                 if (order == null)
                     return NotFound(new { Message = $"Заказ с ID {id} не найден" });
 
