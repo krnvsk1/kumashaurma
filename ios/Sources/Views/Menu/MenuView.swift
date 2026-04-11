@@ -30,24 +30,18 @@ struct MenuView: View {
         // Search: match against parent name, child names/descriptions
         if !searchText.isEmpty {
             let query = searchText.lowercased()
-            result = result.compactMap { card in
-                let matchingChildren = (card.availableChildren ?? []).filter { child in
+            result = result.filter { card in
+                if card.name.lowercased().contains(query) {
+                    return true
+                }
+                return (card.availableChildren ?? []).contains { child in
                     child.name.lowercased().contains(query) ||
                     child.description.lowercased().contains(query)
                 }
-                if card.name.lowercased().contains(query) || !matchingChildren.isEmpty {
-                    if matchingChildren.isEmpty {
-                        return card
-                    }
-                    // Return card with only matching children for search context
-                    var filtered = card
-                    return filtered
-                }
-                return nil
             }
         }
 
-        // Category filter: match by parent card name (each card IS a category)
+        // Category filter: match by parent card name
         if let category = selectedCategory {
             if category == "Акция Месяца" {
                 result = result.filter { $0.isPromo }
@@ -244,8 +238,8 @@ struct MenuView: View {
 
     private var productGrid: some View {
         ScrollView {
-            LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
-                // Promo section
+            LazyVStack(spacing: 20, pinnedViews: [.sectionHeaders]) {
+                // Promo section — horizontal scroll of promo parent cards
                 if !promoCards.isEmpty && (selectedCategory == nil || selectedCategory == "Акция Месяца") {
                     Section {
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -266,24 +260,20 @@ struct MenuView: View {
                     }
                 }
 
-                // Regular cards — each card as its own section
-                ForEach(regularCards) { card in
+                // Regular cards — 2-column grid of parent cards
+                if !regularCards.isEmpty {
                     Section {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 16) {
-                                ForEach(card.availableChildren ?? []) { child in
-                                    NavigationLink {
-                                        ProductDetailView(shawarma: card, preselectedChild: child)
-                                    } label: {
-                                        ChildProductCard(parent: card, child: child)
-                                    }
-                                    .buttonStyle(.plain)
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(regularCards) { card in
+                                NavigationLink {
+                                    ProductDetailView(shawarma: card)
+                                } label: {
+                                    MenuProductCard(shawarma: card)
                                 }
+                                .buttonStyle(.plain)
                             }
-                            .padding(.horizontal, 16)
                         }
-                    } header: {
-                        cardSectionHeader(card)
+                        .padding(.horizontal, 16)
                     }
                 }
             }
@@ -307,84 +297,7 @@ struct MenuView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
 
-            Text("\(promoCards.count)")
-                .font(.caption)
-                .foregroundColor(.white)
-                .fontWeight(.semibold)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.appAccent)
-                .cornerRadius(10)
-
             Spacer()
-        }
-        .padding(.horizontal, 16)
-        .padding(.top, 8)
-        .padding(.bottom, 4)
-        .background(Color.appBackground)
-    }
-
-    private func cardSectionHeader(_ card: Shawarma) -> some View {
-        HStack(spacing: 8) {
-            // Card image thumbnail
-            if let imagePath = card.primaryImage,
-               let url = APIClient.shared.getImageURL(imagePath) {
-                AsyncImage(url: url) { phase in
-                    switch phase {
-                    case .success(let image):
-                        image
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                    default:
-                        ZStack {
-                            Color.appPrimary.opacity(0.1)
-                            Image(systemName: "takeoutbag.and.cup.and.straw")
-                                .font(.caption2)
-                                .foregroundColor(.appPrimary)
-                                .opacity(0.5)
-                        }
-                    }
-                }
-                .frame(width: 32, height: 32)
-                .cornerRadius(8)
-                .clipped()
-            }
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(card.name)
-                    .font(.headline)
-                    .fontWeight(.bold)
-                    .foregroundColor(.primary)
-
-                Text("от \(Int(card.displayPrice)) \u{20BD}")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Spacer()
-
-            Text("\(card.availableChildren?.count ?? 0)")
-                .font(.caption)
-                .foregroundColor(.white)
-                .fontWeight(.semibold)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(Color.appPrimary)
-                .cornerRadius(10)
-
-            // Badges
-            HStack(spacing: 4) {
-                if card.isSpicy {
-                    Image(systemName: "flame.fill")
-                        .font(.caption)
-                        .foregroundColor(.red)
-                }
-                if card.hasCheese {
-                    Image(systemName: "cheese")
-                        .font(.caption)
-                        .foregroundColor(.orange)
-                }
-            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
@@ -450,7 +363,7 @@ struct FilterChip: View {
     }
 }
 
-// MARK: - Menu Product Card (Parent Card)
+// MARK: - Menu Product Card (Parent Card) — matches frontend MenuItemCard
 
 struct MenuProductCard: View {
     let shawarma: Shawarma
@@ -465,7 +378,7 @@ struct MenuProductCard: View {
                 // Name
                 Text(shawarma.name)
                     .font(.subheadline)
-                    .fontWeight(.semibold)
+                    .fontWeight(.bold)
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
@@ -486,23 +399,35 @@ struct MenuProductCard: View {
                             .foregroundColor(.red)
                     }
                     if shawarma.hasCheese {
-                        Label("Сыр", systemImage: "cheese")
+                        Label("С сыром", systemImage: "cheese")
                             .font(.caption2)
                             .foregroundColor(.orange)
                     }
                     Spacer()
                 }
 
-                Spacer()
+                Spacer(minLength: 0)
 
-                // Price
-                Text(priceText)
-                    .font(.appPrice)
-                    .foregroundColor(.primary)
+                // Price + child count
+                HStack(alignment: .bottom) {
+                    Text(priceText)
+                        .font(.appPrice)
+                        .foregroundColor(.primary)
+
+                    Spacer()
+
+                    // "+" button (same as frontend)
+                    Image(systemName: "plus")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(.white)
+                        .frame(width: 32, height: 32)
+                        .background(Color.appPrimary)
+                        .clipShape(Circle())
+                }
             }
             .padding(.horizontal, 12)
             .padding(.bottom, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(maxWidth: .infinity, minHeight: 90, alignment: .leading)
         }
         .background(Color(.systemBackground))
         .cornerRadius(16)
@@ -556,6 +481,31 @@ struct MenuProductCard: View {
                     .cornerRadius(0, corners: [.bottomLeft])
                     .padding(.top, 0)
             }
+
+            // Spicy / Cheese badges overlay
+            VStack {
+                HStack(spacing: 4) {
+                    if shawarma.isSpicy {
+                        Image(systemName: "flame.fill")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(6)
+                            .background(Color.red.opacity(0.85))
+                            .clipShape(Capsule())
+                    }
+                    if shawarma.hasCheese {
+                        Image(systemName: "cheese")
+                            .font(.caption2)
+                            .foregroundColor(.white)
+                            .padding(6)
+                            .background(Color.orange.opacity(0.85))
+                            .clipShape(Capsule())
+                    }
+                    Spacer()
+                }
+                Spacer()
+            }
+            .padding(8)
         }
         .cornerRadius(16, corners: [.topLeft, .topRight])
         .clipped()
@@ -579,90 +529,6 @@ struct MenuProductCard: View {
             return "от \(Int(shawarma.displayPrice)) \u{20BD}"
         }
         return "\(Int(shawarma.price)) \u{20BD}"
-    }
-}
-
-// MARK: - Child Product Card (individual item within a parent card)
-
-struct ChildProductCard: View {
-    let parent: Shawarma
-    let child: Shawarma
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            // Image — use child's image if available, otherwise parent's
-            childImage
-
-            // Info
-            VStack(alignment: .leading, spacing: 6) {
-                Text(child.name)
-                    .font(.subheadline)
-                    .fontWeight(.semibold)
-                    .lineLimit(2)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .padding(.top, 10)
-
-                if !child.description.isEmpty {
-                    Text(child.description)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-
-                Spacer()
-
-                Text("\(Int(child.price)) \u{20BD}")
-                    .font(.appPrice)
-                    .foregroundColor(.primary)
-            }
-            .padding(.horizontal, 12)
-            .padding(.bottom, 12)
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-        .frame(width: 180)
-        .background(Color(.systemBackground))
-        .cornerRadius(16)
-        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .strokeBorder(Color(.separator), lineWidth: 0.5)
-        )
-    }
-
-    @ViewBuilder
-    private var childImage: some View {
-        let imagePath = child.primaryImage ?? parent.primaryImage
-        if let imagePath, let url = APIClient.shared.getImageURL(imagePath) {
-            AsyncImage(url: url) { phase in
-                switch phase {
-                case .success(let image):
-                    image
-                        .resizable()
-                        .aspectRatio(contentMode: .fill)
-                default:
-                    ZStack {
-                        Color.appBackground
-                        Image(systemName: "takeoutbag.and.cup.and.straw")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .opacity(0.3)
-                    }
-                }
-            }
-            .frame(height: 120)
-            .frame(maxWidth: .infinity)
-            .clipped()
-        } else {
-            ZStack {
-                Color.appBackground
-                Image(systemName: "takeoutbag.and.cup.and.straw")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                    .opacity(0.3)
-            }
-            .frame(height: 120)
-            .frame(maxWidth: .infinity)
-        }
     }
 }
 
