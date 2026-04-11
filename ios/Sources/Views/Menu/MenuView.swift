@@ -19,6 +19,14 @@ struct MenuView: View {
 
     // MARK: - Computed Properties
 
+    private var promoItems: [Shawarma] {
+        filteredShawarmas.filter { $0.isPromo }
+    }
+
+    private var regularItems: [Shawarma] {
+        filteredShawarmas.filter { !$0.isPromo }
+    }
+
     private var filteredShawarmas: [Shawarma] {
         var result = shawarmas.filter { $0.isAvailable }
 
@@ -30,21 +38,31 @@ struct MenuView: View {
         }
 
         if let category = selectedCategory {
-            result = result.filter { $0.category == category }
+            if category == "Акция Месяца" {
+                result = result.filter { $0.isPromo }
+            } else {
+                result = result.filter { $0.category == category }
+            }
         }
 
         return result
+    }
+
+    private var allNavCategories: [String] {
+        var cats: [String] = []
+        if shawarmas.contains(where: { $0.isPromo && $0.isAvailable }) {
+            cats.append("Акция Месяца")
+        }
+        cats.append(contentsOf: categories)
+        return cats
     }
 
     // MARK: - Body
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            headerView
-
             // Category chips
-            if !categories.isEmpty {
+            if !allNavCategories.isEmpty {
                 categoryChips
             }
 
@@ -96,12 +114,6 @@ struct MenuView: View {
         }
     }
 
-    // MARK: - Header View
-
-    private var headerView: some View {
-        EmptyView() // Using toolbar for header instead
-    }
-
     // MARK: - Category Chips
 
     private var categoryChips: some View {
@@ -117,7 +129,7 @@ struct MenuView: View {
                     }
                 )
 
-                ForEach(categories, id: \.self) { category in
+                ForEach(allNavCategories, id: \.self) { category in
                     FilterChip(
                         text: category,
                         isSelected: selectedCategory == category,
@@ -149,7 +161,7 @@ struct MenuView: View {
                     searchText = ""
                 } label: {
                     Image(systemName: "xmark.circle.fill")
-                        .foregroundColor(.secondary)
+                            .foregroundColor(.secondary)
                 }
             }
         }
@@ -210,19 +222,114 @@ struct MenuView: View {
 
     private var productGrid: some View {
         ScrollView {
-            LazyVGrid(columns: columns, spacing: 16) {
-                ForEach(filteredShawarmas) { shawarma in
-                    NavigationLink {
-                        ProductDetailView(shawarma: shawarma)
-                    } label: {
-                        MenuProductCard(shawarma: shawarma)
+            LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
+                // Promo section
+                if !promoItems.isEmpty && (selectedCategory == nil || selectedCategory == "Акция Месяца") {
+                    Section {
+                        LazyVGrid(columns: columns, spacing: 16) {
+                            ForEach(promoItems) { shawarma in
+                                NavigationLink {
+                                    ProductDetailView(shawarma: shawarma)
+                                } label: {
+                                    MenuProductCard(shawarma: shawarma)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal, 16)
+                    } header: {
+                        promoSectionHeader
                     }
-                    .buttonStyle(.plain)
+                }
+
+                // Regular categories
+                if selectedCategory == nil || selectedCategory != "Акция Месяца" {
+                    ForEach(groupedRegularItems, id: \.key) { category, items in
+                        Section {
+                            LazyVGrid(columns: columns, spacing: 16) {
+                                ForEach(items) { shawarma in
+                                    NavigationLink {
+                                        ProductDetailView(shawarma: shawarma)
+                                    } label: {
+                                        MenuProductCard(shawarma: shawarma)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        } header: {
+                            categorySectionHeader(category)
+                        }
+                    }
                 }
             }
-            .padding(.horizontal, 16)
             .padding(.bottom, 32)
         }
+    }
+
+    // MARK: - Section Headers
+
+    private var promoSectionHeader: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "tag.fill")
+                .font(.subheadline)
+                .foregroundColor(.white)
+                .padding(8)
+                .background(Color.appAccent)
+                .cornerRadius(8)
+
+            Text("Акция Месяца")
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+
+            Text("\(promoItems.count)")
+                .font(.caption)
+                .foregroundColor(.white)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.appAccent)
+                .cornerRadius(10)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .background(Color.appBackground)
+    }
+
+    private func categorySectionHeader(_ category: String) -> some View {
+        let count = regularItems.filter { $0.category == category }.count
+        return HStack(spacing: 8) {
+            Text(category)
+                .font(.headline)
+                .fontWeight(.bold)
+                .foregroundColor(.primary)
+
+            Text("\(count)")
+                .font(.caption)
+                .foregroundColor(.white)
+                .fontWeight(.semibold)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(Color.appPrimary)
+                .cornerRadius(10)
+
+            Spacer()
+        }
+        .padding(.horizontal, 16)
+        .padding(.top, 8)
+        .padding(.bottom, 4)
+        .background(Color.appBackground)
+    }
+
+    // MARK: - Grouped Items
+
+    private var groupedRegularItems: [(key: String, value: [Shawarma])] {
+        let grouped = Dictionary(grouping: regularItems) { $0.category }
+        return grouped.sorted { $0.key < $1.key }
     }
 
     // MARK: - Data Loading
@@ -259,21 +366,29 @@ struct FilterChip: View {
 
     var body: some View {
         Button(action: action) {
-            Text(text)
-                .font(.subheadline)
-                .fontWeight(isSelected ? .semibold : .regular)
-                .foregroundColor(isSelected ? .white : .primary)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 10)
-                .background(isSelected ? Color.appPrimary : Color.appPrimary.opacity(0.08))
-                .cornerRadius(20)
-                .overlay(
-                    RoundedRectangle(cornerRadius: 20)
-                        .strokeBorder(
-                            isSelected ? Color.clear : Color.appPrimary.opacity(0.25),
-                            lineWidth: 1.5
-                        )
-                )
+            HStack(spacing: 4) {
+                if text == "Акция Месяца" {
+                    Image(systemName: "tag.fill")
+                        .font(.caption2)
+                }
+                Text(text)
+                    .font(.subheadline)
+                    .fontWeight(isSelected ? .semibold : .regular)
+            }
+            .foregroundColor(isSelected ? .white : .primary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
+            .background(isSelected
+                ? (text == "Акция Месяца" ? Color.appAccent : Color.appPrimary)
+                : Color.appPrimary.opacity(0.08))
+            .cornerRadius(20)
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .strokeBorder(
+                        isSelected ? Color.clear : Color.appPrimary.opacity(0.25),
+                        lineWidth: 1.5
+                    )
+            )
         }
         .buttonStyle(.plain)
     }
@@ -409,9 +524,9 @@ struct MenuProductCard: View {
     private var priceText: String {
         if let variants = shawarma.variants, !variants.isEmpty {
             let minPrice = variants.map(\.price).min() ?? 0
-            return "от \(Int(minPrice)) ₽"
+            return "от \(Int(minPrice)) \u{20BD}"
         }
-        return "\(Int(shawarma.price)) ₽"
+        return "\(Int(shawarma.price)) \u{20BD}"
     }
 }
 

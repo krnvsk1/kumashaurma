@@ -305,12 +305,13 @@ struct AdminOrderDetailView: View {
                 orderId: order.id,
                 request: UpdateOrderRequest(
                     status: nil,
-                    total: nil
+                    total: nil,
+                    customerName: editName.trimmingCharacters(in: .whitespaces),
+                    phone: editPhone.trimmingCharacters(in: .whitespaces),
+                    address: editAddress.trimmingCharacters(in: .whitespaces),
+                    notes: editNotes.trimmingCharacters(in: .whitespaces)
                 )
             )
-            // Note: The PUT endpoint only accepts Status and Total.
-            // For full editing (name, phone, address, notes), we would need a more complete endpoint.
-            // For now, show a message that customer info is view-only until backend supports it.
             successMessage = "Изменения сохранены"
             isEditing = false
         } catch {

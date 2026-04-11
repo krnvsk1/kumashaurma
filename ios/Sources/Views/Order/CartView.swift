@@ -1,11 +1,39 @@
 import SwiftUI
 
+// MARK: - Delivery Type
+
+enum DeliveryType: String, CaseIterable, Identifiable {
+    case delivery = "Доставка"
+    case pickup = "Самовывоз"
+    case dineIn = "В зале"
+
+    var id: String { rawValue }
+
+    var icon: String {
+        switch self {
+        case .delivery: return " scooter"
+        case .pickup: return "bag"
+        case .dineIn: return "fork.knife"
+        }
+    }
+}
+
 // MARK: - Cart View
 
 struct CartView: View {
     @StateObject private var cartService = CartService.shared
     @State private var showOrderSheet: Bool = false
     @State private var showSuccessAlert: Bool = false
+    @State private var deliveryType: DeliveryType = .delivery
+
+    private let minOrderAmount: Double = 499
+    private let deliveryPrice: Double = 0
+
+    private var isMinOrderReached: Bool {
+        deliveryType == .delivery
+            ? cartService.totalPrice >= minOrderAmount
+            : true
+    }
 
     var body: some View {
         Group {
@@ -24,7 +52,7 @@ struct CartView: View {
             }
         }
         .sheet(isPresented: $showOrderSheet) {
-            OrderSheetView { result in
+            OrderSheetView(deliveryType: deliveryType) { result in
                 showOrderSheet = false
                 if result {
                     showSuccessAlert = true
@@ -77,16 +105,176 @@ struct CartView: View {
 
     private var cartListView: some View {
         List {
+            // Delivery type selector
+            Section {
+                deliveryTypeSelector
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+
+            // Cart items
             ForEach(cartService.items) { item in
                 CartItemRow(item: item)
                     .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 8, trailing: 16))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
             }
+
+            // Promo code
+            Section {
+                promoCodeField
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
+
+            // Order summary
+            Section {
+                orderSummary
+            }
+            .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+            .listRowSeparator(.hidden)
+            .listRowBackground(Color.clear)
         }
         .listStyle(.plain)
         .safeAreaInset(edge: .bottom) {
             bottomTotalBar
+        }
+    }
+
+    // MARK: - Delivery Type Selector
+
+    private var deliveryTypeSelector: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("Способ получения")
+                .font(.caption)
+                .foregroundColor(.secondary)
+
+            HStack(spacing: 8) {
+                ForEach(DeliveryType.allCases) { type in
+                    Button {
+                        withAnimation(.spring(response: 0.3)) {
+                            deliveryType = type
+                        }
+                    } label: {
+                        HStack(spacing: 6) {
+                            Image(systemName: type.icon)
+                                .font(.caption)
+                            Text(type.rawValue)
+                                .font(.subheadline)
+                                .fontWeight(.medium)
+                        }
+                        .foregroundColor(deliveryType == type ? .white : .primary)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(deliveryType == type ? Color.appPrimary : Color.appPrimary.opacity(0.08))
+                        .cornerRadius(20)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 20)
+                                .strokeBorder(
+                                    deliveryType == type ? Color.clear : Color.appPrimary.opacity(0.25),
+                                    lineWidth: 1.5
+                                )
+                        )
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+        }
+    }
+
+    // MARK: - Promo Code Field
+
+    @State private var promoCode: String = ""
+    @State private var promoError: Bool = false
+
+    private var promoCodeField: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Image(systemName: "tag.fill")
+                    .font(.caption)
+                    .foregroundColor(promoError ? .appError : .secondary)
+
+                TextField("Промокод", text: $promoCode)
+                    .font(.subheadline)
+                    .autocorrectionDisabled()
+                    .autocapitalization(.allCharacters)
+
+                if !promoCode.isEmpty {
+                    Button {
+                        promoCode = ""
+                        promoError = false
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(12)
+            .background(Color(.systemBackground))
+            .cornerRadius(12)
+            .overlay(
+                RoundedRectangle(cornerRadius: 12)
+                    .stroke(promoError ? Color.appError : Color.gray.opacity(0.2), lineWidth: 1)
+            )
+
+            if promoError {
+                Text("Не найдены блюда в корзине для промокода")
+                    .font(.caption2)
+                    .foregroundColor(.appError)
+            }
+        }
+    }
+
+    // MARK: - Order Summary
+
+    private var orderSummary: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Товары в заказе \(cartService.totalItems) шт.")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(Int(cartService.totalPrice)) \u{20BD}")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+
+            HStack {
+                Text("Доставка")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(deliveryType == .delivery ? "\(Int(deliveryPrice)) \u{20BD}" : "Бесплатно")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+            }
+
+            if !isMinOrderReached && deliveryType == .delivery {
+                Text("Минимальный заказ \(Int(minOrderAmount)) \u{20BD}. Добавьте ещё товаров.")
+                    .font(.caption2)
+                    .foregroundColor(.appError)
+            }
+
+            Divider()
+
+            HStack {
+                Text("Бонусы к начислению")
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("+\(Int(cartService.totalPrice * 0.02)) \u{20BD}")
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appPrimary)
+            }
+            .padding(.vertical, 4)
+            .padding(.horizontal, 12)
+            .background(Color.appPrimary.opacity(0.06))
+            .cornerRadius(10)
         }
     }
 
@@ -116,7 +304,7 @@ struct CartView: View {
 
                 Spacer()
 
-                Text("\(Int(cartService.totalPrice)) ₽")
+                Text("\(Int(cartService.totalPrice + deliveryPrice)) \u{20BD}")
                     .font(.title2)
                     .fontWeight(.bold)
                     .foregroundColor(.primary)
@@ -133,9 +321,10 @@ struct CartView: View {
                 .foregroundColor(.white)
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 16)
-                .background(Color.appPrimary)
+                .background(isMinOrderReached ? Color.appPrimary : Color.gray.opacity(0.4))
                 .cornerRadius(14)
             }
+            .disabled(!isMinOrderReached)
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 16)
@@ -184,13 +373,13 @@ struct CartItemRow: View {
                     }
 
                     if !item.selectedAddons.isEmpty {
-                        Text(item.selectedAddons.map(\.name).joined(separator: ", "))
+                        Text(item.selectedAddons.map { "\($0.name)" + ($0.quantity > 1 ? " x\($0.quantity)" : "") }.joined(separator: ", "))
                             .font(.caption2)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
                     }
 
-                    Text("\(Int(item.unitPrice)) ₽/шт")
+                    Text("\(Int(item.unitPrice)) \u{20BD}/\u{0448}\u{0442}")
                         .font(.caption2)
                         .foregroundColor(.secondary)
                 }
@@ -202,7 +391,7 @@ struct CartItemRow: View {
 
                 // Total price
                 VStack(alignment: .trailing, spacing: 4) {
-                    Text("\(Int(item.totalPrice)) ₽")
+                    Text("\(Int(item.totalPrice)) \u{20BD}")
                         .font(.subheadline)
                         .fontWeight(.bold)
                         .foregroundColor(.primary)
@@ -298,6 +487,7 @@ struct CartItemRow: View {
 // MARK: - Order Sheet View
 
 struct OrderSheetView: View {
+    let deliveryType: DeliveryType
     let onComplete: (Bool) -> Void
 
     @State private var customerName: String = ""
@@ -311,24 +501,31 @@ struct OrderSheetView: View {
     @StateObject private var cartService = CartService.shared
     @StateObject private var authService = AuthService.shared
 
+    private let deliveryPrice: Double = 0
+
     private var isFormValid: Bool {
         !customerName.trimmingCharacters(in: .whitespaces).isEmpty
             && !customerPhone.trimmingCharacters(in: .whitespaces).isEmpty
-            && !customerAddress.trimmingCharacters(in: .whitespaces).isEmpty
+            && (deliveryType != .delivery || !customerAddress.trimmingCharacters(in: .whitespaces).isEmpty)
     }
 
     var body: some View {
         NavigationStack {
             ScrollView {
                 VStack(spacing: 20) {
+                    // Delivery type display
+                    deliveryTypeDisplay
+
                     // Order summary
                     orderSummary
 
                     // Contact info
                     contactSection
 
-                    // Delivery info
-                    deliverySection
+                    // Delivery info (only for delivery)
+                    if deliveryType == .delivery {
+                        deliverySection
+                    }
 
                     // Notes
                     notesSection
@@ -348,7 +545,6 @@ struct OrderSheetView: View {
                     Button("Отмена") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    // Hidden to use custom bottom button
                     EmptyView()
                 }
             }
@@ -362,6 +558,30 @@ struct OrderSheetView: View {
                 prefillUserData()
             }
         }
+    }
+
+    // MARK: - Delivery Type Display
+
+    private var deliveryTypeDisplay: some View {
+        HStack(spacing: 10) {
+            Image(systemName: deliveryType.icon)
+                .font(.callout)
+                .foregroundColor(.appPrimary)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(deliveryType.rawValue)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                Text(deliveryType == .delivery ? "Адрес потребуется ниже" : "Без доставки")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+        }
+        .padding(16)
+        .background(Color(.systemBackground))
+        .cornerRadius(14)
     }
 
     // MARK: - Order Summary
@@ -384,14 +604,36 @@ struct OrderSheetView: View {
 
             ForEach(cartService.items) { item in
                 HStack {
-                    Text("· \(item.shawarma.name)")
+                    Text("\u{00B7} \(item.shawarma.name)")
                         .font(.subheadline)
                         .lineLimit(1)
                     Spacer()
-                    Text("\(Int(item.totalPrice)) ₽")
+                    Text("\(Int(item.totalPrice)) \u{20BD}")
                         .font(.subheadline)
                         .fontWeight(.medium)
                 }
+            }
+
+            Divider()
+
+            HStack {
+                Text("Товары")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("\(Int(cartService.totalPrice)) \u{20BD}")
+                    .font(.caption)
+                    .fontWeight(.medium)
+            }
+
+            HStack {
+                Text("Доставка")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text(deliveryType == .delivery ? "\(Int(deliveryPrice)) \u{20BD}" : "Бесплатно")
+                    .font(.caption)
+                    .fontWeight(.medium)
             }
 
             Divider()
@@ -401,8 +643,19 @@ struct OrderSheetView: View {
                     .font(.subheadline)
                     .fontWeight(.semibold)
                 Spacer()
-                Text("\(Int(cartService.totalPrice)) ₽")
+                Text("\(Int(cartService.totalPrice + deliveryPrice)) \u{20BD}")
                     .font(.appPrice)
+            }
+
+            HStack {
+                Text("Бонусы к начислению")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                Spacer()
+                Text("+\(Int(cartService.totalPrice * 0.02)) \u{20BD}")
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundColor(.appPrimary)
             }
         }
         .padding(16)
@@ -473,7 +726,7 @@ struct OrderSheetView: View {
                     } else {
                         HStack {
                             Image(systemName: "paperplane.fill")
-                            Text("Заказать за \(Int(cartService.totalPrice)) ₽")
+                            Text("Заказать за \(Int(cartService.totalPrice + deliveryPrice)) \u{20BD}")
                                 .fontWeight(.semibold)
                         }
                     }
@@ -541,13 +794,17 @@ struct OrderSheetView: View {
         isPlacingOrder = true
         errorMessage = ""
 
+        let address = deliveryType == .delivery
+            ? customerAddress.trimmingCharacters(in: .whitespaces)
+            : ""
+
         Task {
             do {
                 let orderService = OrderService.shared
                 _ = try await orderService.createOrder(
                     customerName: customerName.trimmingCharacters(in: .whitespaces),
                     phone: customerPhone.trimmingCharacters(in: .whitespaces),
-                    address: customerAddress.trimmingCharacters(in: .whitespaces),
+                    address: address,
                     notes: customerNotes.isEmpty ? nil : customerNotes,
                     cartItems: cartService.items
                 )

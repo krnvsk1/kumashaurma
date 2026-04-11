@@ -376,6 +376,18 @@ namespace Kumashaurma.API.Controllers
                 if (request.Total > 0)
                     order.Total = request.Total;
 
+                if (!string.IsNullOrEmpty(request.CustomerName))
+                    order.CustomerName = request.CustomerName.Trim();
+
+                if (request.Phone != null)
+                    order.Phone = request.Phone.Trim();
+
+                if (request.Address != null)
+                    order.Address = request.Address.Trim();
+
+                if (request.Notes != null)
+                    order.Notes = request.Notes.Trim();
+
                 await _context.SaveChangesAsync();
                 
                 _logger.LogInformation("🔄 Заказ обновлен: ID {OrderId}, новый статус: {Status}", 
@@ -523,5 +535,9 @@ namespace Kumashaurma.API.Controllers
     {
         public string? Status { get; set; }
         public decimal Total { get; set; }
+        public string? CustomerName { get; set; }
+        public string? Phone { get; set; }
+        public string? Address { get; set; }
+        public string? Notes { get; set; }
     }
 }

@@ -388,6 +388,10 @@ struct VariantRequest: Encodable {
 struct UpdateOrderRequest: Encodable {
     let status: String?
     let total: Double?
+    let customerName: String?
+    let phone: String?
+    let address: String?
+    let notes: String?
 }
 
 // MARK: - Admin: User Management DTOs

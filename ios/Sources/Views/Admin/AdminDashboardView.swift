@@ -5,6 +5,8 @@ import SwiftUI
 struct AdminDashboardView: View {
     @State private var stats: OrderStats?
     @State private var recentOrders: [Order] = []
+    @State private var shawarmas: [Shawarma] = []
+    @State private var popularItems: [PopularItem] = []
     @State private var isLoading = true
     @State private var errorMessage: String = ""
 
@@ -31,6 +33,7 @@ struct AdminDashboardView: View {
                     .padding(.top, 60)
                 } else {
                     statsCards
+                    popularItemsSection
                     recentOrdersSection
                 }
             }
@@ -52,6 +55,13 @@ struct AdminDashboardView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 12) {
+                StatCardView(
+                    title: "В меню",
+                    value: "\(availableCount)/\(shawarmas.count)",
+                    subtitle: "доступных товаров",
+                    icon: "menu.fill",
+                    color: .appPrimary
+                )
                 StatCardView(
                     title: "Всего заказов",
                     value: "\(stats?.totalOrders ?? 0)",
@@ -76,6 +86,89 @@ struct AdminDashboardView: View {
                     icon: "chart.bar.fill",
                     color: .orange
                 )
+            }
+        }
+    }
+
+    private var availableCount: Int {
+        shawarmas.filter { $0.isAvailable }.count
+    }
+
+    // MARK: - Popular Items Section
+
+    private var popularItemsSection: some View {
+        VStack(spacing: 12) {
+            Text("Популярные товары")
+                .font(.headline)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            if popularItems.isEmpty {
+                VStack(spacing: 8) {
+                    Image(systemName: "chart.bar")
+                        .font(.title2)
+                        .foregroundColor(.secondary)
+                    Text("Нет данных о продажах")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                }
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 24)
+            } else {
+                VStack(spacing: 0) {
+                    let maxQuantity = popularItems.first?.quantity ?? 1
+
+                    ForEach(Array(popularItems.prefix(5).enumerated()), id: \.element.id) { index, item in
+                        VStack(spacing: 8) {
+                            HStack {
+                                Text("\(index + 1)")
+                                    .font(.caption)
+                                    .fontWeight(.bold)
+                                    .foregroundColor(.white)
+                                    .frame(width: 24, height: 24)
+                                    .background(index == 0 ? Color.appAccent : Color.appPrimary.opacity(0.7))
+                                    .cornerRadius(6)
+
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(item.name)
+                                        .font(.subheadline)
+                                        .fontWeight(.semibold)
+                                        .lineLimit(1)
+                                    Text("\(item.quantity) заказов")
+                                        .font(.caption2)
+                                        .foregroundColor(.secondary)
+                                }
+
+                                Spacer()
+
+                                Text("\(Int(item.revenue)) \u{20BD}")
+                                    .font(.caption)
+                                    .fontWeight(.semibold)
+                                    .foregroundColor(.appPrimary)
+                            }
+
+                            // Progress bar
+                            GeometryReader { geo in
+                                let ratio = maxQuantity > 0 ? CGFloat(item.quantity) / CGFloat(maxQuantity) : 0
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.appPrimary.opacity(0.08))
+                                    .overlay(alignment: .leading) {
+                                        RoundedRectangle(cornerRadius: 4)
+                                            .fill(index == 0 ? Color.appAccent : Color.appPrimary)
+                                            .frame(width: max(24, geo.size.width * ratio))
+                                    }
+                            }
+                            .frame(height: 6)
+                        }
+                        .padding(.vertical, 10)
+                        if index < popularItems.prefix(5).count - 1 {
+                            Divider()
+                        }
+                    }
+                }
+                .padding(16)
+                .background(Color(.systemBackground))
+                .cornerRadius(14)
+                .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
             }
         }
     }
@@ -120,9 +213,14 @@ struct AdminDashboardView: View {
 
         async let statsTask = APIClient.shared.getOrderStats()
         async let ordersTask = APIClient.shared.getAllOrders()
+        async let menuTask = APIClient.shared.getMenu()
 
         stats = (try? await statsTask)
         recentOrders = (try? await ordersTask) ?? []
+        shawarmas = (try? await menuTask) ?? []
+
+        // Calculate popular items from orders
+        calculatePopularItems()
 
         isLoading = false
         if stats == nil && recentOrders.isEmpty {
@@ -130,9 +228,39 @@ struct AdminDashboardView: View {
         }
     }
 
-    private func formatPrice(_ value: Double) -> String {
-        "\(Int(value)) ₽"
+    private func calculatePopularItems() {
+        var itemMap: [Int: (name: String, quantity: Int, revenue: Double)] = [:]
+
+        for order in recentOrders {
+            guard let items = order.orderItems else { continue }
+            for item in items {
+                if var existing = itemMap[item.shawarmaId ?? 0] {
+                    existing.quantity += item.quantity
+                    existing.revenue += item.price * Double(item.quantity)
+                    itemMap[item.shawarmaId ?? 0] = existing
+                } else {
+                    itemMap[item.shawarmaId ?? 0] = (name: item.name, quantity: item.quantity, revenue: item.price * Double(item.quantity))
+                }
+            }
+        }
+
+        popularItems = itemMap.values
+            .map { PopularItem(id: UUID(), name: $0.name, quantity: $0.quantity, revenue: $0.revenue) }
+            .sorted { $0.quantity > $1.quantity }
     }
+
+    private func formatPrice(_ value: Double) -> String {
+        "\(Int(value)) \u{20BD}"
+    }
+}
+
+// MARK: - Popular Item
+
+private struct PopularItem: Identifiable {
+    let id: UUID
+    let name: String
+    let quantity: Int
+    let revenue: Double
 }
 
 // MARK: - Stat Card View
@@ -140,6 +268,7 @@ struct AdminDashboardView: View {
 struct StatCardView: View {
     let title: String
     let value: String
+    var subtitle: String? = nil
     let icon: String
     let color: Color
 
@@ -157,6 +286,12 @@ struct StatCardView: View {
             Text(value)
                 .font(.title2)
                 .fontWeight(.bold)
+
+            if let subtitle = subtitle {
+                Text(subtitle)
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+            }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -190,7 +325,7 @@ struct AdminOrderRowView: View {
             Spacer()
 
             VStack(alignment: .trailing, spacing: 4) {
-                Text("\(Int(order.total)) ₽")
+                Text("\(Int(order.total)) \u{20BD}")
                     .font(.subheadline)
                     .fontWeight(.bold)
                     .foregroundColor(.appPrimary)

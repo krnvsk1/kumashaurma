@@ -11,6 +11,22 @@ struct AdminOrdersView: View {
 
     private let statusFilters: [String?] = [nil, "Новый", "Готовится", "Готов", "Доставлен", "Отменён"]
 
+    // MARK: - Computed Stats
+
+    private var stats: OrderListStats {
+        let total = orders.reduce { $0.total + $1.total }
+        let newCount = orders.filter { $0.status == "Новый" }.count
+        let preparingCount = orders.filter { $0.status == "Готовится" }.count
+        let readyCount = orders.filter { $0.status == "Готов" }.count
+        return OrderListStats(
+            totalOrders: orders.count,
+            newCount: newCount,
+            preparingCount: preparingCount,
+            readyCount: readyCount,
+            totalRevenue: total
+        )
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             // Status filter chips
@@ -33,6 +49,11 @@ struct AdminOrdersView: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
+            }
+
+            // Statistics bar
+            if !isLoading && !orders.isEmpty {
+                statisticsBar
             }
 
             // Orders count
@@ -96,6 +117,49 @@ struct AdminOrdersView: View {
         .refreshable { await loadOrders() }
     }
 
+    // MARK: - Statistics Bar
+
+    private var statisticsBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                statsCard(title: "Всего", value: "\(stats.totalOrders)", color: .primary)
+
+                statsCard(title: "Новые", value: "\(stats.newCount)", color: .blue)
+
+                statsCard(title: "Готовятся", value: "\(stats.preparingCount)", color: .orange)
+
+                statsCard(title: "Готовы", value: "\(stats.readyCount)", color: .green)
+
+                statsCard(title: "Выручка", value: "\(formatPrice(stats.totalRevenue))", color: .appPrimary)
+            }
+            .padding(.horizontal, 16)
+            .padding(.vertical, 4)
+        }
+    }
+
+    private func statsCard(title: String, value: String, color: Color) -> some View {
+        VStack(spacing: 4) {
+            Text(value)
+                .font(.subheadline)
+                .fontWeight(.bold)
+                .foregroundColor(color)
+            Text(title)
+                .font(.caption2)
+                .foregroundColor(.secondary)
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 10)
+        .background(Color(.systemBackground))
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+    }
+
+    private func formatPrice(_ value: Double) -> String {
+        "\(Int(value)) \u{20BD}"
+    }
+
+    // MARK: - Filtered Orders
+
     private var filteredOrders: [Order] {
         var result = orders
 
@@ -130,4 +194,14 @@ struct AdminOrdersView: View {
 
         isLoading = false
     }
+}
+
+// MARK: - Order List Stats
+
+private struct OrderListStats {
+    let totalOrders: Int
+    let newCount: Int
+    let preparingCount: Int
+    let readyCount: Int
+    let totalRevenue: Double
 }
