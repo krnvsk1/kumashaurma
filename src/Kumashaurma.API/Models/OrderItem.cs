@@ -17,6 +17,7 @@ namespace Kumashaurma.API.Models
         public int OrderId { get; set; }
         
         [ForeignKey("OrderId")]
+        [JsonIgnore]
         public Order? Order { get; set; }
         
         [Column("shawarma_id")]
@@ -36,6 +37,7 @@ namespace Kumashaurma.API.Models
         public decimal Subtotal => Price * Quantity;
         
         // 👇 ДОБАВЛЯЕМ: связь с выбранными добавками
+        [JsonIgnore]
         public ICollection<OrderItemAddon> SelectedAddons { get; set; } = new List<OrderItemAddon>();
     }
 }

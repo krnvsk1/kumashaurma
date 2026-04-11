@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -38,6 +39,17 @@ namespace Kumashaurma.API.Models
         [Column("notes")]
         public string? Notes { get; set; }
 
+        [Column("delivery_type")]
+        [MaxLength(30)]
+        public string DeliveryType { get; set; } = "Доставка";
+
+        // Промокод
+        [Column("promo_code_id")]
+        public int? PromoCodeId { get; set; }
+
+        [Column("discount_amount", TypeName = "decimal(10,2)")]
+        public decimal DiscountAmount { get; set; }
+
         [DatabaseGenerated(DatabaseGeneratedOption.Identity)]
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -45,9 +57,12 @@ namespace Kumashaurma.API.Models
         [Column("completed_at")]
         public DateTime? CompletedAt { get; set; }
 
-        // Navigation property
+        // Navigation properties
+        [JsonIgnore]
         public AppUser? User { get; set; }
-
+        [JsonIgnore]
+        public PromoCode? PromoCode { get; set; }
+        [JsonIgnore]
         public ICollection<OrderItem> OrderItems { get; set; } = new List<OrderItem>();
     }
 }

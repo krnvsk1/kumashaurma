@@ -156,6 +156,16 @@ namespace Kumashaurma.API.Controllers
                     userId = parsedUserId;
                 }
 
+                // Валидация промокода
+                decimal discountAmount = 0;
+                PromoCode? promoCode = null;
+                if (request.PromoCodeId.HasValue)
+                {
+                    promoCode = await _context.PromoCodes.FindAsync(request.PromoCodeId.Value);
+                    if (promoCode == null || !promoCode.IsActive)
+                        return BadRequest(new { Message = "Промокод не найден или неактивен" });
+                }
+
                 // Создаем заказ
                 var newOrder = new Order
                 {
@@ -166,6 +176,9 @@ namespace Kumashaurma.API.Controllers
                     Total = 0,
                     Status = "Новый",
                     Notes = request.Notes,
+                    DeliveryType = !string.IsNullOrEmpty(request.DeliveryType) ? request.DeliveryType : "Доставка",
+                    PromoCodeId = request.PromoCodeId,
+                    DiscountAmount = 0,
                     CreatedAt = DateTime.UtcNow,
                     CompletedAt = null
                 };
@@ -225,12 +238,26 @@ namespace Kumashaurma.API.Controllers
                     total += (basePrice + addonsTotal) * itemRequest.Quantity;
                 }
 
-                // Обновляем общую сумму заказа
-                newOrder.Total = total;
+                // Применяем промокод
+                if (promoCode != null)
+                {
+                    discountAmount = promoCode.CalculateDiscount(total);
+                    if (discountAmount > 0)
+                    {
+                        promoCode.CurrentUses++;
+                        _context.PromoCodes.Update(promoCode);
+                    }
+                }
+
+                newOrder.DiscountAmount = discountAmount;
+                // Скидка баллами (оплачивается через PointsController redeem)
+                var pointsDiscount = request.PointsDiscountAmount ?? 0;
+                // Обновляем общую сумму заказа (с учётом промокода и баллов)
+                newOrder.Total = Math.Max(0, total - discountAmount - pointsDiscount);
                 await _context.SaveChangesAsync();
 
-                _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}", 
-                    newOrder.Id, newOrder.CustomerName);
+                _logger.LogInformation("✅ Заказ создан с ID: {OrderId}, клиент: {CustomerName}, итого: {Total} (скидка промо: {PromoDiscount}, баллы: {PointsDiscount})", 
+                    newOrder.Id, newOrder.CustomerName, newOrder.Total, discountAmount, pointsDiscount);
 
                 // Загружаем полный заказ с позициями для ответа
                 var createdOrder = await _context.Orders
@@ -238,7 +265,14 @@ namespace Kumashaurma.API.Controllers
                         .ThenInclude(oi => oi.SelectedAddons)
                     .FirstOrDefaultAsync(o => o.Id == newOrder.Id);
 
-                return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, createdOrder);
+                // Рассчитываем баллы, которые будут начислены за заказ (1 балл за 100 рублей)
+                var pointsEarned = (int)(Math.Floor(newOrder.Total / 100));
+
+                return CreatedAtAction(nameof(GetById), new { id = newOrder.Id }, new
+                {
+                    Order = createdOrder,
+                    PointsEarned = pointsEarned
+                });
             }
             catch (DbUpdateException ex)
             {
@@ -259,6 +293,9 @@ namespace Kumashaurma.API.Controllers
             public string Phone { get; set; } = string.Empty;
             public string Address { get; set; } = string.Empty;
             public string? Notes { get; set; }
+            public string DeliveryType { get; set; } = "Доставка";
+            public int? PromoCodeId { get; set; }
+            public decimal? PointsDiscountAmount { get; set; }
             public List<CreateOrderItemRequest> Items { get; set; } = new();
         }
 
@@ -292,11 +329,45 @@ namespace Kumashaurma.API.Controllers
                     var oldStatus = order.Status;
                     order.Status = request.Status;
                     
-                    if (request.Status == "Выполнен" && order.CompletedAt == null)
+                    if ((request.Status == "Доставлен" || request.Status == "Выполнен") && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
+
+                        // Начисляем бонусные баллы при доставке заказа (1 балл за 100 рублей)
+                        if (order.UserId.HasValue)
+                        {
+                            var user = await _context.Users.FindAsync(order.UserId.Value);
+                            if (user != null)
+                            {
+                                var alreadyAwarded = await _context.UserPointsTransactions
+                                    .AnyAsync(t => t.OrderId == order.Id && t.Type == "earned");
+
+                                if (!alreadyAwarded)
+                                {
+                                    var pointsEarned = (int)Math.Floor(order.Total / 100);
+                                    if (pointsEarned > 0)
+                                    {
+                                        user.PointsBalance += pointsEarned;
+
+                                        var transaction = new UserPointsTransaction
+                                        {
+                                            UserId = user.Id,
+                                            Type = "earned",
+                                            Amount = pointsEarned,
+                                            Description = $"Начисление за заказ #{order.Id}",
+                                            OrderId = order.Id,
+                                            CreatedAt = DateTime.UtcNow
+                                        };
+
+                                        _context.UserPointsTransactions.Add(transaction);
+                                        _logger.LogInformation("💰 Начислено {Points} баллов пользователю {UserId} за заказ {OrderId}",
+                                            pointsEarned, user.Id, order.Id);
+                                    }
+                                }
+                            }
+                        }
                     }
-                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
+                    else if ((oldStatus == "Доставлен" || oldStatus == "Выполнен") && request.Status != "Доставлен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }
@@ -400,11 +471,46 @@ namespace Kumashaurma.API.Controllers
                     var oldStatus = order.Status;
                     order.Status = request.Status;
                     
-                    if (request.Status == "Выполнен" && order.CompletedAt == null)
+                    if ((request.Status == "Доставлен" || request.Status == "Выполнен") && order.CompletedAt == null)
                     {
                         order.CompletedAt = DateTime.UtcNow;
+
+                        // Начисляем бонусные баллы при доставке заказа (1 балл за 100 рублей)
+                        if (order.UserId.HasValue)
+                        {
+                            var user = await _context.Users.FindAsync(order.UserId.Value);
+                            if (user != null)
+                            {
+                                // Проверяем, не начислялись ли уже баллы за этот заказ
+                                var alreadyAwarded = await _context.UserPointsTransactions
+                                    .AnyAsync(t => t.OrderId == order.Id && t.Type == "earned");
+
+                                if (!alreadyAwarded)
+                                {
+                                    var pointsEarned = (int)Math.Floor(order.Total / 100);
+                                    if (pointsEarned > 0)
+                                    {
+                                        user.PointsBalance += pointsEarned;
+
+                                        var transaction = new UserPointsTransaction
+                                        {
+                                            UserId = user.Id,
+                                            Type = "earned",
+                                            Amount = pointsEarned,
+                                            Description = $"Начисление за заказ #{order.Id}",
+                                            OrderId = order.Id,
+                                            CreatedAt = DateTime.UtcNow
+                                        };
+
+                                        _context.UserPointsTransactions.Add(transaction);
+                                        _logger.LogInformation("💰 Начислено {Points} баллов пользователю {UserId} за заказ {OrderId}",
+                                            pointsEarned, user.Id, order.Id);
+                                    }
+                                }
+                            }
+                        }
                     }
-                    else if (oldStatus == "Выполнен" && request.Status != "Выполнен")
+                    else if ((oldStatus == "Доставлен" || oldStatus == "Выполнен") && request.Status != "Доставлен" && request.Status != "Выполнен")
                     {
                         order.CompletedAt = null;
                     }

@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { useShawarmas, useOrders, useOrderStats } from '../api/hooks';
+import { getStatusColor } from '../utils/statusColors';
 import type { Order, Shawarma } from '../types';
 
 // Компонент для карточки статистики
@@ -61,37 +62,7 @@ const StatCard: React.FC<{
 // Компонент для строки заказа в списке последних
 const RecentOrderRow: React.FC<{ order: Order }> = ({ order }) => {
   const theme = useTheme();
-  
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Новый': return { 
-        bg: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f', 
-        color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9' 
-      };
-      case 'Готовится': return { 
-        bg: theme.palette.mode === 'light' ? '#fff3e0' : '#663c00', 
-        color: theme.palette.mode === 'light' ? '#f57c00' : '#ffb74d' 
-      };
-      case 'Готов': return { 
-        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
-        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
-      };
-      case 'Доставлен': return { 
-        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
-        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
-      };
-      case 'Отменён': return { 
-        bg: theme.palette.mode === 'light' ? '#ffebee' : '#7f1d1d', 
-        color: theme.palette.mode === 'light' ? '#d32f2f' : '#ef5350' 
-      };
-      default: return { 
-        bg: theme.palette.mode === 'light' ? '#f5f5f5' : '#424242', 
-        color: theme.palette.mode === 'light' ? '#757575' : '#bdbdbd' 
-      };
-    }
-  };
-
-  const { bg, color } = getStatusColor(order.status);
+  const { bg, color } = getStatusColor(order.status, theme.palette.mode);
 
   return (
     <Paper variant="outlined" sx={{ p: 2 }}>

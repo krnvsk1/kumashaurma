@@ -37,47 +37,20 @@ import {
   Phone as PhoneIcon,
   Numbers as NumbersIcon,
   Delete as DeleteIcon,
-  Edit as EditIcon
+  Edit as EditIcon,
+  Replay as ReplayIcon
 } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
-import { useOrders, useMyOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder } from '../api/hooks';
+import { useOrders, useMyOrders, useUpdateOrderStatus, useDeleteOrder, useUpdateOrder, useShawarmas } from '../api/hooks';
 import { useAuthStore } from '../store/authStore';
-import type { Order, OrderStatus, OrderItemAddon, UpdateOrderDto } from '../types';
+import { useCartStore } from '../store/cartStore';
+import type { Order, OrderStatus, OrderItemAddon, UpdateOrderDto, SelectedAddon } from '../types';
+import { getStatusColor } from '../utils/statusColors';
 
 // Компонент для отображения статуса с цветом
 const StatusChip: React.FC<{ status: OrderStatus }> = ({ status }) => {
   const theme = useTheme();
-  
-  const getStatusColor = (status: OrderStatus) => {
-    switch (status) {
-      case 'Новый': return { 
-        bg: theme.palette.mode === 'light' ? '#e3f2fd' : '#1e3a5f', 
-        color: theme.palette.mode === 'light' ? '#1976d2' : '#90caf9' 
-      };
-      case 'Готовится': return { 
-        bg: theme.palette.mode === 'light' ? '#fff3e0' : '#663c00', 
-        color: theme.palette.mode === 'light' ? '#f57c00' : '#ffb74d' 
-      };
-      case 'Готов': return { 
-        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
-        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
-      };
-      case 'Доставлен': return { 
-        bg: theme.palette.mode === 'light' ? '#e8f5e9' : '#1b5e20', 
-        color: theme.palette.mode === 'light' ? '#2e7d32' : '#81c784' 
-      };
-      case 'Отменён': return { 
-        bg: theme.palette.mode === 'light' ? '#ffebee' : '#7f1d1d', 
-        color: theme.palette.mode === 'light' ? '#d32f2f' : '#ef5350' 
-      };
-      default: return { 
-        bg: theme.palette.mode === 'light' ? '#f5f5f5' : '#424242', 
-        color: theme.palette.mode === 'light' ? '#757575' : '#bdbdbd' 
-      };
-    }
-  };
-
-  const { bg, color } = getStatusColor(status);
+  const { bg, color } = getStatusColor(status, theme.palette.mode);
 
   return (
     <Chip
@@ -183,7 +156,8 @@ const OrderCard: React.FC<{
   isAdmin: boolean;
   onDelete: (id: number) => void;
   onEdit: (order: Order) => void;
-}> = ({ order, isAdmin, onDelete, onEdit }) => {
+  onRepeatOrder: (order: Order) => void;
+}> = ({ order, isAdmin, onDelete, onEdit, onRepeatOrder }) => {
   const theme = useTheme();
   const [expanded, setExpanded] = React.useState(false);
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
@@ -275,6 +249,18 @@ const OrderCard: React.FC<{
               </IconButton>
               
               {/* Кнопки админа */}
+              {!isAdmin && (
+                <Tooltip title="Повторить заказ">
+                  <IconButton
+                    size="small"
+                    onClick={() => onRepeatOrder(order)}
+                    color="success"
+                  >
+                    <ReplayIcon />
+                  </IconButton>
+                </Tooltip>
+              )}
+
               {isAdmin && (
                 <>
                   <Tooltip title="Редактировать заказ">
@@ -415,6 +401,29 @@ const OrdersPage: React.FC = () => {
   // Мутации
   const deleteOrder = useDeleteOrder();
   const updateOrder = useUpdateOrder();
+  
+  // Repeat order
+  const addItem = useCartStore(state => state.addItem);
+  const shawarmasQuery = useShawarmas();
+
+  const handleRepeatOrder = (order: Order) => {
+    const shawarmas = shawarmasQuery.data || [];
+    order.orderItems.forEach(item => {
+      const shawarma = shawarmas.find(s => s.id === item.shawarmaId);
+      if (shawarma) {
+        const addons: SelectedAddon[] = (item.selectedAddons || []).map(a => ({
+          addonId: a.addonId,
+          addonName: a.addonName,
+          price: a.price,
+          quantity: a.quantity,
+          categoryId: a.addonCategoryId,
+          categoryName: a.addonCategoryName,
+        }));
+        addItem(shawarma, item.quantity, addons, '');
+      }
+    });
+    setSnackbar({ open: true, message: `Товары из заказа #${order.id} добавлены в корзину`, severity: 'success' });
+  };
   
   // Состояния для диалогов
   const [editDialog, setEditDialog] = React.useState<{
@@ -696,6 +705,7 @@ const OrdersPage: React.FC = () => {
               isAdmin={isAdmin}
               onDelete={handleDeleteOrder}
               onEdit={handleEditOrder}
+              onRepeatOrder={handleRepeatOrder}
             />
           ))}
         </Box>

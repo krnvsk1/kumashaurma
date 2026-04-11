@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -17,14 +17,16 @@ import {
   alpha,
   useTheme,
   useMediaQuery,
-  Grid
+  Grid,
+  Snackbar,
+  Alert
 } from '@mui/material';
 import {
   Close as CloseIcon,
   Add as AddIcon,
   Remove as RemoveIcon
 } from '@mui/icons-material';
-import type { Shawarma, Addon, SelectedAddon, AddonCategory, ProductVariant } from '../types';
+import type { Shawarma, Addon, SelectedAddon, AddonCategory } from '../types';
 import { useShawarmaAddons } from '../hooks/useAddons';
 import { resolveMediaUrl } from '../utils/media';
 
@@ -32,7 +34,7 @@ interface ProductModalProps {
   open: boolean;
   onClose: () => void;
   product: Shawarma | null;
-  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedVariant?: ProductVariant) => void;
+  onAddToCart: (product: Shawarma, quantity: number, selectedAddons: SelectedAddon[], instructions: string, selectedChild?: Shawarma) => void;
 }
 
 const ProductModal: React.FC<ProductModalProps> = ({
@@ -43,24 +45,43 @@ const ProductModal: React.FC<ProductModalProps> = ({
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  
+
   const [quantity, setQuantity] = useState(1);
   const [selectedAddons, setSelectedAddons] = useState<Map<number, SelectedAddon[]>>(new Map());
   const [specialInstructions, setSpecialInstructions] = useState('');
-  const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
-  
-  const { data: addonCategories, isLoading } = useShawarmaAddons(product?.id);
+  const [addedToast, setAddedToast] = useState(false);
+  const [selectedChild, setSelectedChild] = useState<Shawarma | null>(null);
 
+  // Если у продукта есть дети — загружаем добавки для выбранного ребёнка
+  // Если детей нет — загружаем для самого продукта
+  const activeProductId = selectedChild?.id ?? product?.id ?? 0;
+  const { data: addonCategories, isLoading } = useShawarmaAddons(activeProductId);
+
+  // Доступные дочерние варианты (только доступные)
+  const children = useMemo(() => {
+    if (!product?.children) return [];
+    return product.children.filter(c => c.isAvailable).sort((a, b) => a.price - b.price);
+  }, [product?.children]);
+
+  // Сброс при открытии/смене товара
   useEffect(() => {
     if (open && product) {
       setQuantity(1);
       setSelectedAddons(new Map());
       setSpecialInstructions('');
-      setSelectedVariant(null);
+      setSelectedChild(null);
     }
   }, [open, product]);
 
+  // Сброс добавок при смене варианта
+  useEffect(() => {
+    setSelectedAddons(new Map());
+  }, [selectedChild]);
+
   if (!product) return null;
+
+  // --- Нет дочерних вариантов: работаем как раньше ---
+  const isSimpleProduct = children.length === 0;
 
   const handleQuantityChange = (delta: number) => {
     setQuantity(prev => Math.max(1, prev + delta));
@@ -84,43 +105,47 @@ const ProductModal: React.FC<ProductModalProps> = ({
         }
       ]);
     } else {
-      newSelected.set(categoryId, 
+      newSelected.set(categoryId,
         categorySelections.filter((s: SelectedAddon) => s.addonId !== addon.id));
     }
-    
+
     setSelectedAddons(newSelected);
   };
 
   const handleAddonQuantityChange = (addonId: number, delta: number) => {
     const newSelected = new Map(selectedAddons);
+    const allAddons = addonCategories?.flatMap(c => c.addons) || [];
     const addonDef = allAddons.find((a: Addon) => a.id === addonId);
     const categoryId = addonDef?.addonCategoryId || 0;
     const categorySelections = [...(newSelected.get(categoryId) || [])];
-    
+
     const addonIndex = categorySelections.findIndex((s: SelectedAddon) => s.addonId === addonId);
     if (addonIndex >= 0) {
       const addon = categorySelections[addonIndex];
       const newQuantity = Math.max(1, addon.quantity + delta);
-      
-      const allAddons = addonCategories?.flatMap(c => c.addons) || [];
-      const addonDef = allAddons.find((a: Addon) => a.id === addonId);
-      
+
       if (addonDef?.maxQuantity && newQuantity > addonDef.maxQuantity) {
         return;
       }
-      
+
       categorySelections[addonIndex] = {
         ...addon,
         quantity: newQuantity
       };
-      
+
       newSelected.set(categoryId, categorySelections);
       setSelectedAddons(newSelected);
     }
   };
 
   const handleAddToCart = () => {
-    // Проверка обязательных категорий
+    // Проверка: если есть варианты — должен быть выбран
+    if (!isSimpleProduct && !selectedChild) {
+      alert('Пожалуйста, выберите вариант');
+      return;
+    }
+
+    // Проверка обязательных добавок
     const missingRequired: string[] = [];
     addonCategories?.forEach((category: AddonCategory) => {
       if (category.isRequired) {
@@ -130,43 +155,43 @@ const ProductModal: React.FC<ProductModalProps> = ({
         }
       }
     });
-  
+
     if (missingRequired.length > 0) {
       alert(`Пожалуйста, выберите ${missingRequired.join(', ')}`);
       return;
     }
 
-    if (product.variants && product.variants.length > 0 && !selectedVariant) {
-      alert('Пожалуйста, выберите вариант товара');
-      return;
-    }
-  
-    // Собираем все выбранные добавки в один массив
     const allSelectedAddons = Array.from(selectedAddons.values()).flat();
-    
-    console.log('🛒 Отправка в корзину:', {
-      product,
-      quantity,
-      allSelectedAddons,
-      specialInstructions
-    });
-    
-    onAddToCart(product, quantity, allSelectedAddons, specialInstructions, selectedVariant || undefined);
-    onClose();
+
+    onAddToCart(product, quantity, allSelectedAddons, specialInstructions, selectedChild || undefined);
+    setAddedToast(true);
+    setTimeout(() => {
+      setAddedToast(false);
+      onClose();
+    }, 800);
   };
 
   const allAddons = addonCategories?.flatMap(c => c.addons) || [];
-  
+
   const addonsTotal = Array.from(selectedAddons.values())
     .flat()
     .reduce((sum: number, addon: SelectedAddon) => sum + addon.price * addon.quantity, 0);
-  
-  const basePrice = selectedVariant ? selectedVariant.price : product.price;
+
+  // Базовая цена: от выбранного ребёнка, или от самого продукта (если детей нет)
+  const basePrice = selectedChild?.price ?? product.price;
   const totalPrice = (basePrice + addonsTotal) * quantity;
 
+  // Картинка: от родителя (у родителя должна быть картинка)
+  const displayImage = product.images && product.images.length > 0
+    ? resolveMediaUrl(product.images[0].filePath)
+    : '';
+
+  // Описание: от родителя
+  const displayDescription = product.description;
+
   return (
-    <Dialog 
-      open={open} 
+    <Dialog
+      open={open}
       onClose={onClose}
       maxWidth="md"
       fullScreen={isMobile}
@@ -178,10 +203,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ 
-        p: isMobile ? 2 : 3, 
-        display: 'flex', 
-        alignItems: 'center', 
+      <DialogTitle sx={{
+        p: isMobile ? 2 : 3,
+        display: 'flex',
+        alignItems: 'center',
         justifyContent: 'space-between',
         borderBottom: `1px solid ${theme.palette.divider}`,
       }}>
@@ -200,15 +225,14 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </Box>
         ) : (
           <>
-            {/* Десктоп версия - фото слева, всё остальное справа */}
+            {/* Десктоп версия */}
             {!isMobile && (
               <Grid container spacing={3}>
-                {/* Фото слева */}
                 <Grid size={{ xs: 5 }}>
-                  {product.images && product.images.length > 0 ? (
+                  {displayImage ? (
                     <Box
                       component="img"
-                      src={resolveMediaUrl(product.images[0].filePath)}
+                      src={displayImage}
                       alt={product.name}
                       sx={{
                         width: '100%',
@@ -233,57 +257,56 @@ const ProductModal: React.FC<ProductModalProps> = ({
                   )}
                 </Grid>
 
-                {/* Контент справа */}
                 <Grid size={{ xs: 7 }}>
-                  {/* Цена и вес */}
                   <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                    {basePrice} ₽ • 300 г
+                    {isSimpleProduct
+                      ? `${basePrice} ₽`
+                      : selectedChild
+                        ? `${selectedChild.price} ₽`
+                        : `от ${children[0]?.price ?? product.price} ₽`
+                    }
                   </Typography>
 
-                  {/* Варианты товара */}
-                  {product.variants && product.variants.length > 0 && (
+                  {/* Выбор варианта (Курица / Свинина и т.д.) */}
+                  {!isSimpleProduct && (
                     <Box sx={{ mb: 2 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                         Выберите вариант:
                       </Typography>
                       <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                        {product.variants
-                          .sort((a, b) => a.sortOrder - b.sortOrder)
-                          .map((variant) => (
-                            <Chip
-                              key={variant.id}
-                              label={`${variant.name} — ${variant.price} ₽`}
-                              clickable
-                              onClick={() => setSelectedVariant(variant)}
-                              variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
-                              sx={{
-                                fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
-                                borderRadius: 2.5,
-                                borderColor: selectedVariant?.id === variant.id
-                                  ? 'primary.main'
-                                  : theme.palette.divider,
-                                borderWidth: 1.5,
-                                borderStyle: 'solid',
-                              }}
-                            />
-                          ))}
+                        {children.map((child) => (
+                          <Chip
+                            key={child.id}
+                            label={`${child.name} — ${child.price} ₽`}
+                            clickable
+                            onClick={() => setSelectedChild(child)}
+                            variant={selectedChild?.id === child.id ? 'filled' : 'outlined'}
+                            sx={{
+                              fontWeight: selectedChild?.id === child.id ? 600 : 400,
+                              borderRadius: 2.5,
+                              borderColor: selectedChild?.id === child.id
+                                ? 'primary.main'
+                                : theme.palette.divider,
+                              borderWidth: 1.5,
+                              borderStyle: 'solid',
+                            }}
+                          />
+                        ))}
                       </Box>
                     </Box>
                   )}
 
-                  {/* Описание */}
                   <Typography variant="body1" color="text.secondary" paragraph>
-                    {product.description || 'Нет описания'}
+                    {displayDescription || 'Нет описания'}
                   </Typography>
 
-                  {/* Бейджи */}
                   {(product.isSpicy || product.hasCheese) && (
                     <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
                       {product.isSpicy && (
-                        <Chip label="🌶️ Острая" size="small" color="error" variant="outlined" />
+                        <Chip label="Острая" size="small" color="error" variant="outlined" />
                       )}
                       {product.hasCheese && (
-                        <Chip label="🧀 С сыром" size="small" color="warning" variant="outlined" />
+                        <Chip label="С сыром" size="small" color="warning" variant="outlined" />
                       )}
                     </Box>
                   )}
@@ -294,7 +317,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                       <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
                         Добавки
                       </Typography>
-                      
+
                       <FormGroup>
                         {allAddons.map((addon) => {
                           const selectedAddon = selectedAddons
@@ -319,8 +342,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                                   </Box>
                                 }
                               />
-                              
-                              {/* Выбор количества */}
+
                               {selectedAddon && addon.maxQuantity && addon.maxQuantity > 1 && (
                                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 4, mt: 1 }}>
                                   <IconButton
@@ -352,7 +374,6 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     </>
                   )}
 
-                  {/* Особые пожелания */}
                   <Box sx={{ mt: 3 }}>
                     <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                       Особые пожелания
@@ -375,10 +396,10 @@ const ProductModal: React.FC<ProductModalProps> = ({
             {/* Мобильная версия */}
             {isMobile && (
               <Box>
-                {product.images && product.images.length > 0 && (
+                {displayImage && (
                   <Box
                     component="img"
-                    src={resolveMediaUrl(product.images[0].filePath)}
+                    src={displayImage}
                     alt={product.name}
                     sx={{
                       width: '100%',
@@ -389,60 +410,63 @@ const ProductModal: React.FC<ProductModalProps> = ({
                     }}
                   />
                 )}
-                
+
                 <Typography variant="h5" color="primary.main" fontWeight={700} gutterBottom>
-                  {basePrice} ₽ • 300 г
+                  {isSimpleProduct
+                    ? `${basePrice} ₽`
+                    : selectedChild
+                      ? `${selectedChild.price} ₽`
+                      : `от ${children[0]?.price ?? product.price} ₽`
+                  }
                 </Typography>
 
-                {/* Варианты товара (мобильная версия) */}
-                {product.variants && product.variants.length > 0 && (
+                {/* Выбор варианта (мобильная) */}
+                {!isSimpleProduct && (
                   <Box sx={{ mb: 2 }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1 }}>
                       Выберите вариант:
                     </Typography>
                     <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                      {product.variants
-                        .sort((a, b) => a.sortOrder - b.sortOrder)
-                        .map((variant) => (
-                          <Chip
-                            key={variant.id}
-                            label={`${variant.name} — ${variant.price} ₽`}
-                            clickable
-                            onClick={() => setSelectedVariant(variant)}
-                            variant={selectedVariant?.id === variant.id ? 'filled' : 'outlined'}
-                            sx={{
-                              fontWeight: selectedVariant?.id === variant.id ? 600 : 400,
-                              borderRadius: 2.5,
-                              borderColor: selectedVariant?.id === variant.id
-                                ? 'primary.main'
-                                : theme.palette.divider,
-                              borderWidth: 1.5,
-                              borderStyle: 'solid',
-                            }}
-                          />
-                        ))}
+                      {children.map((child) => (
+                        <Chip
+                          key={child.id}
+                          label={`${child.name} — ${child.price} ₽`}
+                          clickable
+                          onClick={() => setSelectedChild(child)}
+                          variant={selectedChild?.id === child.id ? 'filled' : 'outlined'}
+                          sx={{
+                            fontWeight: selectedChild?.id === child.id ? 600 : 400,
+                            borderRadius: 2.5,
+                            borderColor: selectedChild?.id === child.id
+                              ? 'primary.main'
+                              : theme.palette.divider,
+                            borderWidth: 1.5,
+                            borderStyle: 'solid',
+                          }}
+                        />
+                      ))}
                     </Box>
                   </Box>
                 )}
 
                 <Typography variant="body1" color="text.secondary" paragraph>
-                  {product.description || 'Нет описания'}
+                  {displayDescription || 'Нет описания'}
                 </Typography>
 
                 {(product.isSpicy || product.hasCheese) && (
                   <Box sx={{ display: 'flex', gap: 1, mb: 3 }}>
-                    {product.isSpicy && <Chip label="🌶️ Острая" size="small" />}
-                    {product.hasCheese && <Chip label="🧀 С сыром" size="small" />}
+                    {product.isSpicy && <Chip label="Острая" size="small" />}
+                    {product.hasCheese && <Chip label="С сыром" size="small" />}
                   </Box>
                 )}
 
-                {/* Добавки для мобильных */}
+                {/* Добавки */}
                 {allAddons.length > 0 && (
                   <>
                     <Typography variant="h6" fontWeight={600} sx={{ mb: 2 }}>
                       Добавки
                     </Typography>
-                    
+
                     <FormGroup>
                       {allAddons.map((addon) => {
                         const selectedAddon = selectedAddons
@@ -467,7 +491,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
                                 </Box>
                               }
                             />
-                            
+
                             {selectedAddon && addon.maxQuantity && addon.maxQuantity > 1 && (
                               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 4, mt: 1 }}>
                                 <IconButton
@@ -517,16 +541,16 @@ const ProductModal: React.FC<ProductModalProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ 
-        p: isMobile ? 2 : 3, 
-        flexDirection: 'column', 
+      <DialogActions sx={{
+        p: isMobile ? 2 : 3,
+        flexDirection: 'column',
         gap: 2,
         borderTop: `1px solid ${theme.palette.divider}`,
       }}>
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between', 
+        <Box sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
           width: '100%'
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -541,7 +565,7 @@ const ProductModal: React.FC<ProductModalProps> = ({
               </IconButton>
             </Box>
           </Box>
-          
+
           <Button
             variant="contained"
             onClick={handleAddToCart}
@@ -552,6 +576,17 @@ const ProductModal: React.FC<ProductModalProps> = ({
           </Button>
         </Box>
       </DialogActions>
+
+      <Snackbar
+        open={addedToast}
+        autoHideDuration={800}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        sx={{ bottom: { xs: 80, sm: 40 } }}
+      >
+        <Alert severity="success" variant="filled" sx={{ borderRadius: 3 }}>
+          Добавлено в корзину!
+        </Alert>
+      </Snackbar>
     </Dialog>
   );
 };

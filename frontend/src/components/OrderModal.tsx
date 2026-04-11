@@ -27,8 +27,9 @@ import {
   Close as CloseIcon,
   ArrowBack as ArrowBackIcon
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 import { useCreateOrder } from '../api/hooks';
-import type { CreateOrderDto } from '../types';
+import type { CreateOrderDto, PromoCodeValidation } from '../types';
 import { useCartStore } from '../store/cartStore';
 import type { DeliveryType } from '../store/orderFlowStore';
 import { resolveMediaUrl } from '../utils/media';
@@ -44,11 +45,12 @@ interface OrderModalProps {
   deliveryType: DeliveryType;
   address: string;
   onAddressChange: (addr: string) => void;
-  // Добавлены новые пропсы для полей имени и телефона
   customerName: string;
   onCustomerNameChange: (name: string) => void;
   phone: string;
   onPhoneChange: (phone: string) => void;
+  promoInfo?: PromoCodeValidation | null;
+  pointsDiscount?: number;
 }
 
 const OrderModal: React.FC<OrderModalProps> = ({
@@ -62,11 +64,14 @@ const OrderModal: React.FC<OrderModalProps> = ({
   onCustomerNameChange,
   phone,
   onPhoneChange,
+  promoInfo,
+  pointsDiscount = 0,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down("sm"));
 
   const createOrder = useCreateOrder();
+  const navigate = useNavigate();
 
   const cartItems = useCartStore(state => state.items);
   const clearCart = useCartStore(state => state.clearCart);
@@ -81,10 +86,14 @@ const OrderModal: React.FC<OrderModalProps> = ({
 
   const totalAmount = React.useMemo(() => {
     return cartItems.reduce((sum, item) => {
+      const basePrice = item.selectedChild?.price ?? item.price;
       const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
-      return sum + (item.price + addonsTotal) * item.quantity;
+      return sum + (basePrice + addonsTotal) * item.quantity;
     }, 0);
   }, [cartItems]);
+
+  const discountAmount = promoInfo?.discountAmount ?? 0;
+  const finalTotal = Math.max(0, totalAmount - discountAmount - pointsDiscount);
 
   const showSnackbar = (message: string, severity: 'success' | 'error' | 'info' | 'warning') => {
     setSnackbar({ open: true, message, severity });
@@ -113,10 +122,16 @@ const OrderModal: React.FC<OrderModalProps> = ({
       phone: phone.trim(),
       address: deliveryType === 'Доставка' ? address.trim() : 'Самовывоз',
       notes: notes.trim() || null,
+      deliveryType: deliveryType,
+      promoCodeId: promoInfo?.promoCodeId ?? null,
+      pointsDiscountAmount: pointsDiscount > 0 ? pointsDiscount : undefined,
       items: cartItems.map(item => ({
-        shawarmaId: item.id,
+        shawarmaId: item.selectedChild?.id ?? item.id,
         quantity: item.quantity,
-        name: item.name,
+        name: item.selectedChild
+          ? `${item.name} — ${item.selectedChild.name}`
+          : item.name,
+        price: item.selectedChild?.price ?? item.price,
         selectedAddons: item.selectedAddons?.map(addon => ({
           addonId: addon.addonId,
           quantity: addon.quantity
@@ -129,10 +144,11 @@ const OrderModal: React.FC<OrderModalProps> = ({
       showSnackbar(`Заказ #${result.id} создан успешно!`, 'success');
       clearCart();
       setNotes('');
-      onCustomerNameChange(''); // Очищаем поле имени
-      onPhoneChange(''); // Очищаем поле телефона
-      onAddressChange(''); // Очищаем поле адреса
-      setTimeout(() => onClose(), 1500);
+      onCustomerNameChange('');
+      onPhoneChange('');
+      onAddressChange('');
+      onClose();
+      navigate(`/order/${result.id}/success`);
     } catch (error: any) {
       showSnackbar(error.message || 'Ошибка при создании заказа', 'error');
     }
@@ -248,8 +264,12 @@ const OrderModal: React.FC<OrderModalProps> = ({
           ) : (
             <List sx={{ mb: 3 }}>
               {cartItems.map((item) => {
+                const basePrice = item.selectedChild?.price ?? item.price;
                 const addonsTotal = item.selectedAddons?.reduce((s, a) => s + a.price * a.quantity, 0) || 0;
-                const itemTotal = (item.price + addonsTotal) * item.quantity;
+                const itemTotal = (basePrice + addonsTotal) * item.quantity;
+                const displayName = item.selectedChild
+                  ? `${item.name} — ${item.selectedChild.name}`
+                  : item.name;
 
                 return (
                   <Paper
@@ -297,7 +317,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
                       <ListItemText
                         primary={
                           <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-                            {item.name}
+                            {displayName}
                           </Typography>
                         }
                         secondary={
@@ -320,7 +340,7 @@ const OrderModal: React.FC<OrderModalProps> = ({
 
                             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 0.5 }}>
                               <Typography variant="body2" color="text.secondary">
-                                {item.quantity} × {item.price} ₽
+                                {item.quantity} × {basePrice} ₽
                               </Typography>
                               <Typography variant="body2" sx={{ fontWeight: 700, color: 'primary.main' }}>
                                 {itemTotal} ₽
@@ -367,9 +387,26 @@ const OrderModal: React.FC<OrderModalProps> = ({
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Typography variant="h6" sx={{ fontWeight: 600 }}>Итого:</Typography>
               <Typography variant="h4" sx={{ color: 'primary.main', fontWeight: 800, fontSize: isMobile ? '1.5rem' : '2rem' }}>
-                {totalAmount} ₽
+                {finalTotal} ₽
               </Typography>
             </Box>
+            {discountAmount > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <Typography variant="body2" color="success.main">Скидка по промокоду</Typography>
+                <Typography variant="body2" fontWeight={600} color="success.main">−{discountAmount} ₽</Typography>
+              </Box>
+            )}
+            {pointsDiscount > 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 1 }}>
+                <Typography variant="body2" color="warning.main">Скидка баллами</Typography>
+                <Typography variant="body2" fontWeight={600} color="warning.main">−{pointsDiscount} ₽</Typography>
+              </Box>
+            )}
+            {promoInfo && (
+              <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
+                🏷️ {promoInfo.code} — {promoInfo.message}
+              </Typography>
+            )}
           </Paper>
 
           {/* Убираем заглушку, так как теперь поля ввода есть */}

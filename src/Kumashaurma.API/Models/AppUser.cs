@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Identity;
 
 namespace Kumashaurma.API.Models
@@ -26,8 +27,13 @@ namespace Kumashaurma.API.Models
         [Column("updated_at")]
         public DateTime? UpdatedAt { get; set; }
 
+        [Column("points_balance")]
+        public int PointsBalance { get; set; } = 0;
+
         // Navigation properties
+        [JsonIgnore]
         public ICollection<UserAddress> Addresses { get; set; } = new List<UserAddress>();
+        [JsonIgnore]
         public ICollection<Order> Orders { get; set; } = new List<Order>();
     }
 }

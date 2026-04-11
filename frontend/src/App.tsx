@@ -19,10 +19,13 @@ import {
   Brightness4 as Brightness4Icon,
   Brightness7 as Brightness7Icon,
   People as PeopleIcon,
+  LocalOffer as PromoIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
 import { useTheme } from './hooks/useTheme';
+import type { PromoCodeValidation } from './types';
 import { useCartStore, useTotalItems, useTotalPrice } from './store/cartStore';
 import { useAuthStore } from './store/authStore';
 import { useOrderFlowStore } from './store/orderFlowStore';
@@ -36,8 +39,11 @@ import DashboardPage from './pages/DashboardPage';
 import OrdersPage from './pages/OrdersPage';
 import MenuPage from './pages/MenuPage';
 import CreateMenuItemPage from "./pages/CreateMenuItemPage";
+import OrderSuccessPage from './pages/OrderSuccessPage';
 import AdminMenuPage from './pages/AdminMenuPage';
 import UsersPage from './pages/UserPage';
+import AdminPromoCodesPage from './pages/AdminPromoCodesPage';
+import PointsPage from './pages/PointsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -55,6 +61,8 @@ function App() {
   const { theme: themeMode, toggleTheme } = useTheme();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [authOpen, setAuthOpen] = useState(false);
+  const [promoInfo, setPromoInfo] = useState<PromoCodeValidation | null>(null);
+  const [pointsDiscount, setPointsDiscount] = useState(0);
 
   const cartOpen = useOrderFlowStore((state) => state.cartOpen);
   const deliveryType = useOrderFlowStore((state) => state.deliveryType);
@@ -170,6 +178,7 @@ function App() {
     const items = [
       { text: 'Меню', icon: <HomeIcon />, path: '/' },
       { text: 'Мои заказы', icon: <ListAltIcon />, path: '/orders' },
+      { text: 'Мои баллы', icon: <StarIcon />, path: '/points' },
       { text: 'Новый заказ', icon: <AddCartIcon />, path: '/order', highlight: true },
     ];
 
@@ -177,6 +186,7 @@ function App() {
       items.push(
         { text: 'Дашборд', icon: <DashboardIcon />, path: '/admin/dashboard' },
         { text: 'Товары', icon: <AddIcon />, path: '/admin/menu' },
+        { text: 'Промокоды', icon: <PromoIcon />, path: '/admin/promocodes' },
       );
     }
 
@@ -326,6 +336,14 @@ function App() {
                         >
                           Товары
                         </Button>
+                        <Button
+                          component={Link}
+                          to="/admin/promocodes"
+                          startIcon={<PromoIcon />}
+                          sx={{ color: 'text.primary' }}
+                        >
+                          Промокоды
+                        </Button>
                         {isAdminRole && (
                           <Button
                             component={Link}
@@ -422,12 +440,15 @@ function App() {
               <Routes>
                 <Route path="/" element={<MenuPage />} />
                 <Route path="/orders" element={<OrdersPage />} />
+                <Route path="/points" element={<PointsPage />} />
                 <Route path="/order" element={<Navigate to="/" replace />} />
+                <Route path="/order/:id/success" element={<OrderSuccessPage />} />
 
                 {isAdmin && (
                   <>
                     <Route path="/admin/dashboard" element={<DashboardPage />} />
                     <Route path="/admin/menu" element={<AdminMenuPage />} />
+                    <Route path="/admin/promocodes" element={<AdminPromoCodesPage />} />
                   </>
                 )}
 
@@ -454,6 +475,8 @@ function App() {
               onDeliveryTypeChange={setDeliveryType}
               address={address}
               onAddressChange={setAddress}
+              onPromoApplied={setPromoInfo}
+              onPointsApplied={setPointsDiscount}
             />
 
             <OrderModal
@@ -467,6 +490,8 @@ function App() {
               onCustomerNameChange={setCustomerName}
               phone={phone}
               onPhoneChange={setPhone}
+              promoInfo={promoInfo}
+              pointsDiscount={pointsDiscount}
             />
 
             <AuthModal

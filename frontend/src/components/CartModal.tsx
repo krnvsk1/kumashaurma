@@ -15,6 +15,7 @@ import {
   TextField,
   Paper,
   Chip,
+  CircularProgress,
   useTheme,
   useMediaQuery
 } from '@mui/material';
@@ -23,10 +24,15 @@ import {
   Add as AddIcon,
   Remove as RemoveIcon,
   Search as SearchIcon,
-  LocalOffer as OfferIcon
+  LocalOffer as OfferIcon,
+  Check as CheckIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
 import { useCartStore, useTotalItems, useTotalPrice } from '../store/cartStore';
 import type { DeliveryType } from '../store/orderFlowStore';
+import { useValidatePromoCode, usePointsBalance, useRedeemPoints } from '../api/hooks';
+import type { PromoCodeValidation } from '../types';
+import { useAuthStore } from '../store/authStore';
 import { resolveMediaUrl } from '../utils/media';
 
 interface CartModalProps {
@@ -37,6 +43,8 @@ interface CartModalProps {
   onDeliveryTypeChange: (type: DeliveryType) => void;
   address: string;
   onAddressChange: (addr: string) => void;
+  onPromoApplied?: (promo: PromoCodeValidation | null) => void;
+  onPointsApplied?: (discount: number) => void;
 }
 
 const CartModal: React.FC<CartModalProps> = ({
@@ -47,6 +55,8 @@ const CartModal: React.FC<CartModalProps> = ({
   onDeliveryTypeChange,
   address,
   onAddressChange,
+  onPromoApplied,
+  onPointsApplied,
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -55,14 +65,117 @@ const CartModal: React.FC<CartModalProps> = ({
   const totalItems = useTotalItems();
   const totalPrice = useTotalPrice();
   const { updateQuantity, removeItem } = useCartStore();
+  const { isAuthenticated } = useAuthStore();
 
   const [promoCode, setPromoCode] = React.useState('');
-  const [promoError, setPromoError] = React.useState(false);
+  const [appliedPromo, setAppliedPromo] = React.useState<PromoCodeValidation | null>(null);
+
+  const [pointsInput, setPointsInput] = React.useState('');
+  const [appliedPointsDiscount, setAppliedPointsDiscount] = React.useState(0);
+  const [pointsError, setPointsError] = React.useState('');
+
+  const validatePromo = useValidatePromoCode();
+  const { data: pointsBalanceData } = usePointsBalance();
+  const redeemPoints = useRedeemPoints();
+
+  const pointsBalance = pointsBalanceData?.balance ?? 0;
 
   const MIN_ORDER = 499;
   const deliveryPrice = 0;
   const isMinOrderReached = totalPrice >= MIN_ORDER;
   const deliveryOptions: DeliveryType[] = ['Доставка', 'Самовывоз', 'В зале'];
+
+  const discountAmount = appliedPromo?.discountAmount ?? 0;
+  const finalPrice = Math.max(0, totalPrice - discountAmount - appliedPointsDiscount);
+
+  // Reset points when cart changes
+  React.useEffect(() => {
+    if (items.length === 0) {
+      setPointsInput('');
+      setAppliedPointsDiscount(0);
+      setPointsError('');
+      onPointsApplied?.(0);
+    }
+  }, [items.length]);
+
+  const maxPoints = Math.min(pointsBalance, Math.max(0, totalPrice - discountAmount));
+
+  const handleApplyPoints = async () => {
+    const pts = parseInt(pointsInput, 10);
+    if (isNaN(pts) || pts <= 0) {
+      setPointsError('Введите количество баллов');
+      return;
+    }
+    if (pts > maxPoints) {
+      setPointsError(`Максимум ${maxPoints} баллов`);
+      return;
+    }
+    try {
+      const result = await redeemPoints.mutateAsync({ pointsToRedeem: pts });
+      setAppliedPointsDiscount(result.discountAmount);
+      setPointsError('');
+      onPointsApplied?.(result.discountAmount);
+    } catch (err: any) {
+      setPointsError(err?.response?.data?.message || err?.message || 'Ошибка списания баллов');
+    }
+  };
+
+  const handleRemovePoints = () => {
+    setPointsInput('');
+    setAppliedPointsDiscount(0);
+    setPointsError('');
+    onPointsApplied?.(0);
+  };
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    try {
+      const result = await validatePromo.mutateAsync({
+        code: promoCode.trim(),
+        orderAmount: totalPrice,
+      });
+      if (result.valid) {
+        setAppliedPromo(result);
+        onPromoApplied?.(result);
+      } else {
+        setAppliedPromo(null);
+        onPromoApplied?.(null);
+      }
+    } catch {
+      setAppliedPromo(null);
+      onPromoApplied?.(null);
+    }
+  };
+
+  const handleRemovePromo = () => {
+    setPromoCode('');
+    setAppliedPromo(null);
+    onPromoApplied?.(null);
+  };
+
+  // Reset promo when cart changes
+  React.useEffect(() => {
+    if (items.length === 0) {
+      handleRemovePromo();
+    }
+  }, [items.length]);
+
+  // Re-validate promo when total changes
+  React.useEffect(() => {
+    if (appliedPromo && items.length > 0) {
+      validatePromo.mutate({
+        code: promoCode.trim(),
+        orderAmount: totalPrice,
+      }).then(result => {
+        if (result.valid) {
+          setAppliedPromo(result);
+          onPromoApplied?.(result);
+        } else {
+          handleRemovePromo();
+        }
+      }).catch(() => handleRemovePromo());
+    }
+  }, [totalPrice]);
 
   const handleQuantityChange = (uniqueKey: string | undefined, delta: number) => {
     if (!uniqueKey) return;
@@ -154,7 +267,11 @@ const CartModal: React.FC<CartModalProps> = ({
         <List sx={{ mb: 2 }}>
           {items.map((item) => {
             const addonsTotal = item.selectedAddons?.reduce((sum, a) => sum + a.price * a.quantity, 0) || 0;
-            const itemTotal = (item.price + addonsTotal) * item.quantity;
+            const basePrice = item.selectedChild?.price ?? item.price;
+            const itemTotal = (basePrice + addonsTotal) * item.quantity;
+            const displayName = item.selectedChild
+              ? `${item.name} — ${item.selectedChild.name}`
+              : item.name;
 
             return (
               <ListItem key={item.uniqueKey} sx={{ px: 0, alignItems: 'flex-start' }}>
@@ -187,7 +304,7 @@ const CartModal: React.FC<CartModalProps> = ({
                 </ListItemAvatar>
                 <Box sx={{ flex: 1, ml: 2 }}>
                   <Typography variant="h6" sx={{ fontWeight: 600, fontSize: isMobile ? '1rem' : '1.25rem' }}>
-                    {item.name}
+                    {displayName}
                   </Typography>
 
                   {item.selectedAddons && item.selectedAddons.length > 0 && (
@@ -234,46 +351,173 @@ const CartModal: React.FC<CartModalProps> = ({
           })}
         </List>
 
+        {/* Списать баллы */}
+        {isAuthenticated && pointsBalance > 0 && (
+          <Paper
+            variant="outlined"
+            sx={{
+              p: 2,
+              mb: 2,
+              borderRadius: 3,
+              borderColor: appliedPointsDiscount > 0 ? 'warning.main' : theme.palette.divider,
+              bgcolor: appliedPointsDiscount > 0
+                ? (theme.palette.mode === 'light' ? '#fffbeb' : '#3a2a0a')
+                : 'transparent',
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <StarIcon sx={{ color: appliedPointsDiscount > 0 ? 'warning.main' : 'text.secondary', fontSize: 20 }} />
+              {appliedPointsDiscount > 0 ? (
+                <>
+                  <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>
+                    Списано {pointsInput} баллов
+                  </Typography>
+                  <Button
+                    size="small"
+                    onClick={handleRemovePoints}
+                    sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                  >
+                    Отмена
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <TextField
+                    fullWidth
+                    placeholder={`Использовать баллы (макс. ${maxPoints})`}
+                    value={pointsInput}
+                    onChange={(e) => {
+                      setPointsInput(e.target.value.replace(/[^0-9]/g, ''));
+                      setPointsError('');
+                    }}
+                    variant="standard"
+                    type="number"
+                    inputProps={{ min: 0, max: maxPoints }}
+                    InputProps={{
+                      disableUnderline: true,
+                      endAdornment: (
+                        <Button
+                          size="small"
+                          onClick={handleApplyPoints}
+                          disabled={redeemPoints.isPending || !pointsInput || items.length === 0}
+                          sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                        >
+                          {redeemPoints.isPending ? <CircularProgress size={16} /> : 'Применить'}
+                        </Button>
+                      ),
+                    }}
+                  />
+                </>
+              )}
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 0.5 }}>
+              <Typography variant="caption" color="text.secondary">
+                Доступно: {pointsBalance} баллов
+              </Typography>
+              {appliedPointsDiscount > 0 && (
+                <Typography variant="caption" color="warning.main" fontWeight={600}>
+                  −{appliedPointsDiscount} ₽
+                </Typography>
+              )}
+            </Box>
+            {pointsError && (
+              <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+                {pointsError}
+              </Typography>
+            )}
+          </Paper>
+        )}
+
+        {/* Промокод */}
         <Paper
           variant="outlined"
           sx={{
             p: 2,
             mb: 2,
             borderRadius: 3,
-            borderColor: promoError ? 'error.main' : theme.palette.divider,
-            bgcolor: promoError ? (theme.palette.mode === 'light' ? '#fff5f5' : '#4a1f1f') : 'transparent',
+            borderColor: appliedPromo ? 'success.main' : theme.palette.divider,
+            bgcolor: appliedPromo
+              ? (theme.palette.mode === 'light' ? '#f0fdf4' : '#1a3a1a')
+              : 'transparent',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <OfferIcon sx={{ color: promoError ? 'error.main' : 'text.secondary' }} />
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            {appliedPromo ? (
+              <CheckIcon sx={{ color: 'success.main' }} />
+            ) : (
+              <OfferIcon sx={{ color: 'text.secondary' }} />
+            )}
             <TextField
               fullWidth
-              placeholder="Промокод ШАУРМА"
+              placeholder="Промокод"
               value={promoCode}
-              onChange={(e) => { setPromoCode(e.target.value); setPromoError(false); }}
+              onChange={(e) => {
+                if (!appliedPromo) {
+                  setPromoCode(e.target.value.toUpperCase());
+                }
+              }}
               variant="standard"
-              InputProps={{ disableUnderline: true }}
+              InputProps={{
+                disableUnderline: true,
+                readOnly: !!appliedPromo,
+                endAdornment: appliedPromo ? (
+                  <Button
+                    size="small"
+                    onClick={handleRemovePromo}
+                    sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                  >
+                    Удалить
+                  </Button>
+                ) : (
+                  <Button
+                    size="small"
+                    onClick={handleApplyPromo}
+                    disabled={!promoCode.trim() || validatePromo.isPending || items.length === 0}
+                    sx={{ fontSize: '0.75rem', minWidth: 'auto', px: 1 }}
+                  >
+                    {validatePromo.isPending ? <CircularProgress size={16} /> : 'Применить'}
+                  </Button>
+                ),
+              }}
             />
           </Box>
-          {promoError && (
-            <Typography variant="caption" color="error">
-              Не найдены блюда в корзине для промокода
+          {appliedPromo && (
+            <Typography variant="caption" color="success.main" sx={{ mt: 0.5, display: 'block' }}>
+              {appliedPromo.message}
+            </Typography>
+          )}
+          {!appliedPromo && validatePromo.isError && (
+            <Typography variant="caption" color="error" sx={{ mt: 0.5, display: 'block' }}>
+              {validatePromo.error?.response?.data?.message || validatePromo.error?.message || 'Промокод не найден'}
             </Typography>
           )}
         </Paper>
 
+        {/* Итого */}
         <Box sx={{ mb: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography color="text.secondary">Товары в заказе {totalItems} шт.</Typography>
             <Typography fontWeight={600}>{totalPrice} ₽</Typography>
           </Box>
+          {discountAmount > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography color="success.main">Скидка по промокоду</Typography>
+              <Typography fontWeight={600} color="success.main">−{discountAmount} ₽</Typography>
+            </Box>
+          )}
+          {appliedPointsDiscount > 0 && (
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography color="warning.main">Скидка баллами</Typography>
+              <Typography fontWeight={600} color="warning.main">−{appliedPointsDiscount} ₽</Typography>
+            </Box>
+          )}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
             <Typography color="text.secondary">Доставка</Typography>
             <Typography fontWeight={600}>{deliveryPrice} ₽</Typography>
           </Box>
           {!isMinOrderReached && (
             <Typography variant="body2" color="error" sx={{ mt: 1 }}>
-              Пожалуйста, дозакажите до минимальной суммы. Минимальный заказ по указанному адресу — {MIN_ORDER} ₽
+              Пожалуйста, дозакажите до минимальной суммы. Минимальный заказ — {MIN_ORDER} ₽
             </Typography>
           )}
         </Box>
@@ -289,8 +533,20 @@ const CartModal: React.FC<CartModalProps> = ({
             justifyContent: 'space-between',
           }}
         >
-          <Typography color="text.secondary">Бонусы к начислению</Typography>
-          <Typography fontWeight={600} color="primary.main">+{Math.round(totalPrice * 0.02)} ₽</Typography>
+          <Box>
+            <Typography color="text.secondary">Итого</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Бонусы к начислению
+            </Typography>
+          </Box>
+          <Box sx={{ textAlign: 'right' }}>
+            <Typography fontWeight={700} color="primary.main" sx={{ fontSize: '1.25rem' }}>
+              {finalPrice} ₽
+            </Typography>
+            <Typography variant="body2" color="primary.main" fontWeight={600}>
+              +{Math.round(finalPrice / 100)} ₽
+            </Typography>
+          </Box>
         </Paper>
       </DialogContent>
 

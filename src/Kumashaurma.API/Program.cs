@@ -10,6 +10,9 @@ using Kumashaurma.API.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// PostgreSQL: разрешить DateTime с Kind=Unspecified (преобразует в UTC)
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 if (!builder.Environment.IsDevelopment())
 {
     var port = Environment.GetEnvironmentVariable("PORT") ?? "8080";
@@ -21,8 +24,8 @@ if (!builder.Environment.IsDevelopment())
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
+        options.JsonSerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.ReferenceHandler = System.Text.Json.Serialization.ReferenceHandler.IgnoreCycles;
-        options.JsonSerializerOptions.DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull;
     });
 
 builder.Services.AddEndpointsApiExplorer();
@@ -154,6 +157,26 @@ builder.Services.AddCors(options =>
 // ========== App ==========
 
 var app = builder.Build();
+
+// Глобальный обработчик исключений — логирует реальную ошибку
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"❌ UNHANDLED EXCEPTION: {ex.GetType().Name}: {ex.Message}");
+        if (ex.InnerException != null)
+            Console.WriteLine($"   Inner: {ex.InnerException.GetType().Name}: {ex.InnerException.Message}");
+        Console.WriteLine($"   StackTrace: {ex.StackTrace}");
+
+        context.Response.StatusCode = 500;
+        context.Response.ContentType = "application/json";
+        await context.Response.WriteAsJsonAsync(new { Message = ex.Message, Detail = ex.InnerException?.Message });
+    }
+});
 
 // CORS
 app.UseCors("AllowFrontend");

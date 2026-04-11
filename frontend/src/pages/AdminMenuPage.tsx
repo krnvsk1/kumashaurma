@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Container,
@@ -6,12 +6,6 @@ import {
   Box,
   Button,
   Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   IconButton,
   Chip,
   Switch,
@@ -41,7 +35,8 @@ import {
   alpha,
   useTheme,
   Tooltip,
-  CircularProgress
+  CircularProgress,
+  Badge
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -51,7 +46,8 @@ import {
   Fastfood as FastfoodIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  FiberManualRecord as DotIcon
 } from '@mui/icons-material';
 import { useShawarmas, useDeleteShawarma, useUpdateShawarmaAvailability } from '../api/hooks';
 import { 
@@ -120,6 +116,13 @@ const AdminMenuPage: React.FC = () => {
 
   // Хуки для данных
   const { data: shawarmas = [] } = useShawarmas();
+  const [expandedParent, setExpandedParent] = useState<number | null>(null);
+
+  // Разделяем на родителей и дочерние
+  const parents = useMemo(() => 
+    shawarmas.filter(s => !s.parentId),
+    [shawarmas]
+  );
   const { data: categories = [] } = useAddonCategories();
   
   // Мутации
@@ -258,6 +261,19 @@ const AdminMenuPage: React.FC = () => {
     setExpandedCategory(expandedCategory === categoryId ? null : categoryId);
   };
 
+  const handleToggleParent = (parentId: number) => {
+    setExpandedParent(expandedParent === parentId ? null : parentId);
+  };
+
+  // Массовое переключение доступности всех детей родителя
+  const handleToggleAllChildren = (parentId: number, isAvailable: boolean) => {
+    shawarmas
+      .filter(s => s.parentId === parentId)
+      .forEach(child => {
+        updateAvailability.mutate({ id: child.id, isAvailable });
+      });
+  };
+
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
       {/* Заголовок */}
@@ -300,79 +316,286 @@ const AdminMenuPage: React.FC = () => {
 
         {/* Панель товаров */}
         <TabPanel value={tabValue} index={0}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Название</TableCell>
-                  <TableCell>Категория</TableCell>
-                  <TableCell>Цена</TableCell>
-                  <TableCell>Доступность</TableCell>
-                  <TableCell>Группы добавок</TableCell>
-                  <TableCell>Действия</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {shawarmas.map((product) => (
-                  <TableRow key={product.id}>
-                    <TableCell>
-                      <Typography fontWeight={600}>{product.name}</Typography>
-                    </TableCell>
-                    <TableCell>{product.category}</TableCell>
-                    <TableCell>{product.price} ₽</TableCell>
-                    <TableCell>
-                      <Switch
-                        checked={product.isAvailable}
-                        onChange={(e) => updateAvailability.mutate({
-                          id: product.id,
-                          isAvailable: e.target.checked
-                        })}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="Привязать группу добавок">
-                        <IconButton 
-                          size="small"
-                          onClick={() => setLinkCategoryDialog({ 
-                            open: true, 
-                            shawarmaId: product.id,
-                            shawarmaName: product.name 
-                          })}
-                          color="primary"
-                        >
-                          <LinkIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell>
-                      <Tooltip title="Редактировать товар">
-                        <IconButton 
-                          size="small"
-                          onClick={() => navigate(`/admin/edit/${product.id}`)}
-                          color="primary"
-                        >
-                          <EditIcon />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Удалить товар">
-                        <IconButton 
-                          size="small" 
-                          color="error" 
-                          onClick={() => {
-                            if (window.confirm(`Удалить товар "${product.name}"?`)) {
-                              deleteProduct.mutate(product.id);
+          <Grid container spacing={2}>
+            {parents.map((parent) => {
+              const children = shawarmas.filter(s => s.parentId === parent.id);
+              const isExpanded = expandedParent === parent.id;
+              const availableCount = children.filter(c => c.isAvailable).length;
+              const minPrice = children.length > 0
+                ? Math.min(...children.map(c => c.price))
+                : parent.price;
+              const maxPrice = children.length > 0
+                ? Math.max(...children.map(c => c.price))
+                : parent.price;
+
+              return (
+                <Grid key={parent.id} size={{ xs: 12 }}>
+                  <Card
+                    variant="outlined"
+                    sx={{
+                      borderRadius: 3,
+                      border: '1px solid',
+                      borderColor: isExpanded
+                        ? alpha(theme.palette.primary.main, 0.5)
+                        : 'divider',
+                      transition: 'all 0.2s ease',
+                      '&:hover': {
+                        borderColor: alpha(theme.palette.primary.main, 0.3),
+                      }
+                    }}
+                  >
+                    {/* Шапка карточки родителя */}
+                    <CardContent sx={{ pb: '12px !important' }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleToggleParent(parent.id)}
+                            sx={{
+                              bgcolor: alpha(theme.palette.primary.main, 0.08),
+                              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.15) }
+                            }}
+                          >
+                            {isExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+                          </IconButton>
+                          <Box sx={{ minWidth: 0, flex: 1 }}>
+                            <Typography variant="h6" fontWeight={700} noWrap>
+                              {parent.name}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
+                              <Chip
+                                label="Карточка"
+                                size="small"
+                                variant="filled"
+                                color="primary"
+                                sx={{ height: 22, fontSize: '0.7rem' }}
+                              />
+                              <Badge
+                                badgeContent={children.length}
+                                color={availableCount === children.length ? 'success' : availableCount > 0 ? 'warning' : 'default'}
+                                sx={{
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.7rem',
+                                    height: 20,
+                                    minWidth: 20,
+                                  }
+                                }}
+                              >
+                                <Typography variant="body2" color="text.secondary">
+                                  позиций
+                                </Typography>
+                              </Badge>
+                              {parent.description && (
+                                <Typography
+                                  variant="body2"
+                                  color="text.secondary"
+                                  noWrap
+                                  sx={{ maxWidth: 300 }}
+                                >
+                                  • {parent.description}
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        </Box>
+
+                        {/* Цена */}
+                        <Box sx={{ textAlign: 'center', mx: 2 }}>
+                          <Typography variant="h6" fontWeight={700} color="primary">
+                            {minPrice === maxPrice
+                              ? `${minPrice} ₽`
+                              : `от ${minPrice} ₽`
                             }
-                          }}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                          </Typography>
+                          {minPrice !== maxPrice && (
+                            <Typography variant="caption" color="text.secondary">
+                              до {maxPrice} ₽
+                            </Typography>
+                          )}
+                        </Box>
+
+                        {/* Группы добавок */}
+                        <Tooltip title="Привязать группу добавок к дочерним">
+                          <IconButton
+                            size="small"
+                            onClick={() => setLinkCategoryDialog({
+                              open: true,
+                              shawarmaId: parent.id,
+                              shawarmaName: parent.name
+                            })}
+                            color="primary"
+                            sx={{ mx: 0.5 }}
+                          >
+                            <LinkIcon />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* Доступность всех детей */}
+                        <Tooltip title={availableCount === children.length ? 'Все недоступны' : 'Все доступны'}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleToggleAllChildren(parent.id, availableCount !== children.length)}
+                            sx={{
+                              color: availableCount === children.length ? 'success.main' : 'text.disabled',
+                              mx: 0.5
+                            }}
+                          >
+                            <DotIcon sx={{ fontSize: 14 }} />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* Редактировать родителя */}
+                        <Tooltip title="Редактировать карточку">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/admin/edit/${parent.id}`)}
+                            color="primary"
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* Удалить родителя */}
+                        <Tooltip title="Удалить карточку со всеми позициями">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            onClick={() => {
+                              const childCount = children.length;
+                              if (window.confirm(
+                                `Удалить карточку "${parent.name}"?${childCount > 0 ? ` Внутри ${childCount} позиц${childCount === 1 ? 'ия' : childCount < 5 ? 'ии' : 'ий'} — все будут удалены.` : ''}`
+                              )) {
+                                deleteProduct.mutate(parent.id);
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </CardContent>
+
+                    {/* Выпадающий список дочерних позиций */}
+                    <Collapse in={isExpanded} unmountOnExit>
+                      <Divider />
+                      <Box sx={{ px: 2, py: 1.5, bgcolor: alpha(theme.palette.action.hover, 0.3) }}>
+                        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                          <Typography variant="subtitle2" color="text.secondary" fontWeight={600}>
+                            Позиции в карточке
+                          </Typography>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<AddIcon />}
+                            onClick={() => navigate(`/admin/create?parentId=${parent.id}`)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            Добавить позицию
+                          </Button>
+                        </Box>
+
+                        {children.length === 0 ? (
+                          <Box sx={{ textAlign: 'center', py: 3 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Нет позиций. Добавьте первую позицию в эту карточку.
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <List disablePadding>
+                            {children.map((child, idx) => (
+                              <React.Fragment key={child.id}>
+                                <ListItem
+                                  sx={{
+                                    bgcolor: 'background.paper',
+                                    borderRadius: 2,
+                                    mb: 0.5,
+                                    border: '1px solid',
+                                    borderColor: 'divider',
+                                    px: 2,
+                                    py: 1,
+                                  }}
+                                >
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 0 }}>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                      sx={{ minWidth: 20, textAlign: 'center' }}
+                                    >
+                                      {idx + 1}.
+                                    </Typography>
+                                    <Box sx={{ minWidth: 0, flex: 1 }}>
+                                      <Typography variant="subtitle2" fontWeight={600} noWrap>
+                                        {child.name}
+                                      </Typography>
+                                      {child.description && (
+                                        <Typography variant="caption" color="text.secondary" noWrap display="block">
+                                          {child.description}
+                                        </Typography>
+                                      )}
+                                    </Box>
+                                  </Box>
+
+                                  <Typography
+                                    variant="subtitle2"
+                                    fontWeight={700}
+                                    color="primary"
+                                    sx={{ mr: 1, whiteSpace: 'nowrap' }}
+                                  >
+                                    {child.price} ₽
+                                  </Typography>
+
+                                  <Switch
+                                    size="small"
+                            checked={child.isAvailable}
+                            onChange={(e) => updateAvailability.mutate({
+                              id: child.id,
+                              isAvailable: e.target.checked
+                            })}
+                          />
+
+                          <Tooltip title="Редактировать позицию">
+                            <IconButton
+                              size="small"
+                              onClick={() => navigate(`/admin/edit/${child.id}`)}
+                              color="primary"
+                            >
+                              <EditIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Удалить позицию">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              onClick={() => {
+                                if (window.confirm(`Удалить позицию "${child.name}"?`)) {
+                                  deleteProduct.mutate(child.id);
+                                }
+                              }}
+                            >
+                              <DeleteIcon sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                                </ListItem>
+                              </React.Fragment>
+                            ))}
+                          </List>
+                        )}
+                      </Box>
+                    </Collapse>
+                  </Card>
+                </Grid>
+              );
+            })}
+          </Grid>
+
+          {parents.length === 0 && (
+            <Box sx={{ textAlign: 'center', py: 6 }}>
+              <FastfoodIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1 }} />
+              <Typography color="text.secondary">
+                Нет товаров. Создайте первую карточку.
+              </Typography>
+            </Box>
+          )}
         </TabPanel>
 
         {/* Панель добавок */}

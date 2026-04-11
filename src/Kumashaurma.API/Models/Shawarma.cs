@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
+using System.Text.Json.Serialization;
 
 namespace Kumashaurma.API.Models
 {
@@ -28,7 +29,7 @@ namespace Kumashaurma.API.Models
         
         [MaxLength(50)]
         [Column("category")]
-        public string Category { get; set; } = "Курица";
+        public string Category { get; set; } = string.Empty;
         
         [Column("is_spicy")]
         public bool IsSpicy { get; set; }
@@ -38,6 +39,23 @@ namespace Kumashaurma.API.Models
         
         [Column("is_available")]
         public bool IsAvailable { get; set; } = true;
+
+        // Иерархия: parent_id = null → карточка-категория (заголовок группы, не продаётся),
+        // parent_id = N → дочерняя позиция внутри карточки N (продаваемый товар)
+        [Column("parent_id")]
+        [JsonPropertyName("parentId")]
+        [JsonIgnore(Condition = JsonIgnoreCondition.Never)]
+        public int? ParentId { get; set; }
+
+        [ForeignKey("ParentId")]
+        [JsonIgnore]
+        public Shawarma? Parent { get; set; }
+
+        public ICollection<Shawarma> Children { get; set; } = new List<Shawarma>();
+
+        // Вычисляемое: является ли карточкой-категорией
+        [NotMapped]
+        public bool IsCard => ParentId == null;
 
         [Column("is_promo")]
         public bool IsPromo { get; set; } = false;
@@ -57,15 +75,13 @@ namespace Kumashaurma.API.Models
         [Column("sort_order")]
         public int SortOrder { get; set; }
         
-        // НОВОЕ: связь с добавками
+        // Связь с добавками
         public ICollection<ShawarmaAddon> Addons { get; set; } = new List<ShawarmaAddon>();
 
-        // Варианты товара (разные размеры, виды мяса и т.д.)
-        public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
-
+        // Минимальная цена среди дочерних позиций или своя цена
         [NotMapped]
-        public decimal DisplayPrice => Variants != null && Variants.Any()
-            ? Variants.OrderBy(v => v.Price).First().Price
+        public decimal DisplayPrice => Children != null && Children.Any()
+            ? Children.OrderBy(c => c.Price).First().Price
             : Price;
     }
 }

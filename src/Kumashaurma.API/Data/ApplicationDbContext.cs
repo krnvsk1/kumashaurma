@@ -22,7 +22,6 @@ namespace Kumashaurma.API.Data
         public DbSet<AddonCategory> AddonCategories { get; set; } = null!;
         public DbSet<Addon> Addons { get; set; } = null!;
         public DbSet<ShawarmaAddon> ShawarmaAddons { get; set; } = null!;
-        public DbSet<ProductVariant> ProductVariants { get; set; } = null!;
         public DbSet<OrderItemAddon> OrderItemAddons { get; set; } = null!;
 
         // Auth
@@ -30,12 +29,22 @@ namespace Kumashaurma.API.Data
         public DbSet<SmsVerificationCode> SmsVerificationCodes { get; set; } = null!;
         public DbSet<RefreshToken> RefreshTokens { get; set; } = null!;
 
+        // Promo codes
+        public DbSet<PromoCode> PromoCodes { get; set; } = null!;
+
+        // Loyalty points
+        public DbSet<UserPointsTransaction> UserPointsTransactions { get; set; } = null!;
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
             // Переименование таблиц Identity
-            modelBuilder.Entity<AppUser>(entity => entity.ToTable("users"));
+            modelBuilder.Entity<AppUser>(entity =>
+            {
+                entity.ToTable("users");
+                entity.Property(u => u.Id).HasColumnName("Id");
+            });
             modelBuilder.Entity<IdentityRole<int>>(entity => entity.ToTable("roles"));
             modelBuilder.Entity<IdentityUserRole<int>>(entity => entity.ToTable("user_roles"));
             modelBuilder.Entity<IdentityUserClaim<int>>(entity => entity.ToTable("user_claims"));
@@ -69,7 +78,8 @@ namespace Kumashaurma.API.Data
             // Shawarma configuration
             modelBuilder.Entity<Shawarma>(entity =>
             {
-                entity.HasIndex(e => e.Name).IsUnique();
+                // Имя уникально в рамках одного родителя (или среди карточек)
+                entity.HasIndex(e => new { e.ParentId, e.Name }).IsUnique();
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
             });
 
@@ -126,19 +136,6 @@ namespace Kumashaurma.API.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // ProductVariant configuration
-            modelBuilder.Entity<ProductVariant>(entity =>
-            {
-                entity.HasIndex(e => e.ShawarmaId);
-
-                entity.HasOne(e => e.Shawarma)
-                    .WithMany(s => s.Variants)
-                    .HasForeignKey(e => e.ShawarmaId)
-                    .OnDelete(DeleteBehavior.Cascade);
-
-                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
-            });
-
             // UserAddress configuration
             modelBuilder.Entity<UserAddress>(entity =>
             {
@@ -165,6 +162,63 @@ namespace Kumashaurma.API.Data
                 entity.HasOne(e => e.User)
                     .WithMany()
                     .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // PromoCode configuration
+            modelBuilder.Entity<PromoCode>(entity =>
+            {
+                entity.HasIndex(e => e.Code).IsUnique();
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(e => e.Creator)
+                    .WithMany()
+                    .HasForeignKey(e => e.CreatedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Order -> PromoCode configuration
+            modelBuilder.Entity<Order>(entity =>
+            {
+                entity.HasIndex(e => e.PromoCodeId);
+
+                entity.HasOne(e => e.PromoCode)
+                    .WithMany(p => p.Orders)
+                    .HasForeignKey(e => e.PromoCodeId)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // UserPointsTransaction configuration
+            modelBuilder.Entity<UserPointsTransaction>(entity =>
+            {
+                entity.HasIndex(e => e.UserId);
+                entity.HasIndex(e => e.OrderId);
+                entity.HasIndex(e => e.CreatedAt);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("CURRENT_TIMESTAMP");
+
+                entity.HasOne(e => e.User)
+                    .WithMany()
+                    .HasForeignKey(e => e.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(e => e.Order)
+                    .WithMany()
+                    .HasForeignKey(e => e.OrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(e => e.PerformedByUser)
+                    .WithMany()
+                    .HasForeignKey(e => e.PerformedBy)
+                    .OnDelete(DeleteBehavior.SetNull);
+            });
+
+            // Shawarma self-referencing hierarchy (parent_id)
+            modelBuilder.Entity<Shawarma>(entity =>
+            {
+                entity.HasIndex(e => e.ParentId);
+                entity.HasOne(e => e.Parent)
+                    .WithMany(p => p.Children)
+                    .HasForeignKey(e => e.ParentId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
         }

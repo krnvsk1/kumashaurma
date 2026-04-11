@@ -18,9 +18,10 @@ import {
   SupervisorAccount as ManagerIcon,
   Add as AddIcon,
   Remove as RemoveIcon,
-  FilterList as FilterIcon
+  FilterList as FilterIcon,
+  Star as StarIcon,
 } from '@mui/icons-material';
-import { useUsers, useAssignRole, useRemoveRole } from '../api/hooks';
+import { useUsers, useAssignRole, useRemoveRole, useUserPointsBalance, useAdminGrantPoints } from '../api/hooks';
 import type { User, UserRole } from '../types';
 
 // Конфигурация ролей
@@ -48,12 +49,26 @@ const UsersPage: React.FC = () => {
     severity: 'success'
   });
 
+  // Points dialog state
+  const [pointsDialogOpen, setPointsDialogOpen] = React.useState(false);
+  const [pointsUser, setPointsUser] = React.useState<User | null>(null);
+  const [pointsMode, setPointsMode] = React.useState<'grant' | 'deduct'>('grant');
+  const [pointsAmount, setPointsAmount] = React.useState('');
+  const [pointsDescription, setPointsDescription] = React.useState('');
+  const [expandedPointsRow, setExpandedPointsRow] = React.useState<number | null>(null);
+
   const { data: users = [], isLoading, error, refetch, isRefetching } = useUsers(
     roleFilter ? { role: roleFilter } : undefined
   );
 
   const assignRole = useAssignRole();
   const removeRole = useRemoveRole();
+  const adminGrantPoints = useAdminGrantPoints();
+
+  // Fetch points balance for expanded row
+  const { data: userPointsData, refetch: refetchPoints } = useUserPointsBalance(
+    expandedPointsRow ?? 0
+  );
 
   // Фильтрация по поиску
   const filteredUsers = React.useMemo(() => {
@@ -122,6 +137,54 @@ const UsersPage: React.FC = () => {
       });
     }
     handleMenuClose();
+  };
+
+  // Points handlers
+  const handleOpenPointsDialog = (user: User, mode?: 'grant' | 'deduct') => {
+    setPointsUser(user);
+    setPointsMode(mode ?? 'grant');
+    setPointsAmount('');
+    setPointsDescription('');
+    setPointsDialogOpen(true);
+    setExpandedPointsRow(user.id);
+    handleMenuClose();
+  };
+
+  const handleSubmitPoints = async () => {
+    if (!pointsUser) return;
+    const amount = parseInt(pointsAmount, 10);
+    if (isNaN(amount) || amount <= 0) {
+      setSnackbar({ open: true, message: 'Введите корректную сумму баллов', severity: 'error' });
+      return;
+    }
+    if (!pointsDescription.trim()) {
+      setSnackbar({ open: true, message: 'Введите причину', severity: 'error' });
+      return;
+    }
+    try {
+      const finalAmount = pointsMode === 'deduct' ? -amount : amount;
+      await adminGrantPoints.mutateAsync({
+        userId: pointsUser.id,
+        amount: finalAmount,
+        description: pointsDescription.trim(),
+      });
+      setSnackbar({
+        open: true,
+        message: pointsMode === 'grant'
+          ? `Начислено ${amount} баллов пользователю ${getFullName(pointsUser)}`
+          : `Списано ${amount} баллов у пользователя ${getFullName(pointsUser)}`,
+        severity: 'success',
+      });
+      refetchPoints();
+    } catch (err: any) {
+      setSnackbar({
+        open: true,
+        message: err?.response?.data?.message || 'Ошибка при операции с баллами',
+        severity: 'error',
+      });
+    }
+    setPointsDialogOpen(false);
+    setPointsUser(null);
   };
 
   const getRoleChip = (role: string) => {
@@ -265,6 +328,7 @@ const UsersPage: React.FC = () => {
                       <TableCell>Пользователь</TableCell>
                       <TableCell>Телефон</TableCell>
                       <TableCell>Роли</TableCell>
+                      <TableCell>Баллы</TableCell>
                       <TableCell>Статус</TableCell>
                       <TableCell>Дата регистрации</TableCell>
                       <TableCell align="right">Действия</TableCell>
@@ -314,6 +378,22 @@ const UsersPage: React.FC = () => {
                         <TableCell>
                           <Chip
                             size="small"
+                            icon={<StarIcon sx={{ fontSize: '0.9rem !important' }} />}
+                            label={expandedPointsRow === user.id && userPointsData?.balance != null ? `${userPointsData.balance}` : '—'}
+                            onClick={() => setExpandedPointsRow(user.id)}
+                            sx={{
+                              cursor: 'pointer',
+                              bgcolor: theme.palette.mode === 'light' ? '#fffbeb' : '#3a2a0a',
+                              color: '#f59e0b',
+                              fontWeight: 600,
+                              '& .MuiChip-icon': { color: '#f59e0b' },
+                              '&:hover': { opacity: 0.8 },
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
                             label={user.phoneVerified ? 'Подтверждён' : 'Не подтверждён'}
                             color={user.phoneVerified ? 'success' : 'warning'}
                             variant="outlined"
@@ -338,7 +418,7 @@ const UsersPage: React.FC = () => {
                     ))}
                     {filteredUsers.length === 0 && (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                           <Typography color="text.secondary">
                             Пользователи не найдены
                           </Typography>
@@ -401,6 +481,26 @@ const UsersPage: React.FC = () => {
             ))}
           </>
         )}
+
+        {selectedUser && (
+          <>
+            <Typography variant="caption" color="text.secondary" sx={{ px: 2, pt: 1, display: 'block' }}>
+              Баллы:
+            </Typography>
+            <MenuItem onClick={() => handleOpenPointsDialog(selectedUser, 'grant')}>
+              <ListItemIcon>
+                <AddIcon fontSize="small" sx={{ color: '#2e7d32' }} />
+              </ListItemIcon>
+              <ListItemText>Начислить баллы</ListItemText>
+            </MenuItem>
+            <MenuItem onClick={() => handleOpenPointsDialog(selectedUser, 'deduct')}>
+              <ListItemIcon>
+                <RemoveIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              <ListItemText>Списать баллы</ListItemText>
+            </MenuItem>
+          </>
+        )}
       </Menu>
 
             {/* Диалог подтверждения добавления роли */}
@@ -420,6 +520,94 @@ const UsersPage: React.FC = () => {
             disabled={assignRole.isPending}
           >
             {assignRole.isPending ? 'Добавление...' : 'Добавить'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог управления баллами */}
+      <Dialog open={pointsDialogOpen} onClose={() => setPointsDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <StarIcon sx={{ color: '#f59e0b' }} />
+            {pointsMode === 'grant' ? 'Начислить баллы' : 'Списать баллы'}
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Пользователь: <strong>{pointsUser ? getFullName(pointsUser) : ''}</strong>
+          </Typography>
+          {userPointsData && (
+            <Box
+              sx={{
+                p: 2,
+                mb: 2,
+                borderRadius: 3,
+                bgcolor: theme.palette.mode === 'light' ? '#fffbeb' : '#3a2a0a',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+              }}
+            >
+              <Typography variant="body2" color="text.secondary">Текущий баланс:</Typography>
+              <Typography variant="h6" fontWeight={700} sx={{ color: '#f59e0b' }}>
+                {userPointsData.balance} баллов
+              </Typography>
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+            <Button
+              variant={pointsMode === 'grant' ? 'contained' : 'outlined'}
+              onClick={() => setPointsMode('grant')}
+              startIcon={<AddIcon />}
+              sx={{ flex: 1, borderRadius: 3 }}
+              color={pointsMode === 'grant' ? 'success' : 'inherit'}
+            >
+              Начислить
+            </Button>
+            <Button
+              variant={pointsMode === 'deduct' ? 'contained' : 'outlined'}
+              onClick={() => setPointsMode('deduct')}
+              startIcon={<RemoveIcon />}
+              sx={{ flex: 1, borderRadius: 3 }}
+              color={pointsMode === 'deduct' ? 'error' : 'inherit'}
+            >
+              Списать
+            </Button>
+          </Box>
+          <TextField
+            fullWidth
+            label="Количество баллов"
+            type="number"
+            value={pointsAmount}
+            onChange={(e) => setPointsAmount(e.target.value.replace(/[^0-9]/g, ''))}
+            inputProps={{ min: 1 }}
+            sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+            placeholder={pointsMode === 'grant' ? 'Сколько начислить?' : 'Сколько списать?'}
+          />
+          <TextField
+            fullWidth
+            label="Причина"
+            value={pointsDescription}
+            onChange={(e) => setPointsDescription(e.target.value)}
+            sx={{ mb: 1, '& .MuiOutlinedInput-root': { borderRadius: 3 } }}
+            placeholder={pointsMode === 'grant' ? 'Бонус за заказ, компенсация...' : 'Ошибка начисления, возврат...'}
+            multiline
+            rows={2}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPointsDialogOpen(false)}>Отмена</Button>
+          <Button
+            onClick={handleSubmitPoints}
+            variant="contained"
+            disabled={adminGrantPoints.isPending || !pointsAmount || !pointsDescription.trim()}
+            color={pointsMode === 'grant' ? 'success' : 'error'}
+          >
+            {adminGrantPoints.isPending
+              ? 'Выполнение...'
+              : pointsMode === 'grant'
+                ? 'Начислить'
+                : 'Списать'}
           </Button>
         </DialogActions>
       </Dialog>

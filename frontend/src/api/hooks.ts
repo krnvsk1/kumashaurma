@@ -14,7 +14,14 @@ import type {
   User,
   UserDetail,
   AssignRoleDto,
-  UsersQueryParams
+  UsersQueryParams,
+  PromoCodeValidation,
+  PromoCode,
+  PointsBalance,
+  PointsTransaction,
+  RedeemPointsRequest,
+  RedeemPointsResponse,
+  AdminGrantPointsRequest,
 } from '../types';
 
 // ==================== SHAWARMA HOOKS ====================
@@ -159,6 +166,9 @@ export const useUpdateOrderStatus = () => {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['points-history'] });
     },
   });
 };
@@ -173,6 +183,9 @@ export const useUpdateOrder = () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
       queryClient.invalidateQueries({ queryKey: ['order', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['order-stats'] });
+      queryClient.invalidateQueries({ queryKey: ['my-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['points-history'] });
     },
   });
 };
@@ -335,5 +348,107 @@ export const useRemoveRole = () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['user', variables.userId] });
     },
+  });
+};
+
+// ==================== PROMO CODE HOOKS ====================
+
+export const useValidatePromoCode = () => {
+  return useMutation<PromoCodeValidation, Error, { code: string; orderAmount: number }>({
+    mutationFn: ({ code, orderAmount }) =>
+      apiClient.post('/api/promocodes/validate', { code, orderAmount }).then(res => res.data),
+  });
+};
+
+export const usePromoCodes = () => {
+  return useQuery<PromoCode[]>({
+    queryKey: ['promocodes'],
+    queryFn: () => apiClient.get('/api/promocodes').then(res => res.data),
+    enabled: false, // Only for admin, enabled manually
+  });
+};
+
+export const useCreatePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: Partial<PromoCode>) =>
+      apiClient.post('/api/promocodes', data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
+    },
+  });
+};
+
+export const useUpdatePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation<PromoCode, Error, { id: number; data: Partial<PromoCode> }>({
+    mutationFn: ({ id, data }) =>
+      apiClient.put(`/api/promocodes/${id}`, data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
+    },
+  });
+};
+
+export const useDeletePromoCode = () => {
+  const queryClient = useQueryClient();
+  return useMutation<void, Error, number>({
+    mutationFn: (id) => apiClient.delete(`/api/promocodes/${id}`).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['promocodes'] });
+    },
+  });
+};
+
+// ==================== LOYALTY POINTS HOOKS ====================
+
+export const usePointsBalance = () => {
+  return useQuery<PointsBalance>({
+    queryKey: ['points-balance'],
+    queryFn: () => apiClient.get('/api/points/balance').then(res => ({
+      balance: res.data.balance ?? res.data.Balance ?? 0
+    })),
+    enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
+    staleTime: 30 * 1000,
+  });
+};
+
+export const usePointsHistory = (page = 1, pageSize = 20) => {
+  return useQuery<PointsTransaction[]>({
+    queryKey: ['points-history', page, pageSize],
+    queryFn: async () => {
+      const { data } = await apiClient.get(`/api/points/history?page=${page}&pageSize=${pageSize}`);
+      return data.transactions || data.Transactions || [];
+    },
+    enabled: !!localStorage.getItem('token') || !!localStorage.getItem('kumashaurma-auth'),
+    staleTime: 30 * 1000,
+  });
+};
+
+export const useUserPointsBalance = (userId: number) => {
+  return useQuery<{ userId: number; balance: number }>({
+    queryKey: ['user-points-balance', userId],
+    queryFn: () => apiClient.get(`/api/points/users/${userId}/balance`).then(res => res.data),
+    enabled: !!userId,
+  });
+};
+
+export const useAdminGrantPoints = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: AdminGrantPointsRequest) =>
+      apiClient.post('/api/points/admin/grant', data).then(res => res.data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['points-balance'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['user-points-balance'] });
+    },
+  });
+};
+
+export const useRedeemPoints = () => {
+  return useMutation<RedeemPointsResponse, Error, RedeemPointsRequest>({
+    mutationFn: (data) =>
+      apiClient.post('/api/points/redeem', data).then(res => res.data),
   });
 };
