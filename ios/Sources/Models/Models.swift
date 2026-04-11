@@ -383,25 +383,21 @@ struct CreateShawarmaRequest: Encodable {
     let name: String
     let price: Double?
     let description: String?
-    let category: String?
     let isSpicy: Bool?
     let hasCheese: Bool?
     let isAvailable: Bool?
     let isPromo: Bool?
     let parentId: Int?
-    let sortOrder: Int?
 }
 
 struct UpdateShawarmaRequest: Encodable {
     let name: String?
     let price: Double?
     let description: String?
-    let category: String?
     let isSpicy: Bool?
     let hasCheese: Bool?
     let isAvailable: Bool?
     let isPromo: Bool?
-    let sortOrder: Int?
 }
 
 // MARK: - Admin: Order Update DTO
