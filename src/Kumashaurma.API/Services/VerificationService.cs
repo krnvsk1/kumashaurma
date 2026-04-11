@@ -44,10 +44,11 @@ namespace Kumashaurma.API.Services
             if (existingCode != null)
             {
                 var now = DateTime.UtcNow;
+                var createdAt = AsUtc(existingCode.CreatedAt);
 
                 if (existingCode.IsBlocked)
                 {
-                    var blockedUntil = existingCode.BlockedUntil!.Value;
+                    var blockedUntil = AsUtc(existingCode.BlockedUntil!.Value);
                     var remainingBlock = blockedUntil - now;
                     if (remainingBlock.TotalSeconds > 0)
                     {
@@ -57,7 +58,7 @@ namespace Kumashaurma.API.Services
                     }
                 }
 
-                var timeSinceCreation = now - existingCode.CreatedAt;
+                var timeSinceCreation = now - createdAt;
                 if (timeSinceCreation.TotalSeconds < ResendCooldownSeconds)
                 {
                     var retryAfter = ResendCooldownSeconds - (int)timeSinceCreation.TotalSeconds;
@@ -168,5 +169,15 @@ namespace Kumashaurma.API.Services
             var value = (bytes[0] << 8) | bytes[1];
             return (value % 10000).ToString("D4");
         }
+
+        /// <summary>
+        /// PostgreSQL + EnableLegacyTimestampBehavior returns DateTime with Kind=Unspecified.
+        /// Subtracting Unspecified from Utc treats Unspecified as Local time, causing huge offsets.
+        /// Force Unspecified → Utc to fix arithmetic.
+        /// </summary>
+        private static DateTime AsUtc(DateTime dt) =>
+            dt.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+                : dt;
     }
 }
