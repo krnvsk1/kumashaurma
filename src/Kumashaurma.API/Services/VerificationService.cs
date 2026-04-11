@@ -43,21 +43,27 @@ namespace Kumashaurma.API.Services
 
             if (existingCode != null)
             {
+                var now = DateTime.UtcNow;
+
                 if (existingCode.IsBlocked)
                 {
-                    var remainingBlock = existingCode.BlockedUntil!.Value - DateTime.UtcNow;
-                    return (false,
-                        $"Too many attempts. Try again in {(int)remainingBlock.TotalMinutes + 1} min",
-                        Math.Max(0, (int)remainingBlock.TotalSeconds));
+                    var blockedUntil = existingCode.BlockedUntil!.Value;
+                    var remainingBlock = blockedUntil - now;
+                    if (remainingBlock.TotalSeconds > 0)
+                    {
+                        return (false,
+                            $"Too many attempts. Try again in {(int)remainingBlock.TotalMinutes + 1} min",
+                            Math.Max(0, (int)remainingBlock.TotalSeconds));
+                    }
                 }
 
-                var timeSinceCreation = DateTime.UtcNow - existingCode.CreatedAt;
+                var timeSinceCreation = now - existingCode.CreatedAt;
                 if (timeSinceCreation.TotalSeconds < ResendCooldownSeconds)
                 {
                     var retryAfter = ResendCooldownSeconds - (int)timeSinceCreation.TotalSeconds;
                     return (false,
                         $"Wait {retryAfter} seconds before resending",
-                        retryAfter);
+                        Math.Max(0, retryAfter));
                 }
 
                 _context.SmsVerificationCodes.Remove(existingCode);

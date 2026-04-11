@@ -37,8 +37,19 @@ namespace Kumashaurma.API.Models
         [Column("created_at")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        public bool IsExpired => DateTime.UtcNow > ExpiresAt;
-        public bool IsBlocked => BlockedUntil.HasValue && DateTime.UtcNow < BlockedUntil.Value;
+        public bool IsExpired => DateTime.UtcNow > EnsureUtc(ExpiresAt);
+        public bool IsBlocked => BlockedUntil.HasValue && DateTime.UtcNow < EnsureUtc(BlockedUntil.Value);
+
+        /// <summary>
+        /// PostgreSQL + EnableLegacyTimestampBehavior может возвращать DateTime с Kind=Unspecified.
+        /// Если Kind=Unspecified, предполагаем что это UTC (как и хранилось).
+        /// </summary>
+        private static DateTime EnsureUtc(DateTime dt)
+        {
+            return dt.Kind == DateTimeKind.Unspecified
+                ? DateTime.SpecifyKind(dt, DateTimeKind.Utc)
+                : dt;
+        }
         public bool IsVerified => VerifiedAt.HasValue;
     }
 }
