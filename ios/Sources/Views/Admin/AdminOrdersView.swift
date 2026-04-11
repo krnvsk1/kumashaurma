@@ -14,7 +14,7 @@ struct AdminOrdersView: View {
     // MARK: - Computed Stats
 
     private var stats: OrderListStats {
-        let total = orders.reduce { $0.total + $1.total }
+        let total = orders.reduce(0.0) { $0 + $1.total }
         let newCount = orders.filter { $0.status == "Новый" }.count
         let preparingCount = orders.filter { $0.status == "Готовится" }.count
         let readyCount = orders.filter { $0.status == "Готов" }.count
