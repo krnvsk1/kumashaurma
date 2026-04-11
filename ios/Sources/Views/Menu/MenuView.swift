@@ -4,7 +4,6 @@ import SwiftUI
 
 struct MenuView: View {
     @State private var shawarmas: [Shawarma] = []
-    @State private var categories: [String] = []
     @State private var selectedCategory: String? = nil
     @State private var isLoading: Bool = true
     @State private var searchText: String = ""
@@ -19,41 +18,64 @@ struct MenuView: View {
 
     // MARK: - Computed Properties
 
-    private var promoItems: [Shawarma] {
-        filteredShawarmas.filter { $0.isPromo }
+    /// Parent cards (with at least one available child)
+    private var parentCards: [Shawarma] {
+        shawarmas.filter { $0.isParentCard && ($0.availableChildren?.isEmpty == false) }
     }
 
-    private var regularItems: [Shawarma] {
-        filteredShawarmas.filter { !$0.isPromo }
-    }
+    /// Filtered parent cards (search + category)
+    private var filteredCards: [Shawarma] {
+        var result = parentCards
 
-    private var filteredShawarmas: [Shawarma] {
-        var result = shawarmas.filter { $0.isAvailable }
-
+        // Search: match against parent name, child names/descriptions
         if !searchText.isEmpty {
-            result = result.filter {
-                $0.name.localizedCaseInsensitiveContains(searchText)
-                    || $0.description.localizedCaseInsensitiveContains(searchText)
+            let query = searchText.lowercased()
+            result = result.compactMap { card in
+                let matchingChildren = (card.availableChildren ?? []).filter { child in
+                    child.name.lowercased().contains(query) ||
+                    child.description.lowercased().contains(query)
+                }
+                if card.name.lowercased().contains(query) || !matchingChildren.isEmpty {
+                    if matchingChildren.isEmpty {
+                        return card
+                    }
+                    // Return card with only matching children for search context
+                    var filtered = card
+                    return filtered
+                }
+                return nil
             }
         }
 
+        // Category filter: match by parent card name (each card IS a category)
         if let category = selectedCategory {
             if category == "Акция Месяца" {
                 result = result.filter { $0.isPromo }
             } else {
-                result = result.filter { $0.category == category }
+                result = result.filter { $0.name == category }
             }
         }
 
         return result
     }
 
-    private var allNavCategories: [String] {
+    /// Promo cards
+    private var promoCards: [Shawarma] {
+        filteredCards.filter { $0.isPromo }
+    }
+
+    /// Regular (non-promo) cards
+    private var regularCards: [Shawarma] {
+        filteredCards.filter { !$0.isPromo }
+    }
+
+    /// Navigation categories = parent card names
+    private var navCategories: [String] {
         var cats: [String] = []
-        if shawarmas.contains(where: { $0.isPromo && $0.isAvailable }) {
+        if parentCards.contains(where: { $0.isPromo }) {
             cats.append("Акция Месяца")
         }
-        cats.append(contentsOf: categories)
+        cats.append(contentsOf: parentCards.filter { !$0.isPromo }.map { $0.name })
         return cats
     }
 
@@ -62,7 +84,7 @@ struct MenuView: View {
     var body: some View {
         VStack(spacing: 0) {
             // Category chips
-            if !allNavCategories.isEmpty {
+            if !navCategories.isEmpty {
                 categoryChips
             }
 
@@ -129,7 +151,7 @@ struct MenuView: View {
                     }
                 )
 
-                ForEach(allNavCategories, id: \.self) { category in
+                ForEach(navCategories, id: \.self) { category in
                     FilterChip(
                         text: category,
                         isSelected: selectedCategory == category,
@@ -182,7 +204,7 @@ struct MenuView: View {
     private var contentArea: some View {
         if isLoading {
             loadingView
-        } else if filteredShawarmas.isEmpty {
+        } else if filteredCards.isEmpty {
             emptyView
         } else {
             productGrid
@@ -224,42 +246,44 @@ struct MenuView: View {
         ScrollView {
             LazyVStack(spacing: 24, pinnedViews: [.sectionHeaders]) {
                 // Promo section
-                if !promoItems.isEmpty && (selectedCategory == nil || selectedCategory == "Акция Месяца") {
+                if !promoCards.isEmpty && (selectedCategory == nil || selectedCategory == "Акция Месяца") {
                     Section {
-                        LazyVGrid(columns: columns, spacing: 16) {
-                            ForEach(promoItems) { shawarma in
-                                NavigationLink {
-                                    ProductDetailView(shawarma: shawarma)
-                                } label: {
-                                    MenuProductCard(shawarma: shawarma)
-                                }
-                                .buttonStyle(.plain)
-                            }
-                        }
-                        .padding(.horizontal, 16)
-                    } header: {
-                        promoSectionHeader
-                    }
-                }
-
-                // Regular categories
-                if selectedCategory == nil || selectedCategory != "Акция Месяца" {
-                    ForEach(groupedRegularItems, id: \.key) { category, items in
-                        Section {
-                            LazyVGrid(columns: columns, spacing: 16) {
-                                ForEach(items) { shawarma in
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(promoCards) { card in
                                     NavigationLink {
-                                        ProductDetailView(shawarma: shawarma)
+                                        ProductDetailView(shawarma: card)
                                     } label: {
-                                        MenuProductCard(shawarma: shawarma)
+                                        MenuProductCard(shawarma: card)
                                     }
                                     .buttonStyle(.plain)
                                 }
                             }
                             .padding(.horizontal, 16)
-                        } header: {
-                            categorySectionHeader(category)
                         }
+                    } header: {
+                        promoSectionHeader
+                    }
+                }
+
+                // Regular cards — each card as its own section
+                ForEach(regularCards) { card in
+                    Section {
+                        ScrollView(.horizontal, showsIndicators: false) {
+                            HStack(spacing: 16) {
+                                ForEach(card.availableChildren ?? []) { child in
+                                    NavigationLink {
+                                        ProductDetailView(shawarma: card, preselectedChild: child)
+                                    } label: {
+                                        ChildProductCard(parent: card, child: child)
+                                    }
+                                    .buttonStyle(.plain)
+                                }
+                            }
+                            .padding(.horizontal, 16)
+                        }
+                    } header: {
+                        cardSectionHeader(card)
                     }
                 }
             }
@@ -283,7 +307,7 @@ struct MenuView: View {
                 .fontWeight(.bold)
                 .foregroundColor(.primary)
 
-            Text("\(promoItems.count)")
+            Text("\(promoCards.count)")
                 .font(.caption)
                 .foregroundColor(.white)
                 .fontWeight(.semibold)
@@ -300,15 +324,46 @@ struct MenuView: View {
         .background(Color.appBackground)
     }
 
-    private func categorySectionHeader(_ category: String) -> some View {
-        let count = regularItems.filter { $0.category == category }.count
-        return HStack(spacing: 8) {
-            Text(category)
-                .font(.headline)
-                .fontWeight(.bold)
-                .foregroundColor(.primary)
+    private func cardSectionHeader(_ card: Shawarma) -> some View {
+        HStack(spacing: 8) {
+            // Card image thumbnail
+            if let imagePath = card.primaryImage,
+               let url = APIClient.shared.getImageURL(imagePath) {
+                AsyncImage(url: url) { phase in
+                    switch phase {
+                    case .success(let image):
+                        image
+                            .resizable()
+                            .aspectRatio(contentMode: .fill)
+                    default:
+                        ZStack {
+                            Color.appPrimary.opacity(0.1)
+                            Image(systemName: "takeoutbag.and.cup.and.straw")
+                                .font(.caption2)
+                                .foregroundColor(.appPrimary)
+                                .opacity(0.5)
+                        }
+                    }
+                }
+                .frame(width: 32, height: 32)
+                .cornerRadius(8)
+                .clipped()
+            }
 
-            Text("\(count)")
+            VStack(alignment: .leading, spacing: 2) {
+                Text(card.name)
+                    .font(.headline)
+                    .fontWeight(.bold)
+                    .foregroundColor(.primary)
+
+                Text("от \(Int(card.displayPrice)) \u{20BD}")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+
+            Spacer()
+
+            Text("\(card.availableChildren?.count ?? 0)")
                 .font(.caption)
                 .foregroundColor(.white)
                 .fontWeight(.semibold)
@@ -317,19 +372,24 @@ struct MenuView: View {
                 .background(Color.appPrimary)
                 .cornerRadius(10)
 
-            Spacer()
+            // Badges
+            HStack(spacing: 4) {
+                if card.isSpicy {
+                    Image(systemName: "flame.fill")
+                        .font(.caption)
+                        .foregroundColor(.red)
+                }
+                if card.hasCheese {
+                    Image(systemName: "cheese")
+                        .font(.caption)
+                        .foregroundColor(.orange)
+                }
+            }
         }
         .padding(.horizontal, 16)
         .padding(.top, 8)
         .padding(.bottom, 4)
         .background(Color.appBackground)
-    }
-
-    // MARK: - Grouped Items
-
-    private var groupedRegularItems: [(key: String, value: [Shawarma])] {
-        let grouped = Dictionary(grouping: regularItems) { $0.category }
-        return grouped.sorted { $0.key < $1.key }
     }
 
     // MARK: - Data Loading
@@ -345,11 +405,7 @@ struct MenuView: View {
         defer { isLoading = false }
 
         do {
-            async let categoriesTask = APIClient.shared.getCategories()
-            async let menuTask = APIClient.shared.getMenu()
-
-            categories = try await categoriesTask
-            shawarmas = try await menuTask
+            shawarmas = try await APIClient.shared.getMenu()
         } catch {
             errorMessage = "Не удалось загрузить меню. Проверьте подключение."
             showError = true
@@ -394,7 +450,7 @@ struct FilterChip: View {
     }
 }
 
-// MARK: - Menu Product Card
+// MARK: - Menu Product Card (Parent Card)
 
 struct MenuProductCard: View {
     let shawarma: Shawarma
@@ -414,16 +470,12 @@ struct MenuProductCard: View {
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.top, 10)
 
-                // Category badge
-                if !shawarma.category.isEmpty {
-                    Text(shawarma.category)
-                        .font(.caption2)
-                        .fontWeight(.medium)
-                        .foregroundColor(.appPrimary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(Color.appPrimary.opacity(0.1))
-                        .cornerRadius(6)
+                // Description
+                if !shawarma.description.isEmpty {
+                    Text(shawarma.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(2)
                 }
 
                 // Badges row
@@ -522,11 +574,95 @@ struct MenuProductCard: View {
     // MARK: - Price Text
 
     private var priceText: String {
-        if let variants = shawarma.variants, !variants.isEmpty {
-            let minPrice = variants.map(\.price).min() ?? 0
-            return "от \(Int(minPrice)) \u{20BD}"
+        let children = shawarma.availableChildren ?? []
+        if !children.isEmpty {
+            return "от \(Int(shawarma.displayPrice)) \u{20BD}"
         }
         return "\(Int(shawarma.price)) \u{20BD}"
+    }
+}
+
+// MARK: - Child Product Card (individual item within a parent card)
+
+struct ChildProductCard: View {
+    let parent: Shawarma
+    let child: Shawarma
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Image — use child's image if available, otherwise parent's
+            childImage
+
+            // Info
+            VStack(alignment: .leading, spacing: 6) {
+                Text(child.name)
+                    .font(.subheadline)
+                    .fontWeight(.semibold)
+                    .lineLimit(2)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.top, 10)
+
+                if !child.description.isEmpty {
+                    Text(child.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+
+                Spacer()
+
+                Text("\(Int(child.price)) \u{20BD}")
+                    .font(.appPrice)
+                    .foregroundColor(.primary)
+            }
+            .padding(.horizontal, 12)
+            .padding(.bottom, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .frame(width: 180)
+        .background(Color(.systemBackground))
+        .cornerRadius(16)
+        .shadow(color: Color.black.opacity(0.06), radius: 8, x: 0, y: 2)
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .strokeBorder(Color(.separator), lineWidth: 0.5)
+        )
+    }
+
+    @ViewBuilder
+    private var childImage: some View {
+        let imagePath = child.primaryImage ?? parent.primaryImage
+        if let imagePath, let url = APIClient.shared.getImageURL(imagePath) {
+            AsyncImage(url: url) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .aspectRatio(contentMode: .fill)
+                default:
+                    ZStack {
+                        Color.appBackground
+                        Image(systemName: "takeoutbag.and.cup.and.straw")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .opacity(0.3)
+                    }
+                }
+            }
+            .frame(height: 120)
+            .frame(maxWidth: .infinity)
+            .clipped()
+        } else {
+            ZStack {
+                Color.appBackground
+                Image(systemName: "takeoutbag.and.cup.and.straw")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .opacity(0.3)
+            }
+            .frame(height: 120)
+            .frame(maxWidth: .infinity)
+        }
     }
 }
 

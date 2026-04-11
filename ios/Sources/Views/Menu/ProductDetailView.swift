@@ -3,9 +3,10 @@ import SwiftUI
 // MARK: - Product Detail View
 
 struct ProductDetailView: View {
-    let shawarma: Shawarma
+    let shawarma: Shawarma          // Parent card
+    var preselectedChild: Shawarma? // Child navigated from menu
 
-    @State private var selectedVariant: ProductVariant?
+    @State private var selectedChild: Shawarma?
     @State private var selectedAddons: Set<SelectedAddon> = []
     @State private var quantity: Int = 1
     @State private var addonCategories: [AddonCategory] = []
@@ -17,12 +18,27 @@ struct ProductDetailView: View {
 
     // MARK: - Computed Properties
 
+    /// Children available for selection
+    private var children: [Shawarma] {
+        (shawarma.availableChildren ?? []).sorted { $0.price < $1.price }
+    }
+
+    /// Is this a parent card with children (variant selection mode)
+    private var hasChildren: Bool {
+        !children.isEmpty
+    }
+
+    /// The active product for image/addon display (child or self)
+    private var activeProduct: Shawarma {
+        selectedChild ?? shawarma
+    }
+
     private var allImages: [ShawarmaImage] {
-        shawarma.images ?? []
+        activeProduct.images ?? shawarma.images ?? []
     }
 
     private var effectivePrice: Double {
-        selectedVariant?.price ?? shawarma.displayPrice
+        selectedChild?.price ?? shawarma.displayPrice
     }
 
     private var addonsTotal: Double {
@@ -34,7 +50,9 @@ struct ProductDetailView: View {
     }
 
     private var canAddToCart: Bool {
-        shawarma.isAvailable && !isLoadingAddons
+        let productAvailable = activeProduct.isAvailable
+        let childSelected = hasChildren ? selectedChild != nil : true
+        return productAvailable && childSelected && !isLoadingAddons
     }
 
     // MARK: - Body
@@ -51,8 +69,8 @@ struct ProductDetailView: View {
                     titleSection
 
                     // Description
-                    if !shawarma.description.isEmpty {
-                        Text(shawarma.description)
+                    if !activeProduct.description.isEmpty {
+                        Text(activeProduct.description)
                             .font(.body)
                             .foregroundColor(.secondary)
                             .lineSpacing(4)
@@ -60,8 +78,11 @@ struct ProductDetailView: View {
 
                     Divider()
 
-                    // Variant selection
-                    variantSection
+                    // Child selection (replaces old variant section)
+                    if hasChildren {
+                        childSelectionSection
+                        Divider()
+                    }
 
                     // Addons
                     addonsSection
@@ -77,6 +98,14 @@ struct ProductDetailView: View {
             bottomBar
         }
         .onAppear {
+            if let preselected = preselectedChild {
+                selectedChild = preselected
+            }
+            loadAddons()
+        }
+        .onChange(of: selectedChild) { _ in
+            // Reset addons when child changes
+            selectedAddons = []
             loadAddons()
         }
         .overlay {
@@ -173,7 +202,7 @@ struct ProductDetailView: View {
 
     @ViewBuilder
     private var availabilityBadge: some View {
-        if shawarma.isAvailable {
+        if activeProduct.isAvailable {
             Label("Доступен", systemImage: "checkmark.circle.fill")
                 .font(.caption)
                 .fontWeight(.medium)
@@ -200,20 +229,25 @@ struct ProductDetailView: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(shawarma.name)
+                    Text(hasChildren && selectedChild != nil ? selectedChild!.name : shawarma.name)
                         .font(.appTitle)
 
+                    if hasChildren {
+                        Text(shawarma.name)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
                 }
 
                 Spacer()
 
                 // Badges
                 HStack(spacing: 6) {
-                    if shawarma.isSpicy {
+                    if shawarma.isSpicy || selectedChild?.isSpicy == true {
                         Image(systemName: "flame.fill")
                             .foregroundColor(.red)
                     }
-                    if shawarma.hasCheese {
+                    if shawarma.hasCheese || selectedChild?.hasCheese == true {
                         Image(systemName: "cheese")
                             .foregroundColor(.orange)
                     }
@@ -221,9 +255,16 @@ struct ProductDetailView: View {
                 .font(.title3)
             }
 
-            // Price: only show if NO variants (prices are on variant chips)
-            if shawarma.variants?.isEmpty != false {
-                Text("\(Int(shawarma.price)) ₽")
+            // Price
+            if hasChildren && selectedChild != nil {
+                Text("\(Int(selectedChild!.price)) \u{20BD}")
+                    .font(.appPrice)
+            } else if hasChildren {
+                Text("от \(Int(shawarma.displayPrice)) \u{20BD}")
+                    .font(.appPrice)
+                    .foregroundColor(.secondary)
+            } else {
+                Text("\(Int(shawarma.price)) \u{20BD}")
                     .font(.appPrice)
             }
 
@@ -241,44 +282,40 @@ struct ProductDetailView: View {
         }
     }
 
-    // MARK: - Variant Section
+    // MARK: - Child Selection Section (replaces variant chips)
 
     @ViewBuilder
-    private var variantSection: some View {
-        if let variants = shawarma.variants, !variants.isEmpty {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("Вариант")
-                    .font(.headline)
-                    .fontWeight(.semibold)
+    private var childSelectionSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Вариант")
+                .font(.headline)
+                .fontWeight(.semibold)
 
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 10) {
-                        ForEach(variants) { variant in
-                            variantChip(variant)
-                        }
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(children) { child in
+                        childChip(child)
                     }
                 }
             }
-
-            Divider()
         }
     }
 
-    private func variantChip(_ variant: ProductVariant) -> some View {
-        let isSelected = selectedVariant?.id == variant.id
+    private func childChip(_ child: Shawarma) -> some View {
+        let isSelected = selectedChild?.id == child.id
 
         return Button {
             withAnimation(.spring(response: 0.25)) {
-                selectedVariant = variant
+                selectedChild = child
             }
         } label: {
             VStack(spacing: 6) {
-                Text(variant.name)
+                Text(child.name)
                     .font(.subheadline)
                     .fontWeight(isSelected ? .bold : .regular)
                     .foregroundColor(isSelected ? .white : .primary)
 
-                Text("\(Int(variant.price)) ₽")
+                Text("\(Int(child.price)) \u{20BD}")
                     .font(.caption)
                     .fontWeight(isSelected ? .semibold : .regular)
                     .foregroundColor(isSelected ? .white.opacity(0.85) : .secondary)
@@ -383,7 +420,7 @@ struct ProductDetailView: View {
 
                 Spacer()
 
-                Text("+\(Int(addon.price)) ₽")
+                Text("+\(Int(addon.price)) \u{20BD}")
                     .font(.subheadline)
                     .fontWeight(.semibold)
                     .foregroundColor(isSelected ? .white : .appPrimary)
@@ -421,13 +458,19 @@ struct ProductDetailView: View {
                     addToCart()
                 } label: {
                     HStack(spacing: 8) {
-                        Text("В корзину")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
+                        if hasChildren && selectedChild == nil {
+                            Text("Выберите вариант")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                        } else {
+                            Text("В корзину")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
 
-                        Text("· \(Int(totalPrice)) ₽")
-                            .font(.subheadline)
-                            .fontWeight(.bold)
+                            Text("· \(Int(totalPrice)) \u{20BD}")
+                                .font(.subheadline)
+                                .fontWeight(.bold)
+                        }
                     }
                     .foregroundColor(.white)
                     .padding(.horizontal, 20)
@@ -512,7 +555,7 @@ struct ProductDetailView: View {
         cartService.addItem(
             shawarma: shawarma,
             quantity: quantity,
-            selectedVariant: selectedVariant,
+            selectedChild: selectedChild,
             selectedAddons: Array(selectedAddons)
         )
 
@@ -528,13 +571,13 @@ struct ProductDetailView: View {
     }
 
     private func loadAddons() {
-        let id = shawarma.id
+        // Load addons for the selected child (or parent if no children)
+        let productId = selectedChild?.id ?? shawarma.id
         isLoadingAddons = true
         Task {
             do {
-                addonCategories = try await APIClient.shared.getShawarmaAddons(shawarmaId: id)
+                addonCategories = try await APIClient.shared.getShawarmaAddons(shawarmaId: productId)
             } catch {
-                // Silently fail — addons are optional
                 addonCategories = []
             }
             isLoadingAddons = false

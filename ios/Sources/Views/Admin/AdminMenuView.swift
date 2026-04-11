@@ -10,6 +10,17 @@ struct AdminMenuView: View {
     @State private var editingShawarma: Shawarma? = nil
     @State private var shawarmaToDelete: Shawarma? = nil
 
+    /// Parent cards (parentId == nil)
+    private var parents: [Shawarma] {
+        shawarmas.filter { $0.isParentCard }.sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
+    }
+
+    /// Child items that don't belong to any loaded parent (shouldn't happen, but safety)
+    private var orphanedChildren: [Shawarma] {
+        let parentIds = Set(parents.map(\.id))
+        return shawarmas.filter { $0.parentId != nil && !parentIds.contains($0.parentId ?? -1) }
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             if isLoading {
@@ -33,32 +44,100 @@ struct AdminMenuView: View {
                 Spacer()
             } else {
                 List {
-                    ForEach(shawarmas) { shawarma in
-                        NavigationLink {
-                            AdminCreateEditItemView(shawarma: shawarma) {
-                                Task { await loadMenu() }
-                            }
-                        } label: {
-                            AdminMenuItemRow(shawarma: shawarma) { newValue in
-                                Task { await toggleAvailability(id: shawarma.id, isAvailable: newValue) }
-                            }
-                        }
-                        .listRowInsets(EdgeInsets(top: 6, leading: 16, bottom: 6, trailing: 16))
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
-                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button(role: .destructive) {
-                                shawarmaToDelete = shawarma
-                            } label: {
-                                Label("Удалить", systemImage: "trash")
+                    // Parent cards with their children
+                    ForEach(parents) { parent in
+                        Section {
+                            // Children of this parent
+                            let children = (parent.children ?? []).sorted { ($0.sortOrder ?? 0) < ($1.sortOrder ?? 0) }
+                            ForEach(children) { child in
+                                NavigationLink {
+                                    AdminCreateEditItemView(shawarma: child) {
+                                        Task { await loadMenu() }
+                                    }
+                                } label: {
+                                    AdminMenuItemRow(shawarma: child) { newValue in
+                                        Task { await toggleAvailability(id: child.id, isAvailable: newValue) }
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 32, bottom: 4, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                                .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                    Button(role: .destructive) {
+                                        shawarmaToDelete = child
+                                    } label: {
+                                        Label("Удалить", systemImage: "trash")
+                                    }
+
+                                    Button {
+                                        editingShawarma = child
+                                    } label: {
+                                        Label("Изменить", systemImage: "pencil")
+                                    }
+                                    .tint(.appPrimary)
+                                }
                             }
 
+                            // "Add child" button
                             Button {
-                                editingShawarma = shawarma
+                                editingShawarma = nil
+                                showCreateChildSheet(for: parent)
                             } label: {
-                                Label("Изменить", systemImage: "pencil")
+                                HStack(spacing: 8) {
+                                    Image(systemName: "plus.circle.fill")
+                                        .font(.subheadline)
+                                        .foregroundColor(.appPrimary)
+                                    Text("Добавить позицию")
+                                        .font(.subheadline)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(.appPrimary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 4)
                             }
-                            .tint(.appPrimary)
+                            .listRowInsets(EdgeInsets(top: 4, leading: 32, bottom: 8, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                        } header: {
+                            // Parent card header
+                            NavigationLink {
+                                AdminCreateEditItemView(shawarma: parent) {
+                                    Task { await loadMenu() }
+                                }
+                            } label: {
+                                AdminParentCardRow(parent: parent) { newValue in
+                                    Task { await toggleAvailability(id: parent.id, isAvailable: newValue) }
+                                }
+                            }
+                            .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+                            .listRowSeparator(.hidden)
+                            .listRowBackground(Color.clear)
+                            .buttonStyle(.plain)
+                        }
+                    }
+
+                    // Orphaned children (if any)
+                    if !orphanedChildren.isEmpty {
+                        Section {
+                            ForEach(orphanedChildren) { child in
+                                NavigationLink {
+                                    AdminCreateEditItemView(shawarma: child) {
+                                        Task { await loadMenu() }
+                                    }
+                                } label: {
+                                    AdminMenuItemRow(shawarma: child) { newValue in
+                                        Task { await toggleAvailability(id: child.id, isAvailable: newValue) }
+                                    }
+                                }
+                                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                                .listRowSeparator(.hidden)
+                                .listRowBackground(Color.clear)
+                            }
+                        } header: {
+                            Text("Без родителя")
+                                .font(.caption)
+                                .foregroundColor(.appError)
+                                .padding(.horizontal, 16)
                         }
                     }
                 }
@@ -115,9 +194,22 @@ struct AdminMenuView: View {
             }
         } message: {
             if let item = shawarmaToDelete {
-                Text("«\(item.name)» будет удалено безвозвратно")
+                let childCount = item.children?.count ?? 0
+                if childCount > 0 {
+                    Text("«\(item.name)» и все её позиции (\(childCount) шт.) будут удалены")
+                } else {
+                    Text("«\(item.name)» будет удалено безвозвратно")
+                }
             }
         }
+    }
+
+    // MARK: - Helpers
+
+    @State private var childParentForCreate: Shawarma? = nil
+
+    private func showCreateChildSheet(for parent: Shawarma) {
+        childParentForCreate = parent
     }
 
     private func loadMenu() async {
@@ -151,6 +243,102 @@ struct AdminMenuView: View {
     }
 }
 
+// MARK: - Admin Parent Card Row
+
+struct AdminParentCardRow: View {
+    let parent: Shawarma
+    let onToggle: (Bool) -> Void
+
+    var body: some View {
+        HStack(spacing: 14) {
+            // Thumbnail
+            Group {
+                if let imagePath = parent.primaryImage,
+                   let url = APIClient.shared.getImageURL(imagePath) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image.resizable().aspectRatio(contentMode: .fill)
+                        default:
+                            Color.appBackground
+                        }
+                    }
+                } else {
+                    Color.appBackground
+                }
+            }
+            .frame(width: 56, height: 56)
+            .cornerRadius(10)
+            .clipped()
+            .overlay(
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
+            )
+
+            // Info
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 6) {
+                    Text(parent.name)
+                        .font(.subheadline)
+                        .fontWeight(.bold)
+                        .lineLimit(1)
+
+                    // Type badge
+                    Text("Карточка")
+                        .font(.caption2)
+                        .fontWeight(.medium)
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.appPrimary)
+                        .cornerRadius(4)
+
+                    if parent.isPromo {
+                        Text("АКЦИЯ")
+                            .font(.caption2)
+                            .fontWeight(.bold)
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.appAccent)
+                            .cornerRadius(4)
+                    }
+                }
+
+                HStack(spacing: 8) {
+                    let childCount = parent.children?.count ?? 0
+                    let availableCount = parent.availableChildren?.count ?? 0
+                    Text("\(availableCount)/\(childCount) поз.")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+
+                    if !parent.children!.isEmpty {
+                        Text("от \(Int(parent.displayPrice)) \u{20BD}")
+                            .font(.caption)
+                            .fontWeight(.medium)
+                            .foregroundColor(.appPrimary)
+                    }
+                }
+            }
+
+            Spacer()
+
+            // Availability toggle
+            Toggle("", isOn: Binding(
+                get: { parent.isAvailable },
+                set: { onToggle($0) }
+            ))
+            .labelsHidden()
+            .tint(.appPrimary)
+        }
+        .padding(12)
+        .background(Color(.systemBackground))
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .opacity(parent.isAvailable ? 1.0 : 0.6)
+    }
+}
+
 // MARK: - Admin Menu Item Row
 
 struct AdminMenuItemRow: View {
@@ -175,11 +363,11 @@ struct AdminMenuItemRow: View {
                     Color.appBackground
                 }
             }
-            .frame(width: 56, height: 56)
-            .cornerRadius(10)
+            .frame(width: 44, height: 44)
+            .cornerRadius(8)
             .clipped()
             .overlay(
-                RoundedRectangle(cornerRadius: 10)
+                RoundedRectangle(cornerRadius: 8)
                     .stroke(Color.gray.opacity(0.2), lineWidth: 0.5)
             )
 
@@ -191,14 +379,16 @@ struct AdminMenuItemRow: View {
                     .lineLimit(1)
 
                 HStack(spacing: 8) {
-                    Text(shawarma.category)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-
-                    Text("\(Int(shawarma.displayPrice)) ₽")
+                    Text("\(Int(shawarma.price)) \u{20BD}")
                         .font(.caption)
                         .fontWeight(.medium)
                         .foregroundColor(.appPrimary)
+
+                    if !shawarma.isAvailable {
+                        Text("Недоступен")
+                            .font(.caption2)
+                            .foregroundColor(.appError)
+                    }
                 }
             }
 
@@ -212,10 +402,10 @@ struct AdminMenuItemRow: View {
             .labelsHidden()
             .tint(.appPrimary)
         }
-        .padding(12)
+        .padding(10)
         .background(Color(.systemBackground))
-        .cornerRadius(14)
-        .shadow(color: Color.black.opacity(0.04), radius: 4, x: 0, y: 2)
+        .cornerRadius(12)
+        .shadow(color: Color.black.opacity(0.03), radius: 3, x: 0, y: 1)
         .opacity(shawarma.isAvailable ? 1.0 : 0.6)
     }
 }

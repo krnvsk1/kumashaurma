@@ -21,11 +21,11 @@ final class OrderService: ObservableObject {
     ) async throws -> Order {
         let items = cartItems.map { item in
             CreateOrderItem(
-                shawarmaId: item.shawarma.id,
-                name: item.shawarma.name,
+                shawarmaId: item.selectedChild?.id ?? item.shawarma.id,
+                name: item.selectedChild?.name ?? item.shawarma.name,
                 quantity: item.quantity,
-                variantId: item.selectedVariant?.id,
-                variantName: item.selectedVariant?.name,
+                variantId: item.selectedChild?.id,
+                variantName: item.selectedChild?.name,
                 selectedAddons: item.selectedAddons.map { addon in
                     CreateOrderAddon(addonId: addon.addonId, quantity: addon.quantity)
                 }

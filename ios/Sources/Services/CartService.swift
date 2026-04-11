@@ -23,27 +23,27 @@ final class CartService: ObservableObject {
     func addItem(
         shawarma: Shawarma,
         quantity: Int = 1,
-        selectedVariant: ProductVariant? = nil,
+        selectedChild: Shawarma? = nil,
         selectedAddons: [SelectedAddon] = []
     ) {
-        // Check if identical item already exists
+        // Check if identical item already exists (same parent + same child + same addons)
         if let index = items.firstIndex(where: { item in
             item.shawarma.id == shawarma.id &&
-            item.selectedVariant?.id == selectedVariant?.id &&
+            item.selectedChild?.id == selectedChild?.id &&
             item.selectedAddons.map(\.addonId).sorted() == selectedAddons.map(\.addonId).sorted()
         }) {
             var updated = items[index]
             items[index] = CartItem(
                 shawarma: updated.shawarma,
                 quantity: updated.quantity + quantity,
-                selectedVariant: updated.selectedVariant,
+                selectedChild: updated.selectedChild,
                 selectedAddons: updated.selectedAddons
             )
         } else {
             items.append(CartItem(
                 shawarma: shawarma,
                 quantity: quantity,
-                selectedVariant: selectedVariant,
+                selectedChild: selectedChild,
                 selectedAddons: selectedAddons
             ))
         }
@@ -62,7 +62,7 @@ final class CartService: ObservableObject {
             items[index] = CartItem(
                 shawarma: item.shawarma,
                 quantity: quantity,
-                selectedVariant: item.selectedVariant,
+                selectedChild: item.selectedChild,
                 selectedAddons: item.selectedAddons
             )
         }
